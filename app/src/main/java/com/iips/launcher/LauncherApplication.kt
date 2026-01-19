@@ -464,12 +464,41 @@ class LauncherApplication : Application() {
         
         try {
             val activityManager = applicationContext.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-            val runningTasks = activityManager.getRunningTasks(1)
+            val runningTasks = try {
+                activityManager.getRunningTasks(1)
+            } catch (e: SecurityException) {
+                android.util.Log.w("LauncherApplication", "getRunningTasks() failed - SecurityException: ${e.message}")
+                // Try alternative method using getRunningAppProcesses
+                try {
+                    val processes = activityManager.runningAppProcesses
+                    if (processes != null) {
+                        processes.forEach { process ->
+                            val packageNames = process.pkgList
+                            packageNames.forEach { pkg ->
+                                if (pkg.lowercase().contains("settings") || 
+                                    pkg == "com.android.settings" ||
+                                    pkg.contains("com.samsung.android.settings")) {
+                                    // Found Settings process, block it
+                                    blockSettingsPackage(pkg)
+                                }
+                            }
+                        }
+                    }
+                } catch (e2: Exception) {
+                    android.util.Log.w("LauncherApplication", "getRunningAppProcesses() also failed: ${e2.message}")
+                }
+                return
+            } catch (e: Exception) {
+                android.util.Log.w("LauncherApplication", "getRunningTasks() failed: ${e.message}")
+                return
+            }
             
             if (runningTasks.isNotEmpty()) {
                 val topActivity = runningTasks[0].topActivity
                 val packageName = topActivity?.packageName?.lowercase() ?: ""
                 val className = topActivity?.className ?: ""
+                
+                android.util.Log.v("LauncherApplication", "Global check - Top activity: $packageName ($className)")
                 
                 // Check if it's Settings app
                 val isSettingsApp = packageName.contains("settings", ignoreCase = true) ||
@@ -485,42 +514,59 @@ class LauncherApplication : Application() {
                     !className.contains("LauncherActivity", ignoreCase = true) &&
                     !packageName.contains("iips.launcher", ignoreCase = true)) {
                     android.util.Log.d("LauncherApplication", "🚫 GLOBAL: Detected Settings app: $packageName ($className)")
-                    
-                    // Hide Settings using Device Owner API
+                    blockSettingsPackage(packageName)
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("LauncherApplication", "Error in checkAndBlockSettingsGlobally: ${e.message}")
+        }
+    }
+    
+    /**
+     * Block Settings package using Device Owner APIs
+     */
+    private fun blockSettingsPackage(packageName: String) {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                val devicePolicyManager = applicationContext.getSystemService(Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
+                val componentName = com.iips.launcher.device.DeviceAdminReceiver.getComponentName(applicationContext)
+                
+                if (devicePolicyManager.isAdminActive(componentName)) {
+                    // Force stop Settings immediately - this should work with Device Owner
                     try {
-                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                            val devicePolicyManager = applicationContext.getSystemService(Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
-                            val componentName = com.iips.launcher.device.DeviceAdminReceiver.getComponentName(applicationContext)
-                            
-                            if (devicePolicyManager.isAdminActive(componentName)) {
-                                // Hide Settings app
-                                devicePolicyManager.setApplicationHidden(componentName, packageName, true)
-                                android.util.Log.d("LauncherApplication", "Hidden Settings app globally: $packageName")
-                            }
-                        }
+                        devicePolicyManager.forceStopPackage(componentName, packageName)
+                        android.util.Log.d("LauncherApplication", "Force stopped Settings: $packageName")
                     } catch (e: Exception) {
-                        android.util.Log.w("LauncherApplication", "Could not hide Settings globally: ${e.message}")
+                        android.util.Log.w("LauncherApplication", "Could not force stop Settings: ${e.message}")
                     }
                     
-                    // Bring launcher to front immediately
-                    handler.post {
-                        try {
-                            val intent = Intent(applicationContext, com.iips.launcher.ui.LauncherActivity::class.java)
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or 
-                                           Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                                           Intent.FLAG_ACTIVITY_CLEAR_TASK or
-                                           Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                                           Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-                            applicationContext.startActivity(intent)
-                            android.util.Log.d("LauncherApplication", "Brought launcher to front from global check")
-                        } catch (e: Exception) {
-                            android.util.Log.e("LauncherApplication", "Error bringing launcher to front globally: ${e.message}")
-                        }
+                    // Hide Settings app
+                    try {
+                        devicePolicyManager.setApplicationHidden(componentName, packageName, true)
+                        android.util.Log.d("LauncherApplication", "Hidden Settings app: $packageName")
+                    } catch (e: Exception) {
+                        android.util.Log.w("LauncherApplication", "Could not hide Settings: ${e.message}")
                     }
                 }
             }
         } catch (e: Exception) {
-            // Ignore errors - may not have permission on some devices
+            android.util.Log.w("LauncherApplication", "Error blocking Settings package: ${e.message}")
+        }
+        
+        // Bring launcher to front immediately
+        handler.post {
+            try {
+                val intent = Intent(applicationContext, com.iips.launcher.ui.LauncherActivity::class.java)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or 
+                               Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                               Intent.FLAG_ACTIVITY_CLEAR_TASK or
+                               Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                               Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                applicationContext.startActivity(intent)
+                android.util.Log.d("LauncherApplication", "Brought launcher to front from global check")
+            } catch (e: Exception) {
+                android.util.Log.e("LauncherApplication", "Error bringing launcher to front globally: ${e.message}")
+            }
         }
     }
 }
