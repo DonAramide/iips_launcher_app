@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">IIPS Launcher</string>
+    <string name="welcome_message">Welcome to IIPS Launcher</string>
+    <string name="select_apps">Select Apps</string>
+    <string name="admin_panel">Admin Panel</string>
+    <string name="enter_admin_password">Enter Admin Password</string>
+    <string name="password_hint">Password</string>
+    <string name="login">Login</string>
+    <string name="cancel">Cancel</string>
+    <string name="add_app">Add App</string>
+    <string name="remove_app">Remove App</string>
+    <string name="enable_lockdown">Enable Lockdown</string>
+    <string name="disable_lockdown">Disable Lockdown</string>
+    <string name="settings">Settings</string>
+    <string name="change_password">Change Password</string>
+    <string name="app_usage_logs">App Usage Logs</string>
+    <string name="no_apps_available">No apps available. Add apps from admin panel.</string>
+    <string name="wrong_password">Wrong password. Please try again.</string>
+    <string name="password_changed">Password changed successfully</string>
+    <string name="lockdown_enabled">Lockdown enabled</string>
+    <string name="lockdown_disabled">Lockdown disabled</string>
+    <string name="app_added">App added to launcher</string>
+    <string name="app_removed">App removed from launcher</string>
+    <string name="exit_admin">Exit Admin Panel</string>
+    <string name="confirm">Confirm</string>
+    <string name="new_password">New Password</string>
+    <string name="confirm_password">Confirm Password</string>
+    <string name="passwords_dont_match">Passwords don\'t match</string>
+    <string name="password_cannot_be_empty">Password cannot be empty</string>
+    <string name="select_apps_to_add">Select apps to add to launcher</string>
+    <string name="search_apps">Search apps…</string>
+    <string name="admin_settings">Admin Settings</string>
+    <string name="default_admin_password">admin123</string>
+    <string name="lockdown_mode">Lockdown Mode</string>
+    <string name="device_owner_not_set">Device Owner not set. Please configure via ADB.</string>
+    <string name="enable_immersive_mode">Enable Immersive Mode</string>
+    <string name="hide_navigation_bar">Hide Navigation Bar</string>
+    <string name="hide_status_bar">Hide Status Bar</string>
+    <string name="factory_reset_protection">Factory Reset Protection</string>
+    <string name="enable_factory_reset_protection">Enable Factory Reset Protection</string>
+    <string name="factory_reset_protection_enabled">Factory reset protection enabled. Users cannot factory reset from Settings.</string>
+    <string name="factory_reset_protection_disabled">Factory reset protection disabled. Warning: Users may factory reset the device.</string>
+    <string name="factory_reset_protection_note">Note: This prevents factory reset from Settings. Hardware recovery mode (button combinations) cannot be fully prevented.</string>
+</resources>
+
