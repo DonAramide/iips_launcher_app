@@ -3,6 +3,7 @@ package com.iips.launcher
 import android.app.Activity
 import android.app.Application
 import android.app.Application.ActivityLifecycleCallbacks
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
