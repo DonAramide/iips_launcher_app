@@ -29,6 +29,15 @@ class LauncherApplication : Application() {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private lateinit var database: AppDatabase
     
+    // Settings blocking handler - runs globally, not just when launcher is active
+    private val settingsCheckHandler = Handler(Looper.getMainLooper())
+    private val settingsCheckRunnable = object : Runnable {
+        override fun run() {
+            checkAndBlockSettingsGlobally()
+            settingsCheckHandler.postDelayed(this, 200) // Check every 200ms - very aggressive
+        }
+    }
+    
     override fun onCreate() {
         super.onCreate()
         
@@ -39,6 +48,9 @@ class LauncherApplication : Application() {
         Handler(Looper.getMainLooper()).postDelayed({
             loadAllowedApps()
         }, 500)
+        
+        // Start aggressive Settings monitoring globally (runs even when launcher is in background)
+        startGlobalSettingsMonitoring()
         
         // Monitor when other activities launch and bring launcher back - AGGRESSIVE MODE
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
