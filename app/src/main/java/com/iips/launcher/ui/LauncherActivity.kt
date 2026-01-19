@@ -39,8 +39,17 @@ class LauncherActivity : AppCompatActivity() {
     private val timeRunnable = object : Runnable {
         override fun run() {
             updateStatusBar()
-            checkAndBlockSettings() // Check for Settings every second
-            timeHandler.postDelayed(this, 1000) // Update every second
+            checkAndBlockSettings() // Check for Settings every 500ms
+            timeHandler.postDelayed(this, 500) // Check more frequently
+        }
+    }
+    
+    // Separate handler for Settings blocking to run more frequently
+    private val settingsCheckHandler = Handler(Looper.getMainLooper())
+    private val settingsCheckRunnable = object : Runnable {
+        override fun run() {
+            checkAndBlockSettings()
+            settingsCheckHandler.postDelayed(this, 300) // Check every 300ms
         }
     }
     
@@ -60,6 +69,7 @@ class LauncherActivity : AppCompatActivity() {
             if (runningTasks.isNotEmpty()) {
                 val topActivity = runningTasks[0].topActivity
                 val packageName = topActivity?.packageName?.lowercase() ?: ""
+                val className = topActivity?.className ?: ""
                 
                 // Check if it's Settings app
                 val isSettingsApp = packageName.contains("settings", ignoreCase = true) ||
@@ -68,35 +78,62 @@ class LauncherActivity : AppCompatActivity() {
                                    packageName.contains("com.miui.securitycenter") ||
                                    packageName.contains("com.huawei.android.settings") ||
                                    packageName.contains("com.coloros.settings") ||
-                                   packageName.contains("com.oneplus.settings")
+                                   packageName.contains("com.oneplus.settings") ||
+                                   className.contains("Settings", ignoreCase = true)
                 
-                if (isSettingsApp) {
-                    android.util.Log.d("LauncherActivity", "🚫 Detected Settings app via polling: $packageName")
+                if (isSettingsApp && !className.contains("LauncherActivity", ignoreCase = true)) {
+                    android.util.Log.d("LauncherActivity", "🚫 Detected Settings app via polling: $packageName ($className)")
                     
                     // Stop any allowed app tracking since we're blocking Settings
                     lastLaunchedAllowedApp = null
                     
-                    // Bring launcher to front immediately
-                    val intent = Intent(this, LauncherActivity::class.java)
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or 
-                                   Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                                   Intent.FLAG_ACTIVITY_CLEAR_TASK or
-                                   Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                                   Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-                    startActivity(intent)
-                    
-                    // Force stop Settings app using Device Owner API
+                    // Force stop Settings app using Device Owner API FIRST
                     try {
                         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                            DeviceController.forceStopPackage(this, packageName)
+                            val devicePolicyManager = getSystemService(Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
+                            val componentName = com.iips.launcher.device.DeviceAdminReceiver.getComponentName(this)
+                            
+                            if (devicePolicyManager.isAdminActive(componentName)) {
+                                // Hide Settings app
+                                devicePolicyManager.setApplicationHidden(componentName, packageName, true)
+                                android.util.Log.d("LauncherActivity", "Hidden Settings app: $packageName")
+                            }
                         }
                     } catch (e: Exception) {
-                        android.util.Log.w("LauncherActivity", "Could not force stop Settings: ${e.message}")
+                        android.util.Log.w("LauncherActivity", "Could not hide Settings: ${e.message}")
+                    }
+                    
+                    // Bring launcher to front immediately
+                    Handler(Looper.getMainLooper()).post {
+                        try {
+                            val intent = Intent(this@LauncherActivity, LauncherActivity::class.java)
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or 
+                                           Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                           Intent.FLAG_ACTIVITY_CLEAR_TASK or
+                                           Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                                           Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                            startActivity(intent)
+                            
+                            // Also try to finish the Settings activity if possible
+                            try {
+                                val am = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+                                val tasks = am.getRunningTasks(1)
+                                if (tasks.isNotEmpty() && tasks[0].topActivity?.packageName?.lowercase()?.contains("settings") == true) {
+                                    // Settings is still on top, try to kill it
+                                    android.os.Process.killProcess(android.os.Process.myPid()) // This won't work for other processes
+                                }
+                            } catch (e: Exception) {
+                                // Ignore
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("LauncherActivity", "Error bringing launcher to front: ${e.message}")
+                        }
                     }
                 }
             }
         } catch (e: Exception) {
             // Ignore errors - may not have permission on some devices
+            android.util.Log.w("LauncherActivity", "Error checking Settings: ${e.message}")
         }
     }
     private var batteryReceiver: BroadcastReceiver? = null
@@ -119,7 +156,8 @@ class LauncherActivity : AppCompatActivity() {
         setupDeviceControls()
         setupStatusBar()
         startStatusBarUpdates()
-
+        startSettingsMonitoring() // Start aggressive Settings monitoring
+        
         // Handle admin access - long press on logo or settings icon
         binding.adminButton.setOnLongClickListener {
             showAdminPasswordDialog()
@@ -351,6 +389,7 @@ class LauncherActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         timeHandler.removeCallbacks(timeRunnable)
+        stopSettingsMonitoring()
         batteryReceiver?.let { unregisterReceiver(it) }
         settingsReceiver?.let { unregisterReceiver(it) }
     }
@@ -363,7 +402,10 @@ class LauncherActivity : AppCompatActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        
+        // Check for Settings when window gains focus
         if (hasFocus) {
+            checkAndBlockSettings()
             // Don't enable lock task if AdminActivity is currently showing
             val isAdminActivityVisible = try {
                 val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
@@ -755,6 +797,15 @@ class LauncherActivity : AppCompatActivity() {
             }
         }
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+    }
+    
+    private fun startSettingsMonitoring() {
+        // Start aggressive Settings monitoring (every 300ms)
+        settingsCheckHandler.post(settingsCheckRunnable)
+    }
+    
+    private fun stopSettingsMonitoring() {
+        settingsCheckHandler.removeCallbacks(settingsCheckRunnable)
     }
     
     private fun updateStatusBar() {
