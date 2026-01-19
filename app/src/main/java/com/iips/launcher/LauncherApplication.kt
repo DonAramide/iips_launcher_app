@@ -464,7 +464,7 @@ class LauncherApplication : Application() {
         
         try {
             val activityManager = applicationContext.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-            val runningTasks = try {
+            val runningTasks: List<android.app.ActivityManager.RunningTaskInfo>? = try {
                 activityManager.getRunningTasks(1)
             } catch (e: SecurityException) {
                 android.util.Log.w("LauncherApplication", "getRunningTasks() failed - SecurityException: ${e.message}")
@@ -490,6 +490,10 @@ class LauncherApplication : Application() {
                 return
             } catch (e: Exception) {
                 android.util.Log.w("LauncherApplication", "getRunningTasks() failed: ${e.message}")
+                return
+            }
+            
+            if (runningTasks == null || runningTasks.isEmpty()) {
                 return
             }
             
