@@ -464,6 +464,35 @@ object DeviceController {
     }
     
     /**
+     * Force stop a package (Device Owner only)
+     */
+    @RequiresApi(Build.VERSION_CODES.M)
+    fun forceStopPackage(context: Context, packageName: String) {
+        try {
+            if (!DeviceAdminReceiver.isDeviceOwner(context)) {
+                return
+            }
+            
+            val devicePolicyManager =
+                context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+            val componentName = DeviceAdminReceiver.getComponentName(context)
+            
+            // Verify component is active admin
+            if (!devicePolicyManager.isAdminActive(componentName)) {
+                return
+            }
+            
+            // Force stop the package
+            devicePolicyManager.setApplicationHidden(componentName, packageName, true)
+            // Hide it first, then we can unhide if needed, but Settings should stay hidden
+        } catch (e: SecurityException) {
+            android.util.Log.w("DeviceController", "Cannot force stop package: ${e.message}")
+        } catch (e: Exception) {
+            android.util.Log.w("DeviceController", "Error force stopping package: ${e.message}")
+        }
+    }
+    
+    /**
      * Prevent force stop by blocking app info screen access
      */
     @RequiresApi(Build.VERSION_CODES.M)

@@ -39,7 +39,64 @@ class LauncherActivity : AppCompatActivity() {
     private val timeRunnable = object : Runnable {
         override fun run() {
             updateStatusBar()
+            checkAndBlockSettings() // Check for Settings every second
             timeHandler.postDelayed(this, 1000) // Update every second
+        }
+    }
+    
+    /**
+     * Periodically check if Settings is running and block it
+     * This is needed because ActivityLifecycleCallbacks don't fire for activities in other processes
+     */
+    private fun checkAndBlockSettings() {
+        if (!DeviceAdminReceiver.isDeviceOwner(this)) {
+            return
+        }
+        
+        try {
+            val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val runningTasks = activityManager.getRunningTasks(1)
+            
+            if (runningTasks.isNotEmpty()) {
+                val topActivity = runningTasks[0].topActivity
+                val packageName = topActivity?.packageName?.lowercase() ?: ""
+                
+                // Check if it's Settings app
+                val isSettingsApp = packageName.contains("settings", ignoreCase = true) ||
+                                   packageName == "com.android.settings" ||
+                                   packageName.contains("com.samsung.android.settings") ||
+                                   packageName.contains("com.miui.securitycenter") ||
+                                   packageName.contains("com.huawei.android.settings") ||
+                                   packageName.contains("com.coloros.settings") ||
+                                   packageName.contains("com.oneplus.settings")
+                
+                if (isSettingsApp) {
+                    android.util.Log.d("LauncherActivity", "🚫 Detected Settings app via polling: $packageName")
+                    
+                    // Stop any allowed app tracking since we're blocking Settings
+                    lastLaunchedAllowedApp = null
+                    
+                    // Bring launcher to front immediately
+                    val intent = Intent(this, LauncherActivity::class.java)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or 
+                                   Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                   Intent.FLAG_ACTIVITY_CLEAR_TASK or
+                                   Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                                   Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                    startActivity(intent)
+                    
+                    // Force stop Settings app using Device Owner API
+                    try {
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                            DeviceController.forceStopPackage(this, packageName)
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.w("LauncherActivity", "Could not force stop Settings: ${e.message}")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore errors - may not have permission on some devices
         }
     }
     private var batteryReceiver: BroadcastReceiver? = null
