@@ -464,40 +464,21 @@ class LauncherApplication : Application() {
         
         try {
             val activityManager = applicationContext.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-            val runningTasks: List<android.app.ActivityManager.RunningTaskInfo>? = try {
+            
+            // Try getRunningTasks first
+            @Suppress("DEPRECATION")
+            val runningTasks = try {
                 activityManager.getRunningTasks(1)
             } catch (e: SecurityException) {
                 android.util.Log.w("LauncherApplication", "getRunningTasks() failed - SecurityException: ${e.message}")
-                // Try alternative method using getRunningAppProcesses
-                try {
-                    val processes = activityManager.runningAppProcesses
-                    if (processes != null) {
-                        processes.forEach { process ->
-                            val packageNames = process.pkgList
-                            packageNames.forEach { pkg ->
-                                if (pkg.lowercase().contains("settings") || 
-                                    pkg == "com.android.settings" ||
-                                    pkg.contains("com.samsung.android.settings")) {
-                                    // Found Settings process, block it
-                                    blockSettingsPackage(pkg)
-                                }
-                            }
-                        }
-                    }
-                } catch (e2: Exception) {
-                    android.util.Log.w("LauncherApplication", "getRunningAppProcesses() also failed: ${e2.message}")
-                }
-                return
+                null
             } catch (e: Exception) {
                 android.util.Log.w("LauncherApplication", "getRunningTasks() failed: ${e.message}")
-                return
+                null
             }
             
-            if (runningTasks == null || runningTasks.isEmpty()) {
-                return
-            }
-            
-            if (runningTasks.isNotEmpty()) {
+            // If getRunningTasks succeeded, check top activity
+            if (runningTasks != null && runningTasks.isNotEmpty()) {
                 val topActivity = runningTasks[0].topActivity
                 val packageName = topActivity?.packageName?.lowercase() ?: ""
                 val className = topActivity?.className ?: ""
@@ -519,7 +500,29 @@ class LauncherApplication : Application() {
                     !packageName.contains("iips.launcher", ignoreCase = true)) {
                     android.util.Log.d("LauncherApplication", "🚫 GLOBAL: Detected Settings app: $packageName ($className)")
                     blockSettingsPackage(packageName)
+                    return
                 }
+            }
+            
+            // If getRunningTasks failed or didn't find Settings, try getRunningAppProcesses as fallback
+            try {
+                val processes = activityManager.runningAppProcesses
+                if (processes != null) {
+                    processes.forEach { process ->
+                        val packageNames = process.pkgList
+                        packageNames.forEach { pkg ->
+                            if (pkg.lowercase().contains("settings") || 
+                                pkg == "com.android.settings" ||
+                                pkg.contains("com.samsung.android.settings")) {
+                                // Found Settings process, block it
+                                android.util.Log.d("LauncherApplication", "🚫 GLOBAL: Found Settings via processes: $pkg")
+                                blockSettingsPackage(pkg)
+                            }
+                        }
+                    }
+                }
+            } catch (e2: Exception) {
+                android.util.Log.w("LauncherApplication", "getRunningAppProcesses() failed: ${e2.message}")
             }
         } catch (e: Exception) {
             android.util.Log.w("LauncherApplication", "Error in checkAndBlockSettingsGlobally: ${e.message}")
