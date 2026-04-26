@@ -3,6 +3,7 @@ package com.iips.launcher.config
 import android.content.Context
 import android.util.Log
 import com.iips.launcher.device.DeviceAdminReceiver
+import com.iips.launcher.utils.DeviceController
 import com.iips.launcher.utils.SecurePreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -87,9 +88,21 @@ object ConfigManager {
             SecurePreferences.setLockdownEnabled(context, enabled)
         }
 
-        // 4. Update Allowed Apps
         config.allowedPackages?.let { packages ->
             SecurePreferences.setAllowedApps(context, packages.toSet())
+        }
+        
+        // 5. Hardening: Re-apply security and persistence restrictions
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+            try {
+                DeviceController.enableComprehensiveSecurity(context)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP_MR1) {
+                    DeviceController.enableFactoryResetProtection(context)
+                }
+                Log.d(TAG, "Security hardening re-applied during sync")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to re-apply security hardening: ${e.message}")
+            }
         }
         
         Log.d(TAG, "Applied remote configuration successfully")

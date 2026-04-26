@@ -252,6 +252,22 @@ class AdminActivity : AppCompatActivity() {
                 .setNegativeButton(R.string.cancel, null)
                 .show()
         }
+
+        // Persistence Lock Setup
+        binding.persistenceLockSwitch.isChecked = SecurePreferences.isFactoryResetProtectionEnabled(this)
+        binding.persistenceLockSwitch.setOnCheckedChangeListener { _, isChecked ->
+            SecurePreferences.setFactoryResetProtectionEnabled(this, isChecked)
+            if (isChecked) {
+                DeviceController.enableFactoryResetProtection(this)
+                DeviceController.enableComprehensiveSecurity(this)
+                Toast.makeText(this, R.string.persistence_enabled, Toast.LENGTH_SHORT).show()
+            } else {
+                DeviceController.disableFactoryResetProtection(this)
+                // Note: enableComprehensiveSecurity restrictions are harder to undo individually
+                // but DISALLOW_FACTORY_RESET is the main one for this toggle
+                Toast.makeText(this, R.string.persistence_disabled, Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private var lockdownToggleListener: ((Boolean) -> Unit)? = null

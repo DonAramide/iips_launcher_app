@@ -57,5 +57,10 @@
     <string name="reset_mdm">Reset MDM Registration</string>
     <string name="heartbeat_triggered">Heartbeat triggered</string>
     <string name="mdm_reset_success">MDM registration reset</string>
+    
+    <string name="persistence_lock">Persistence Lock (FRP)</string>
+    <string name="persistence_lock_summary">Prevent factory reset and app removal</string>
+    <string name="persistence_enabled">Persistence active</string>
+    <string name="persistence_disabled">Persistence disabled</string>
 </resources>
 
