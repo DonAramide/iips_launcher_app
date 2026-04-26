@@ -16,6 +16,7 @@ import com.iips.launcher.data.AppDatabase
 import com.iips.launcher.databinding.ActivityAdminBinding
 import com.iips.launcher.utils.DeviceController
 import com.iips.launcher.utils.SecurePreferences
+import com.iips.launcher.utils.SystemAppUtils
 import com.iips.launcher.config.ConfigManager
 import com.iips.launcher.config.MDMManager
 import kotlinx.coroutines.Dispatchers
@@ -55,6 +56,21 @@ class AdminActivity : AppCompatActivity() {
             binding.deviceIdText.text = getString(R.string.not_registered)
             binding.forceHeartbeatButton.isEnabled = false
         }
+
+        // Update System Status Badges
+        val status = SystemAppUtils.getAppStatus(this)
+        
+        binding.systemStatusBadge.text = if (status.isInstalledToSystem) "System App: YES" else "System App: NO"
+        binding.systemStatusBadge.setBackgroundColor(
+            if (status.isInstalledToSystem) android.graphics.Color.parseColor("#4CAF50") 
+            else android.graphics.Color.parseColor("#757575")
+        )
+
+        binding.deviceOwnerBadge.text = if (status.isDeviceOwner) "Device Owner: YES" else "Device Owner: NO"
+        binding.deviceOwnerBadge.setBackgroundColor(
+            if (status.isDeviceOwner) android.graphics.Color.parseColor("#2196F3") 
+            else android.graphics.Color.parseColor("#757575")
+        )
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
