@@ -3,7 +3,6 @@ package com.iips.launcher
 import android.app.Activity
 import android.app.Application
 import android.app.Application.ActivityLifecycleCallbacks
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
@@ -30,15 +29,6 @@ class LauncherApplication : Application() {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private lateinit var database: AppDatabase
     
-    // Settings blocking handler - runs globally, not just when launcher is active
-    private val settingsCheckHandler = Handler(Looper.getMainLooper())
-    private val settingsCheckRunnable = object : Runnable {
-        override fun run() {
-            checkAndBlockSettingsGlobally()
-            settingsCheckHandler.postDelayed(this, 200) // Check every 200ms - very aggressive
-        }
-    }
-    
     override fun onCreate() {
         super.onCreate()
         
@@ -49,9 +39,6 @@ class LauncherApplication : Application() {
         Handler(Looper.getMainLooper()).postDelayed({
             loadAllowedApps()
         }, 500)
-        
-        // Start aggressive Settings monitoring globally (runs even when launcher is in background)
-        startGlobalSettingsMonitoring()
         
         // Monitor when other activities launch and bring launcher back - AGGRESSIVE MODE
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
@@ -437,143 +424,6 @@ class LauncherApplication : Application() {
     fun isPackageAllowed(packageName: String): Boolean {
         return synchronized(allowedPackagesLock) {
             packageName.lowercase() in allowedPackages
-        }
-    }
-    
-    /**
-     * Start global Settings monitoring - runs continuously even when launcher is in background
-     */
-    private fun startGlobalSettingsMonitoring() {
-        // Delay start to ensure Device Owner is set
-        Handler(Looper.getMainLooper()).postDelayed({
-            if (DeviceAdminReceiver.isDeviceOwner(applicationContext)) {
-                android.util.Log.d("LauncherApplication", "Starting global Settings monitoring")
-                settingsCheckHandler.post(settingsCheckRunnable)
-            }
-        }, 1000)
-    }
-    
-    /**
-     * Check and block Settings globally - runs from Application context
-     * This ensures Settings is blocked even when launcher is not active
-     */
-    private fun checkAndBlockSettingsGlobally() {
-        if (!DeviceAdminReceiver.isDeviceOwner(applicationContext)) {
-            return
-        }
-        
-        try {
-            val activityManager = applicationContext.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-            
-            // Try getRunningTasks first
-            @Suppress("DEPRECATION")
-            val runningTasks = try {
-                activityManager.getRunningTasks(1)
-            } catch (e: SecurityException) {
-                android.util.Log.w("LauncherApplication", "getRunningTasks() failed - SecurityException: ${e.message}")
-                null
-            } catch (e: Exception) {
-                android.util.Log.w("LauncherApplication", "getRunningTasks() failed: ${e.message}")
-                null
-            }
-            
-            // If getRunningTasks succeeded, check top activity
-            if (runningTasks != null && runningTasks.isNotEmpty()) {
-                val topActivity = runningTasks[0].topActivity
-                val packageName = topActivity?.packageName?.lowercase() ?: ""
-                val className = topActivity?.className ?: ""
-                
-                android.util.Log.v("LauncherApplication", "Global check - Top activity: $packageName ($className)")
-                
-                // Check if it's Settings app
-                val isSettingsApp = packageName.contains("settings", ignoreCase = true) ||
-                                   packageName == "com.android.settings" ||
-                                   packageName.contains("com.samsung.android.settings") ||
-                                   packageName.contains("com.miui.securitycenter") ||
-                                   packageName.contains("com.huawei.android.settings") ||
-                                   packageName.contains("com.coloros.settings") ||
-                                   packageName.contains("com.oneplus.settings") ||
-                                   className.contains("Settings", ignoreCase = true)
-                
-                if (isSettingsApp && 
-                    !className.contains("LauncherActivity", ignoreCase = true) &&
-                    !packageName.contains("iips.launcher", ignoreCase = true)) {
-                    android.util.Log.d("LauncherApplication", "🚫 GLOBAL: Detected Settings app: $packageName ($className)")
-                    blockSettingsPackage(packageName)
-                    return
-                }
-            }
-            
-            // If getRunningTasks failed or didn't find Settings, try getRunningAppProcesses as fallback
-            try {
-                val processes = activityManager.runningAppProcesses
-                if (processes != null) {
-                    processes.forEach { process ->
-                        val packageNames = process.pkgList
-                        packageNames.forEach { pkg ->
-                            if (pkg.lowercase().contains("settings") || 
-                                pkg == "com.android.settings" ||
-                                pkg.contains("com.samsung.android.settings")) {
-                                // Found Settings process, block it
-                                android.util.Log.d("LauncherApplication", "🚫 GLOBAL: Found Settings via processes: $pkg")
-                                blockSettingsPackage(pkg)
-                            }
-                        }
-                    }
-                }
-            } catch (e2: Exception) {
-                android.util.Log.w("LauncherApplication", "getRunningAppProcesses() failed: ${e2.message}")
-            }
-        } catch (e: Exception) {
-            android.util.Log.w("LauncherApplication", "Error in checkAndBlockSettingsGlobally: ${e.message}")
-        }
-    }
-    
-    /**
-     * Block Settings package using Device Owner APIs
-     */
-    private fun blockSettingsPackage(packageName: String) {
-        try {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                val devicePolicyManager = applicationContext.getSystemService(Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
-                val componentName = com.iips.launcher.device.DeviceAdminReceiver.getComponentName(applicationContext)
-                
-                if (devicePolicyManager.isAdminActive(componentName)) {
-                    // Force stop Settings immediately - this should work with Device Owner
-                    try {
-                        devicePolicyManager.forceStopPackage(componentName, packageName)
-                        android.util.Log.d("LauncherApplication", "Force stopped Settings: $packageName")
-                    } catch (e: Exception) {
-                        android.util.Log.w("LauncherApplication", "Could not force stop Settings: ${e.message}")
-                    }
-                    
-                    // Hide Settings app
-                    try {
-                        devicePolicyManager.setApplicationHidden(componentName, packageName, true)
-                        android.util.Log.d("LauncherApplication", "Hidden Settings app: $packageName")
-                    } catch (e: Exception) {
-                        android.util.Log.w("LauncherApplication", "Could not hide Settings: ${e.message}")
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            android.util.Log.w("LauncherApplication", "Error blocking Settings package: ${e.message}")
-        }
-        
-        // Bring launcher to front immediately
-        handler.post {
-            try {
-                val intent = Intent(applicationContext, com.iips.launcher.ui.LauncherActivity::class.java)
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or 
-                               Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                               Intent.FLAG_ACTIVITY_CLEAR_TASK or
-                               Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                               Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-                applicationContext.startActivity(intent)
-                android.util.Log.d("LauncherApplication", "Brought launcher to front from global check")
-            } catch (e: Exception) {
-                android.util.Log.e("LauncherApplication", "Error bringing launcher to front globally: ${e.message}")
-            }
         }
     }
 }

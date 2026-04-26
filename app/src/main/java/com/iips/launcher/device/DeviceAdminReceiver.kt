@@ -24,9 +24,23 @@ class DeviceAdminReceiver : DeviceAdminReceiver() {
         }
 
         fun isDeviceOwner(context: Context): Boolean {
-            val devicePolicyManager =
-                context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-            return devicePolicyManager.isDeviceOwnerApp(context.packageName)
+            return try {
+                val devicePolicyManager =
+                    context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+                val packageName = context.packageName
+                val result = devicePolicyManager.isDeviceOwnerApp(packageName)
+                val isAdminActive = try {
+                    devicePolicyManager.isAdminActive(getComponentName(context))
+                } catch (e: Exception) { false }
+                android.util.Log.d("DeviceAdminReceiver", 
+                    "isDeviceOwner check: packageName=$packageName, " +
+                    "isDeviceOwnerApp=$result, isAdminActive=$isAdminActive")
+                result
+            } catch (e: Exception) {
+                android.util.Log.e("DeviceAdminReceiver", 
+                    "isDeviceOwner exception: ${e.message}", e)
+                false
+            }
         }
     }
 }

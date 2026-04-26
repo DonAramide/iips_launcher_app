@@ -124,5 +124,14 @@
         <item name="boxStrokeColor">@color/primary</item>
         <item name="hintTextColor">@color/text_secondary</item>
     </style>
-</resources>
 
+    <!-- Splash Screen Theme -->
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <!-- Splash screen background: white to match the logo -->
+        <item name="windowSplashScreenBackground">#FFFFFF</item>
+        <!-- Custom IIPS logo as the splash icon -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_boot_logo</item>
+        <!-- After splash, switch to the full screen launcher theme -->
+        <item name="postSplashScreenTheme">@style/Theme.IIPSLauncher.FullScreen</item>
+    </style>
+</resources>

@@ -40,7 +40,7 @@
             android:name=".ui.LauncherActivity"
             android:launchMode="singleTask"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.IIPSLauncher.FullScreen"
+            android:theme="@style/Theme.App.Starting"
             android:excludeFromRecents="true"
             android:exported="true">
             <intent-filter>
