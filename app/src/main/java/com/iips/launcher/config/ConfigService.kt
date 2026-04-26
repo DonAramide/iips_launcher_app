@@ -1,18 +1,31 @@
 package com.iips.launcher.config
 
 import retrofit2.Response
-import retrofit2.http.GET
-import retrofit2.http.Url
+import retrofit2.http.*
 
 /**
- * Retrofit service for fetching remote configuration.
+ * Retrofit service for fetching remote configuration and MDM tasks.
  */
 interface ConfigService {
     
     /**
      * Fetch configuration from a dynamic URL.
-     * This allows the user to specify any hosted JSON server.
      */
     @GET
     suspend fun fetchConfig(@Url url: String): Response<ConfigResponse>
+
+    /**
+     * Register device with the MDM server.
+     */
+    @POST("api/v1/devices/register")
+    suspend fun registerDevice(@Body request: RegistrationRequest): Response<RegistrationResponse>
+
+    /**
+     * Send heartbeat telemetry to the MDM server.
+     */
+    @POST("api/v1/devices/heartbeat")
+    suspend fun sendHeartbeat(
+        @Header("Authorization") token: String, // Bearer {device_token}
+        @Body request: HeartbeatRequest
+    ): Response<Unit>
 }

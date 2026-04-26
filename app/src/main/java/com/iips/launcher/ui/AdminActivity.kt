@@ -17,6 +17,7 @@ import com.iips.launcher.databinding.ActivityAdminBinding
 import com.iips.launcher.utils.DeviceController
 import com.iips.launcher.utils.SecurePreferences
 import com.iips.launcher.config.ConfigManager
+import com.iips.launcher.config.MDMManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -41,7 +42,19 @@ class AdminActivity : AppCompatActivity() {
         setupViews()
         setupUsageLogsRecyclerView()
         updateLockdownStatus()
+        updateMdmStatus()
         loadUsageLogs()
+    }
+
+    private fun updateMdmStatus() {
+        val deviceId = SecurePreferences.getDeviceId(this)
+        if (deviceId != null && deviceId.isNotEmpty()) {
+            binding.deviceIdText.text = getString(R.string.device_id_label, deviceId)
+            binding.forceHeartbeatButton.isEnabled = true
+        } else {
+            binding.deviceIdText.text = getString(R.string.not_registered)
+            binding.forceHeartbeatButton.isEnabled = false
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -211,6 +224,7 @@ class AdminActivity : AppCompatActivity() {
                     // Refresh logs and status after sync
                     loadUsageLogs()
                     updateLockdownStatus()
+                    updateMdmStatus() // Also update MDM status as sync might affect it
                 } catch (e: Exception) {
                     Toast.makeText(this@AdminActivity, getString(R.string.sync_failed, e.message), Toast.LENGTH_LONG).show()
                 } finally {
@@ -218,6 +232,25 @@ class AdminActivity : AppCompatActivity() {
                     binding.syncButton.text = getString(R.string.sync_config)
                 }
             }
+        }
+
+        // MDM Management Setup
+        binding.forceHeartbeatButton.setOnClickListener {
+            MDMManager.forceHeartbeat(this)
+            Toast.makeText(this, R.string.heartbeat_triggered, Toast.LENGTH_SHORT).show()
+        }
+
+        binding.resetMdmButton.setOnClickListener {
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(R.string.reset_mdm)
+                .setMessage("Are you sure you want to reset MDM registration? This will clear the device token.")
+                .setPositiveButton(R.string.confirm) { _, _ ->
+                    MDMManager.resetRegistration(this)
+                    updateMdmStatus()
+                    Toast.makeText(this, R.string.mdm_reset_success, Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
         }
     }
 

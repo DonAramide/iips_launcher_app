@@ -93,5 +93,29 @@ object SecurePreferences {
         val prefs = getEncryptedPrefs(context)
         prefs.edit().putString("config_url", url).apply()
     }
+
+    fun getDeviceId(context: Context): String? {
+        val prefs = getEncryptedPrefs(context)
+        return prefs.getString("device_id", null)
+    }
+
+    fun setDeviceId(context: Context, deviceId: String) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit().putString("device_id", deviceId).apply()
+    }
+
+    fun getDeviceToken(context: Context): String? {
+        val prefs = getEncryptedPrefs(context)
+        return prefs.getString("device_token", null)
+    }
+
+    fun setDeviceToken(context: Context, token: String) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit().putString("device_token", token).apply()
+    }
+
+    fun isRegistered(context: Context): Boolean {
+        return getDeviceId(context) != null && getDeviceToken(context) != null
+    }
 }
 

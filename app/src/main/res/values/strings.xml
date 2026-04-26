@@ -49,5 +49,13 @@
     <string name="syncing">Syncing...</string>
     <string name="sync_success">Configuration synced successfully</string>
     <string name="sync_failed">Sync failed: %s</string>
+    
+    <string name="mdm_management">MDM Management</string>
+    <string name="device_id_label">Device ID: %s</string>
+    <string name="not_registered">Not Registered</string>
+    <string name="force_heartbeat">Force Heartbeat</string>
+    <string name="reset_mdm">Reset MDM Registration</string>
+    <string name="heartbeat_triggered">Heartbeat triggered</string>
+    <string name="mdm_reset_success">MDM registration reset</string>
 </resources>
 

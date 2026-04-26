@@ -12,6 +12,9 @@ import android.os.Looper
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import com.iips.launcher.config.MDMManager
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import com.iips.launcher.R
@@ -81,6 +84,39 @@ class LauncherActivity : AppCompatActivity() {
         
         // Monitor for Settings launches and intercept
         registerSettingsInterceptor()
+        
+        // Initialize MDM
+        checkMdmPermissions()
+        initializeMdm()
+    }
+
+    private fun initializeMdm() {
+        lifecycleScope.launch {
+            MDMManager.registerIfNeeded(this@LauncherActivity)
+            if (SecurePreferences.isRegistered(this@LauncherActivity)) {
+                MDMManager.startHeartbeat(this@LauncherActivity)
+            }
+        }
+    }
+
+    private fun checkMdmPermissions() {
+        val permissions = mutableListOf(
+            android.Manifest.permission.ACCESS_FINE_LOCATION,
+            android.Manifest.permission.ACCESS_COARSE_LOCATION,
+            android.Manifest.permission.READ_PHONE_STATE
+        )
+        
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            permissions.add(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+        }
+
+        val missingPermissions = permissions.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+
+        if (missingPermissions.isNotEmpty()) {
+            ActivityCompat.requestPermissions(this, missingPermissions.toTypedArray(), 1001)
+        }
     }
 
     override fun onResume() {
