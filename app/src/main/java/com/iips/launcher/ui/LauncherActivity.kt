@@ -30,6 +30,7 @@ import java.util.Date
 import java.util.Locale
 
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.iips.launcher.config.ConfigManager
 
 class LauncherActivity : AppCompatActivity() {
 
@@ -62,6 +63,12 @@ class LauncherActivity : AppCompatActivity() {
 
         setupUI()
         loadApps()
+        
+        // Sync configuration from server
+        lifecycleScope.launch {
+            ConfigManager.sync(this@LauncherActivity)
+        }
+        
         setupDeviceControls()
         setupStatusBar()
         startStatusBarUpdates()

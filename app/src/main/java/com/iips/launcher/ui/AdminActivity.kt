@@ -16,6 +16,7 @@ import com.iips.launcher.data.AppDatabase
 import com.iips.launcher.databinding.ActivityAdminBinding
 import com.iips.launcher.utils.DeviceController
 import com.iips.launcher.utils.SecurePreferences
+import com.iips.launcher.config.ConfigManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -187,6 +188,36 @@ class AdminActivity : AppCompatActivity() {
         
         binding.factoryResetProtectionToggle.setOnCheckedChangeListener { _, isChecked ->
             factoryResetProtectionListener?.invoke(isChecked)
+        }
+
+        // Config Server Setup
+        binding.configUrlEditText.setText(SecurePreferences.getConfigUrl(this))
+        binding.syncButton.setOnClickListener {
+            val url = binding.configUrlEditText.text.toString().trim()
+            if (url.isEmpty()) {
+                Toast.makeText(this, "Please enter a valid URL", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            SecurePreferences.setConfigUrl(this, url)
+            
+            lifecycleScope.launch {
+                binding.syncButton.isEnabled = false
+                binding.syncButton.text = getString(R.string.syncing)
+                
+                try {
+                    ConfigManager.sync(this@AdminActivity, url)
+                    Toast.makeText(this@AdminActivity, R.string.sync_success, Toast.LENGTH_SHORT).show()
+                    // Refresh logs and status after sync
+                    loadUsageLogs()
+                    updateLockdownStatus()
+                } catch (e: Exception) {
+                    Toast.makeText(this@AdminActivity, getString(R.string.sync_failed, e.message), Toast.LENGTH_LONG).show()
+                } finally {
+                    binding.syncButton.isEnabled = true
+                    binding.syncButton.text = getString(R.string.sync_config)
+                }
+            }
         }
     }
 

@@ -63,5 +63,35 @@ object SecurePreferences {
         val prefs = getEncryptedPrefs(context)
         prefs.edit().putBoolean("factory_reset_protection", enabled).apply()
     }
+
+    fun getAllowedApps(context: Context): Set<String> {
+        val prefs = getEncryptedPrefs(context)
+        return prefs.getStringSet("allowed_apps", emptySet()) ?: emptySet()
+    }
+
+    fun setAllowedApps(context: Context, apps: Set<String>) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit().putStringSet("allowed_apps", apps).apply()
+    }
+
+    fun getOrganizationName(context: Context): String {
+        val prefs = getEncryptedPrefs(context)
+        return prefs.getString("organization_name", "www.iips.app") ?: "www.iips.app"
+    }
+
+    fun setOrganizationName(context: Context, name: String) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit().putString("organization_name", name).apply()
+    }
+
+    fun getConfigUrl(context: Context): String {
+        val prefs = getEncryptedPrefs(context)
+        return prefs.getString("config_url", "https://your-server.com/config.json") ?: "https://your-server.com/config.json"
+    }
+
+    fun setConfigUrl(context: Context, url: String) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit().putString("config_url", url).apply()
+    }
 }
 

@@ -42,5 +42,12 @@
     <string name="factory_reset_protection_enabled">Factory reset protection enabled. Users cannot factory reset from Settings.</string>
     <string name="factory_reset_protection_disabled">Factory reset protection disabled. Warning: Users may factory reset the device.</string>
     <string name="factory_reset_protection_note">Note: This prevents factory reset from Settings. Hardware recovery mode (button combinations) cannot be fully prevented.</string>
+    
+    <string name="config_server">Config Server</string>
+    <string name="config_url_hint">Server URL (JSON)</string>
+    <string name="sync_config">Sync Now</string>
+    <string name="syncing">Syncing...</string>
+    <string name="sync_success">Configuration synced successfully</string>
+    <string name="sync_failed">Sync failed: %s</string>
 </resources>
 
