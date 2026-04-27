@@ -17,13 +17,13 @@ interface ConfigService {
     /**
      * Register device with the MDM server.
      */
-    @POST("api/v1/devices/register")
+    @POST("devices/register")
     suspend fun registerDevice(@Body request: RegistrationRequest): Response<RegistrationResponse>
 
     /**
      * Send heartbeat telemetry to the MDM server.
      */
-    @POST("api/v1/devices/heartbeat")
+    @POST("devices/heartbeat")
     suspend fun sendHeartbeat(
         @Header("Authorization") token: String, // Bearer {device_token}
         @Body request: HeartbeatRequest

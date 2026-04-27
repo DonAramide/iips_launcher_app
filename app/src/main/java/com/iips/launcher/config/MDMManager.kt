@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
  */
 object MDMManager {
     private const val TAG = "MDMManager"
-    private const val BASE_URL = "https://api-quaser.iips.app/"
+    private const val BASE_URL = "https://api-quasar.iips.app/api/v1/"
 
     private val logging = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY

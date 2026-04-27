@@ -87,6 +87,11 @@ class GeofenceEnrollmentActivity : AppCompatActivity() {
 
     private fun addCurrentLocation() {
         val loc = currentLocation
+        
+        // Clear previous errors
+        binding.zoneNameLayout.error = null
+        binding.zoneRadiusLayout.error = null
+
         if (loc == null) {
             Toast.makeText(this, "Waiting for GPS fix...", Toast.LENGTH_SHORT).show()
             return
@@ -94,7 +99,14 @@ class GeofenceEnrollmentActivity : AppCompatActivity() {
 
         val name = binding.zoneNameEdit.text.toString().trim()
         if (name.isEmpty()) {
-            Toast.makeText(this, "Please enter a name for this zone", Toast.LENGTH_SHORT).show()
+            binding.zoneNameLayout.error = "Please enter a name"
+            return
+        }
+
+        val radiusStr = binding.zoneRadiusEdit.text.toString().trim()
+        val radius = radiusStr.toFloatOrNull() ?: 0f
+        if (radius < 50) {
+            binding.zoneRadiusLayout.error = "Minimum radius is 50m"
             return
         }
 
@@ -107,13 +119,17 @@ class GeofenceEnrollmentActivity : AppCompatActivity() {
             name = name,
             lat = loc.latitude,
             lng = loc.longitude,
-            radius = 150f,
+            radius = radius,
             status = "pending"
         )
 
         proposedZones.add(newZone)
         zoneAdapter.notifyDataSetChanged()
+        
+        // Reset inputs
         binding.zoneNameEdit.text?.clear()
+        binding.zoneRadiusEdit.setText("150")
+        
         updateSubmitButton()
     }
 
@@ -122,16 +138,25 @@ class GeofenceEnrollmentActivity : AppCompatActivity() {
     }
 
     private fun submitProposal() {
+        if (proposedZones.isEmpty()) {
+            Toast.makeText(this, "Add at least one location first", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         lifecycleScope.launch {
-            binding.btnSubmitProposal.isEnabled = false
-            binding.btnSubmitProposal.text = "Submitting..."
-            
             try {
+                binding.btnSubmitProposal.isEnabled = false
+                binding.btnSubmitProposal.text = "Submitting..."
+                
+                android.util.Log.d("GeofenceEnrollment", "Submitting proposal with ${proposedZones.size} zones")
+                
                 GeofenceManager.submitProposal(this@GeofenceEnrollmentActivity, proposedZones)
+                
                 Toast.makeText(this@GeofenceEnrollmentActivity, "Proposal submitted for admin approval", Toast.LENGTH_LONG).show()
                 finish()
             } catch (e: Exception) {
-                Toast.makeText(this@GeofenceEnrollmentActivity, "Failed to submit: ${e.message}", Toast.LENGTH_SHORT).show()
+                android.util.Log.e("GeofenceEnrollment", "Error submitting proposal", e)
+                Toast.makeText(this@GeofenceEnrollmentActivity, "Failed to submit: ${e.message}", Toast.LENGTH_LONG).show()
                 binding.btnSubmitProposal.isEnabled = true
                 binding.btnSubmitProposal.text = "Submit for Approval"
             }
@@ -153,7 +178,7 @@ class GeofenceEnrollmentActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val zone = zones[position]
             holder.binding.zoneName.text = zone.name
-            holder.binding.zoneDetails.text = "Lat: ${String.format("%.4f", zone.lat)}, Lng: ${String.format("%.4f", zone.lng)} (150m)"
+            holder.binding.zoneDetails.text = "Lat: ${String.format("%.4f", zone.lat)}, Lng: ${String.format("%.4f", zone.lng)} (${zone.radius.toInt()}m)"
             holder.binding.btnDelete.setOnClickListener { onDelete(position) }
         }
 

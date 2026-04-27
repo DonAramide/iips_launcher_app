@@ -21,7 +21,7 @@ import kotlin.math.*
  */
 object GeofenceManager {
     private const val TAG = "GeofenceManager"
-    private const val BASE_URL = "https://api-quaser.iips.app/"
+    private const val BASE_URL = "https://api-quasar.iips.app/api/v1/"
     private const val TOLERANCE_BUFFER = 1.2f
 
     private val logging = HttpLoggingInterceptor().apply {

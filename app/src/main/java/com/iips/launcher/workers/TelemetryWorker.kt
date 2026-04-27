@@ -26,7 +26,7 @@ class TelemetryWorker(context: Context, workerParams: WorkerParameters) :
 
     companion object {
         private const val TAG = "TelemetryWorker"
-        private const val BASE_URL = "https://api-quaser.iips.app/"
+        private const val BASE_URL = "https://api-quasar.iips.app/api/v1/"
     }
 
     // Manual instantiation of Retrofit for the worker context

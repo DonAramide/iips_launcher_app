@@ -5,130 +5,6 @@
     android:layout_height="match_parent"
     android:background="@color/background">
 
-    <!-- Quick Settings Panel (Hidden by default) -->
-    <LinearLayout
-        android:id="@+id/quick_settings_panel"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@color/primary"
-        android:elevation="15dp"
-        android:orientation="vertical"
-        android:padding="24dp"
-        android:translationY="-400dp"
-        app:layout_constraintTop_toTopOf="parent">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="System Controls"
-            android:textColor="@color/white"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:layout_marginBottom="24dp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center"
-            android:layout_marginBottom="24dp">
-
-            <!-- WiFi Info -->
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:gravity="center">
-                <ImageView
-                    android:id="@+id/qs_wifi_icon"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:src="@android:drawable/ic_menu_compass"
-                    app:tint="@color/white" />
-                <TextView
-                    android:id="@+id/qs_wifi_status"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="WiFi: Connected"
-                    android:textColor="@color/white"
-                    android:textSize="12sp"
-                    android:layout_marginTop="8dp" />
-            </LinearLayout>
-
-            <!-- SIM Info -->
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:gravity="center">
-                <ImageView
-                    android:id="@+id/qs_sim_icon"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:src="@android:drawable/ic_menu_call"
-                    app:tint="@color/white" />
-                <TextView
-                    android:id="@+id/qs_sim_status"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="SIM: No SIM"
-                    android:textColor="@color/white"
-                    android:textSize="12sp"
-                    android:layout_marginTop="8dp" />
-            </LinearLayout>
-
-            <!-- Battery Info -->
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:gravity="center">
-                <ImageView
-                    android:id="@+id/qs_battery_icon"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:src="@android:drawable/ic_lock_idle_low_battery"
-                    app:tint="@color/white" />
-                <TextView
-                    android:id="@+id/qs_battery_status"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Battery: 85%"
-                    android:textColor="@color/white"
-                    android:textSize="12sp"
-                    android:layout_marginTop="8dp" />
-            </LinearLayout>
-
-        </LinearLayout>
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/qs_admin_button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="ADMIN PANEL"
-            android:backgroundTint="@color/white"
-            android:textColor="@color/primary"
-            app:cornerRadius="12dp"
-            android:layout_marginBottom="16dp" />
-
-        <View
-            android:layout_width="40dp"
-            android:layout_height="4dp"
-            android:layout_gravity="center"
-            android:background="#40FFFFFF"
-            android:layout_marginTop="8dp" />
-
-    </LinearLayout>
-
-    <View
-        android:id="@+id/qs_drag_handle"
-        android:layout_width="match_parent"
-        android:layout_height="40dp"
-        android:elevation="10dp"
-        app:layout_constraintTop_toTopOf="parent" />
 
     <!-- Custom Status Bar -->
     <LinearLayout
@@ -339,6 +215,133 @@
             android:background="?attr/selectableItemBackground" />
 
     </LinearLayout>
+
+    <!-- Quick Settings Panel (Moved to end for top-level elevation) -->
+    <LinearLayout
+        android:id="@+id/quick_settings_panel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/primary"
+        android:elevation="100dp"
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:translationY="-500dp"
+        android:clickable="true"
+        android:focusable="true"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="System Controls"
+            android:textColor="@color/white"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="24dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="24dp">
+
+            <!-- WiFi Info -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center">
+                <ImageView
+                    android:id="@+id/qs_wifi_icon"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@android:drawable/ic_menu_compass"
+                    app:tint="@color/white" />
+                <TextView
+                    android:id="@+id/qs_wifi_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="WiFi: Connected"
+                    android:textColor="@color/white"
+                    android:textSize="12sp"
+                    android:layout_marginTop="8dp" />
+            </LinearLayout>
+
+            <!-- SIM Info -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center">
+                <ImageView
+                    android:id="@+id/qs_sim_icon"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@android:drawable/ic_menu_call"
+                    app:tint="@color/white" />
+                <TextView
+                    android:id="@+id/qs_sim_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="SIM: No SIM"
+                    android:textColor="@color/white"
+                    android:textSize="12sp"
+                    android:layout_marginTop="8dp" />
+            </LinearLayout>
+
+            <!-- Battery Info -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center">
+                <ImageView
+                    android:id="@+id/qs_battery_icon"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@android:drawable/ic_lock_idle_low_battery"
+                    app:tint="@color/white" />
+                <TextView
+                    android:id="@+id/qs_battery_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Battery: 85%"
+                    android:textColor="@color/white"
+                    android:textSize="12sp"
+                    android:layout_marginTop="8dp" />
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/qs_admin_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="ADMIN PANEL"
+            android:backgroundTint="@color/white"
+            android:textColor="@color/primary"
+            app:cornerRadius="12dp"
+            android:layout_marginBottom="16dp" />
+
+        <View
+            android:layout_width="40dp"
+            android:layout_height="4dp"
+            android:layout_gravity="center"
+            android:background="#40FFFFFF"
+            android:layout_marginTop="8dp" />
+
+    </LinearLayout>
+
+    <View
+        android:id="@+id/qs_drag_handle"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:elevation="101dp"
+        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
 

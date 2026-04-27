@@ -546,7 +546,7 @@ class LauncherActivity : AppCompatActivity() {
     private fun setupQuickSettings() {
         val density = resources.displayMetrics.density
         val qsMaxTranslation = 0f
-        val qsMinTranslation = -400 * density
+        val qsMinTranslation = -500 * density
 
         binding.qsDragHandle.setOnTouchListener { _, event ->
             when (event.action) {
@@ -593,7 +593,7 @@ class LauncherActivity : AppCompatActivity() {
 
     private fun animateQuickSettings(open: Boolean) {
         val density = resources.displayMetrics.density
-        val targetY = if (open) 0f else -400 * density
+        val targetY = if (open) 0f else -500 * density
         
         binding.quickSettingsPanel.animate()
             .translationY(targetY)
