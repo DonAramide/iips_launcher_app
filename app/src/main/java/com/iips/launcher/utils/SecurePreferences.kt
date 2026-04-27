@@ -117,5 +117,63 @@ object SecurePreferences {
     fun isRegistered(context: Context): Boolean {
         return getDeviceId(context) != null && getDeviceToken(context) != null
     }
+
+    /**
+     * Geofencing Preferences
+     */
+
+    fun setGeofenceConfig(context: Context, config: com.iips.launcher.config.GeofenceConfigResponse) {
+        val prefs = getEncryptedPrefs(context)
+        val json = com.google.gson.Gson().toJson(config)
+        prefs.edit().putString("geofence_config", json).apply()
+    }
+
+    fun getGeofenceConfig(context: Context): com.iips.launcher.config.GeofenceConfigResponse? {
+        val prefs = getEncryptedPrefs(context)
+        val json = prefs.getString("geofence_config", null) ?: return null
+        return try {
+            com.google.gson.Gson().fromJson(json, com.iips.launcher.config.GeofenceConfigResponse::class.java)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun isGeofenceLocked(context: Context): Boolean {
+        val prefs = getEncryptedPrefs(context)
+        return prefs.getBoolean("geofence_locked", false)
+    }
+
+    fun setGeofenceLocked(context: Context, locked: Boolean) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit().putBoolean("geofence_locked", locked).apply()
+    }
+
+    fun getGeofenceMode(context: Context): String {
+        val prefs = getEncryptedPrefs(context)
+        // Default to enrollment until we have approved zones
+        return prefs.getString("geofence_mode", "enrollment") ?: "enrollment"
+    }
+
+    fun setGeofenceMode(context: Context, mode: String) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit().putString("geofence_mode", mode).apply()
+    }
+
+    fun setProposedZones(context: Context, zones: List<com.iips.launcher.config.GeofenceZone>) {
+        val prefs = getEncryptedPrefs(context)
+        val json = com.google.gson.Gson().toJson(zones)
+        prefs.edit().putString("proposed_zones", json).apply()
+    }
+
+    fun getProposedZones(context: Context): List<com.iips.launcher.config.GeofenceZone> {
+        val prefs = getEncryptedPrefs(context)
+        val json = prefs.getString("proposed_zones", null) ?: return emptyList()
+        return try {
+            val type = object : com.google.gson.reflect.TypeToken<List<com.iips.launcher.config.GeofenceZone>>() {}.type
+            com.google.gson.Gson().fromJson(json, type)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
 }
 

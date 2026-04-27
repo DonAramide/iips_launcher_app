@@ -161,6 +161,78 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:text="@string/geofencing_status"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary"
+                        android:layout_marginBottom="16dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="12dp">
+
+                        <TextView
+                            android:id="@+id/geofence_status_badge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/geofencing_disabled"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:paddingHorizontal="10dp"
+                            android:paddingVertical="4dp"
+                            android:background="#757575"
+                            android:textColor="#FFFFFF" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/authorized_zones"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary"
+                        android:layout_marginBottom="8dp" />
+
+                    <TextView
+                        android:id="@+id/geofence_zones_text"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="No zones configured"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_secondary"
+                        android:layout_marginBottom="16dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_geofence_enrollment"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Enroll Authorized Locations"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
                         android:text="@string/mdm_management"
                         android:textSize="18sp"
                         android:textStyle="bold"
@@ -180,28 +252,33 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
+                        android:layout_marginTop="8dp"
                         android:layout_marginBottom="16dp">
                         
                         <TextView
-                            android:id="@+id/system_status_badge"
+                            android:id="@+id/systemStatusBadge"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="System App: NO"
-                            android:textSize="10sp"
-                            android:padding="4dp"
-                            android:background="@android:color/darker_gray"
-                            android:textColor="@android:color/white"
-                            android:layout_marginEnd="8dp" />
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:paddingHorizontal="10dp"
+                            android:paddingVertical="4dp"
+                            android:background="#757575"
+                            android:textColor="#FFFFFF"
+                            android:layout_marginEnd="12dp" />
 
                         <TextView
-                            android:id="@+id/device_owner_badge"
+                            android:id="@+id/deviceOwnerBadge"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Device Owner: NO"
-                            android:textSize="10sp"
-                            android:padding="4dp"
-                            android:background="@android:color/darker_gray"
-                            android:textColor="@android:color/white" />
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:paddingHorizontal="10dp"
+                            android:paddingVertical="4dp"
+                            android:background="#757575"
+                            android:textColor="#FFFFFF" />
                     </LinearLayout>
 
                     <com.google.android.material.switchmaterial.SwitchMaterial

@@ -50,6 +50,7 @@ class LauncherActivity : AppCompatActivity() {
     }
     private var batteryReceiver: BroadcastReceiver? = null
     private var settingsReceiver: BroadcastReceiver? = null
+    private var geofenceReceiver: BroadcastReceiver? = null
     
     // Track when we launch an allowed app to prevent lock task from being re-enabled
     private var lastLaunchedAllowedApp: String? = null
@@ -88,6 +89,8 @@ class LauncherActivity : AppCompatActivity() {
         // Initialize MDM
         checkMdmPermissions()
         initializeMdm()
+        
+        setupGeofenceOverlay()
     }
 
     private fun initializeMdm() {
@@ -95,6 +98,7 @@ class LauncherActivity : AppCompatActivity() {
             MDMManager.registerIfNeeded(this@LauncherActivity)
             if (SecurePreferences.isRegistered(this@LauncherActivity)) {
                 MDMManager.startHeartbeat(this@LauncherActivity)
+                com.iips.launcher.device.GeofenceService.start(this@LauncherActivity)
             }
         }
     }
@@ -214,6 +218,24 @@ class LauncherActivity : AppCompatActivity() {
         
         // Update status bar immediately
         updateStatusBar()
+        
+        // Check geofence lock state and mode
+        val mode = SecurePreferences.getGeofenceMode(this)
+        val isLocked = SecurePreferences.isGeofenceLocked(this)
+        
+        if (isLocked) {
+            showGeofenceLock(true, "Outside authorized area")
+            binding.geofencePendingBanner.visibility = View.GONE
+        } else {
+            showGeofenceLock(false)
+            // Show banner if in enrollment mode AND we have proposed zones
+            val hasProposals = SecurePreferences.getProposedZones(this).isNotEmpty()
+            if (mode == "enrollment" && hasProposals) {
+                binding.geofencePendingBanner.visibility = View.VISIBLE
+            } else {
+                binding.geofencePendingBanner.visibility = View.GONE
+            }
+        }
     }
     
     override fun onPause() {
@@ -342,6 +364,7 @@ class LauncherActivity : AppCompatActivity() {
         timeHandler.removeCallbacks(timeRunnable)
         batteryReceiver?.let { unregisterReceiver(it) }
         settingsReceiver?.let { unregisterReceiver(it) }
+        geofenceReceiver?.let { unregisterReceiver(it) }
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -507,6 +530,53 @@ class LauncherActivity : AppCompatActivity() {
 
         binding.adminButton.setOnClickListener {
             showAdminPasswordDialog()
+        }
+    }
+
+    private fun setupGeofenceOverlay() {
+        binding.btnRetryLocation.setOnClickListener {
+            // Force a location check by restarting the service or sending an intent
+            com.iips.launcher.device.GeofenceService.start(this)
+            Toast.makeText(this, "Checking location...", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.btnAdminUnlock.setOnClickListener {
+            showAdminPasswordDialog()
+        }
+
+        // Register receiver for geofence events
+        geofenceReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                when (intent?.action) {
+                    com.iips.launcher.device.GeofenceService.ACTION_GEOFENCE_LOCK -> {
+                        val reason = intent.getStringExtra(com.iips.launcher.device.GeofenceService.EXTRA_REASON)
+                        showGeofenceLock(true, reason)
+                    }
+                    com.iips.launcher.device.GeofenceService.ACTION_GEOFENCE_UNLOCK -> {
+                        showGeofenceLock(false)
+                    }
+                }
+            }
+        }
+        
+        val filter = IntentFilter().apply {
+            addAction(com.iips.launcher.device.GeofenceService.ACTION_GEOFENCE_LOCK)
+            addAction(com.iips.launcher.device.GeofenceService.ACTION_GEOFENCE_UNLOCK)
+        }
+        registerReceiver(geofenceReceiver, filter)
+    }
+
+    private fun showGeofenceLock(locked: Boolean, reason: String? = null) {
+        if (locked) {
+            binding.geofenceLockOverlay.visibility = View.VISIBLE
+            binding.lockMessage.text = reason ?: getString(R.string.geofence_out_of_range)
+            
+            // If locked by geofence, ensure lock task is on
+            if (DeviceAdminReceiver.isDeviceOwner(this)) {
+                DeviceController.startLockTask(this)
+            }
+        } else {
+            binding.geofenceLockOverlay.visibility = View.GONE
         }
     }
 

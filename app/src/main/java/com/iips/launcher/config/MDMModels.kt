@@ -68,3 +68,41 @@ data class PrinterInfo(
     @SerializedName("name") val name: String?,
     @SerializedName("battery") val battery: Int?
 )
+
+/**
+ * Geofencing configuration response from the server.
+ */
+data class GeofenceConfigResponse(
+    @SerializedName("enabled") val enabled: Boolean,
+    @SerializedName("zones") val zones: List<GeofenceZone>?
+)
+
+data class GeofenceZone(
+    @SerializedName("name") val name: String,
+    @SerializedName("lat") val lat: Double,
+    @SerializedName("lng") val lng: Double,
+    @SerializedName("radius") val radius: Float,
+    @SerializedName("status") val status: String? = "pending" // "pending" | "approved"
+)
+
+/**
+ * Geofence proposal request from device.
+ */
+data class GeofenceProposalRequest(
+    @SerializedName("device_id") val deviceId: String,
+    @SerializedName("zones") val zones: List<GeofenceZone>
+)
+
+/**
+ * Geofence status update request.
+ */
+data class GeofenceStatusRequest(
+    @SerializedName("device_id") val deviceId: String,
+    @SerializedName("lat") val lat: Double,
+    @SerializedName("lng") val lng: Double,
+    @SerializedName("inside_zone") val insideZone: Boolean,
+    @SerializedName("mode") val mode: String, // "enrollment" | "enforcement"
+    @SerializedName("battery") val battery: Int,
+    @SerializedName("mock_detected") val mockDetected: Boolean,
+    @SerializedName("timestamp") val timestamp: String // ISO8601
+)

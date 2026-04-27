@@ -28,4 +28,28 @@ interface ConfigService {
         @Header("Authorization") token: String, // Bearer {device_token}
         @Body request: HeartbeatRequest
     ): Response<Unit>
+
+    /**
+     * Fetch geofence configuration from the backend.
+     */
+    @GET("device/geofence-config")
+    suspend fun fetchGeofenceConfig(
+        @Query("device_id") deviceId: String
+    ): Response<GeofenceConfigResponse>
+
+    /**
+     * Send periodic status updates to the backend.
+     */
+    @POST("device/status")
+    suspend fun sendGeofenceStatus(
+        @Body request: GeofenceStatusRequest
+    ): Response<Unit>
+
+    /**
+     * Submit geofence proposals for admin approval.
+     */
+    @POST("device/geofence-proposal")
+    suspend fun submitGeofenceProposal(
+        @Body request: GeofenceProposalRequest
+    ): Response<Unit>
 }

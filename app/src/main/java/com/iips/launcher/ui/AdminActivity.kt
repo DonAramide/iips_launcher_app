@@ -44,6 +44,7 @@ class AdminActivity : AppCompatActivity() {
         setupUsageLogsRecyclerView()
         updateLockdownStatus()
         updateMdmStatus()
+        updateGeofenceStatus()
         loadUsageLogs()
     }
 
@@ -143,6 +144,7 @@ class AdminActivity : AppCompatActivity() {
         
         // Reload usage logs when resuming
         loadUsageLogs()
+        updateGeofenceStatus()
     }
     
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -284,6 +286,11 @@ class AdminActivity : AppCompatActivity() {
                 Toast.makeText(this, R.string.persistence_disabled, Toast.LENGTH_SHORT).show()
             }
         }
+
+        binding.btnGeofenceEnrollment.setOnClickListener {
+            val intent = Intent(this, GeofenceEnrollmentActivity::class.java)
+            startActivity(intent)
+        }
     }
 
     private var lockdownToggleListener: ((Boolean) -> Unit)? = null
@@ -313,6 +320,34 @@ class AdminActivity : AppCompatActivity() {
             binding.factoryResetProtectionToggle.setOnCheckedChangeListener { _, isChecked ->
                 listener(isChecked)
             }
+        }
+    }
+
+    private fun updateGeofenceStatus() {
+        val config = SecurePreferences.getGeofenceConfig(this)
+        if (config != null && config.enabled) {
+            binding.geofenceStatusBadge.text = getString(R.string.geofencing_enabled)
+            binding.geofenceStatusBadge.setBackgroundColor(android.graphics.Color.parseColor("#4CAF50"))
+            
+            val zones = config.zones
+            val zonesText = if (zones.isNullOrEmpty()) {
+                "No zones configured"
+            } else {
+                zones.joinToString("\n") { zone ->
+                    "• ${zone.name}: ${zone.lat}, ${zone.lng} (r=${zone.radius}m)"
+                }
+            }
+            binding.geofenceZonesText.text = zonesText
+            
+            // Hide enrollment in enforcement mode
+            binding.btnGeofenceEnrollment.visibility = View.GONE
+        } else {
+            binding.geofenceStatusBadge.text = getString(R.string.geofencing_disabled)
+            binding.geofenceStatusBadge.setBackgroundColor(android.graphics.Color.parseColor("#757575"))
+            binding.geofenceZonesText.text = "Geofencing is in ENROLLMENT mode"
+            
+            // Show enrollment in enrollment mode
+            binding.btnGeofenceEnrollment.visibility = View.VISIBLE
         }
     }
 

@@ -96,13 +96,28 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- Geofence Pending Banner -->
+    <TextView
+        android:id="@+id/geofence_pending_banner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#FFF3E0"
+        android:padding="8dp"
+        android:text="Geofencing setup pending admin approval"
+        android:textColor="#E65100"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/status_text" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/app_grid"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:padding="16dp"
         android:clipToPadding="false"
-        app:layout_constraintTop_toBottomOf="@id/status_text"
+        app:layout_constraintTop_toBottomOf="@id/geofence_pending_banner"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
@@ -135,6 +150,59 @@
             android:textSize="16sp"
             android:textColor="@color/text_secondary"
             android:gravity="center" />
+
+    </LinearLayout>
+
+    <!-- Geofence Lock Overlay -->
+    <LinearLayout
+        android:id="@+id/geofence_lock_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/background"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="32dp"
+        android:elevation="10dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/lock_icon"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:src="@android:drawable/ic_dialog_alert"
+            app:tint="@color/error" />
+
+        <TextView
+            android:id="@+id/lock_message"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/geofence_out_of_range"
+            android:textColor="@color/text_primary"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:gravity="center" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_retry_location"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="48dp"
+            android:text="@string/retry_location"
+            app:cornerRadius="8dp" />
+
+        <TextView
+            android:id="@+id/btn_admin_unlock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/admin_unlock"
+            android:textColor="@color/primary"
+            android:textSize="14sp"
+            android:padding="12dp"
+            android:background="?attr/selectableItemBackground" />
 
     </LinearLayout>
 
