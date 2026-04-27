@@ -5,6 +5,131 @@
     android:layout_height="match_parent"
     android:background="@color/background">
 
+    <!-- Quick Settings Panel (Hidden by default) -->
+    <LinearLayout
+        android:id="@+id/quick_settings_panel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/primary"
+        android:elevation="15dp"
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:translationY="-400dp"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="System Controls"
+            android:textColor="@color/white"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="24dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="24dp">
+
+            <!-- WiFi Info -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center">
+                <ImageView
+                    android:id="@+id/qs_wifi_icon"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@android:drawable/ic_menu_compass"
+                    app:tint="@color/white" />
+                <TextView
+                    android:id="@+id/qs_wifi_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="WiFi: Connected"
+                    android:textColor="@color/white"
+                    android:textSize="12sp"
+                    android:layout_marginTop="8dp" />
+            </LinearLayout>
+
+            <!-- SIM Info -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center">
+                <ImageView
+                    android:id="@+id/qs_sim_icon"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@android:drawable/ic_menu_call"
+                    app:tint="@color/white" />
+                <TextView
+                    android:id="@+id/qs_sim_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="SIM: No SIM"
+                    android:textColor="@color/white"
+                    android:textSize="12sp"
+                    android:layout_marginTop="8dp" />
+            </LinearLayout>
+
+            <!-- Battery Info -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center">
+                <ImageView
+                    android:id="@+id/qs_battery_icon"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@android:drawable/ic_lock_idle_low_battery"
+                    app:tint="@color/white" />
+                <TextView
+                    android:id="@+id/qs_battery_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Battery: 85%"
+                    android:textColor="@color/white"
+                    android:textSize="12sp"
+                    android:layout_marginTop="8dp" />
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/qs_admin_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="ADMIN PANEL"
+            android:backgroundTint="@color/white"
+            android:textColor="@color/primary"
+            app:cornerRadius="12dp"
+            android:layout_marginBottom="16dp" />
+
+        <View
+            android:layout_width="40dp"
+            android:layout_height="4dp"
+            android:layout_gravity="center"
+            android:background="#40FFFFFF"
+            android:layout_marginTop="8dp" />
+
+    </LinearLayout>
+
+    <View
+        android:id="@+id/qs_drag_handle"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:elevation="10dp"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <!-- Custom Status Bar -->
     <LinearLayout
         android:id="@+id/status_bar"
@@ -50,15 +175,26 @@
                 android:ellipsize="none" />
         </LinearLayout>
 
-        <!-- Network Status -->
+        <!-- Network and SIM Status -->
+        <TextView
+            android:id="@+id/sim_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="6dp"
+            android:text="No SIM"
+            android:textColor="@color/white"
+            android:textSize="9sp"
+            android:alpha="0.9" />
+
         <TextView
             android:id="@+id/network_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
+            android:layout_marginEnd="12dp"
             android:text="WiFi"
             android:textColor="@color/white"
-            android:textSize="10sp" />
+            android:textSize="10sp"
+            android:textStyle="bold" />
 
         <!-- Battery Status -->
         <TextView
@@ -67,20 +203,18 @@
             android:layout_height="wrap_content"
             android:text="100%"
             android:textColor="@color/white"
-            android:textSize="10sp" />
+            android:textSize="10sp"
+            android:textStyle="bold" />
 
-        <!-- Admin Button -->
-        <ImageButton
+        <!-- Admin Icon -->
+        <ImageView
             android:id="@+id/admin_button"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_marginStart="8dp"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginStart="10dp"
             android:src="@android:drawable/ic_menu_manage"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/admin_panel"
             android:tint="@color/white"
-            android:padding="2dp"
-            android:scaleType="fitCenter" />
+            android:alpha="0.8" />
 
     </LinearLayout>
 

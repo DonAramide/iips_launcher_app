@@ -91,6 +91,7 @@ class LauncherActivity : AppCompatActivity() {
         initializeMdm()
         
         setupGeofenceOverlay()
+        setupQuickSettings()
     }
 
     private fun initializeMdm() {
@@ -531,6 +532,80 @@ class LauncherActivity : AppCompatActivity() {
         binding.adminButton.setOnClickListener {
             showAdminPasswordDialog()
         }
+        
+        binding.qsAdminButton.setOnClickListener {
+            toggleQuickSettings(false)
+            showAdminPasswordDialog()
+        }
+    }
+
+    private var qsStartY = 0f
+    private var isQsOpen = false
+    private val QS_HEIGHT_DP = 300 // Max height to show
+
+    private fun setupQuickSettings() {
+        val density = resources.displayMetrics.density
+        val qsMaxTranslation = 0f
+        val qsMinTranslation = -400 * density
+
+        binding.qsDragHandle.setOnTouchListener { _, event ->
+            when (event.action) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    qsStartY = event.rawY
+                    true
+                }
+                android.view.MotionEvent.ACTION_MOVE -> {
+                    val deltaY = event.rawY - qsStartY
+                    if (deltaY > 0 || isQsOpen) {
+                        val newTranslation = if (isQsOpen) deltaY else qsMinTranslation + deltaY
+                        binding.quickSettingsPanel.translationY = newTranslation.coerceIn(qsMinTranslation, qsMaxTranslation)
+                    }
+                    true
+                }
+                android.view.MotionEvent.ACTION_UP -> {
+                    val currentTranslation = binding.quickSettingsPanel.translationY
+                    val threshold = (qsMinTranslation + qsMaxTranslation) / 2
+                    if (currentTranslation > threshold) {
+                        animateQuickSettings(true)
+                    } else {
+                        animateQuickSettings(false)
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
+        
+        // Also allow closing by clicking background or handle when open
+        binding.quickSettingsPanel.setOnClickListener { 
+            // Prevent clicks from passing through
+        }
+        
+        binding.root.setOnTouchListener { _, event ->
+            if (isQsOpen && event.action == android.view.MotionEvent.ACTION_DOWN) {
+                animateQuickSettings(false)
+                true
+            } else {
+                false
+            }
+        }
+    }
+
+    private fun animateQuickSettings(open: Boolean) {
+        val density = resources.displayMetrics.density
+        val targetY = if (open) 0f else -400 * density
+        
+        binding.quickSettingsPanel.animate()
+            .translationY(targetY)
+            .setDuration(300)
+            .withEndAction {
+                isQsOpen = open
+            }
+            .start()
+    }
+
+    private fun toggleQuickSettings(open: Boolean) {
+        animateQuickSettings(open)
     }
 
     private fun setupGeofenceOverlay() {
@@ -816,12 +891,49 @@ class LauncherActivity : AppCompatActivity() {
     }
     
     private fun updateStatusBar() {
-        val currentTime = Date()
-        val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-        val dateFormat = SimpleDateFormat("MMM d", Locale.getDefault()) // Shorter date format
+        val sdfTime = SimpleDateFormat("HH:mm", Locale.getDefault())
+        val sdfDate = SimpleDateFormat("MMM d", Locale.getDefault())
+        val now = Date()
+
+        binding.timeText.text = sdfTime.format(now)
+        binding.dateText.text = sdfDate.format(now)
+
+        // Battery
+        val batteryInfo = com.iips.launcher.utils.HardwareProvider.getBatteryInfo(this)
+        val batteryText = "${batteryInfo.level}%"
+        binding.batteryText.text = batteryText
+        binding.qsBatteryStatus.text = "Battery: $batteryText${if (batteryInfo.charging) " (Charging)" else ""}"
         
-        binding.timeText.text = timeFormat.format(currentTime)
-        binding.dateText.text = dateFormat.format(currentTime)
+        if (batteryInfo.level < 20) {
+            binding.qsBatteryIcon.setImageResource(android.R.drawable.ic_lock_idle_low_battery)
+        } else {
+            binding.qsBatteryIcon.setImageResource(android.R.drawable.ic_lock_idle_charging)
+        }
+
+        // Network
+        val networkInfo = com.iips.launcher.utils.HardwareProvider.getNetworkInfo(this)
+        binding.networkText.text = networkInfo.type
+        binding.qsWifiStatus.text = "Network: ${networkInfo.type}"
+        
+        if (networkInfo.type == "WIFI") {
+            binding.qsWifiIcon.setImageResource(android.R.drawable.ic_menu_compass)
+        } else {
+            binding.qsWifiIcon.setImageResource(android.R.drawable.ic_menu_mylocation)
+        }
+        
+        // SIM Info
+        val simInfo = com.iips.launcher.utils.HardwareProvider.getSimInfo(this)
+        val simStatus = if (simInfo.isPresent) simInfo.carrier ?: "SIM Present" else "No SIM"
+        binding.simText.text = simStatus
+        binding.qsSimStatus.text = "SIM: $simStatus"
+        
+        if (simInfo.isPresent) {
+            binding.qsSimIcon.setImageResource(android.R.drawable.ic_menu_call)
+            binding.simText.visibility = View.VISIBLE
+        } else {
+            binding.qsSimIcon.setImageResource(android.R.drawable.ic_delete)
+            binding.simText.visibility = View.GONE
+        }
     }
     
     private fun updateBatteryStatus() {
