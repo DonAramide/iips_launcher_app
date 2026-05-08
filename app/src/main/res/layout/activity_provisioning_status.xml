@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="32dp"
+    android:background="?attr/colorSurface"
+    tools:context=".ui.ProvisioningStatusActivity">
+
+    <!-- Logo / brand mark -->
+    <ImageView
+        android:id="@+id/provisioning_logo"
+        android:layout_width="96dp"
+        android:layout_height="96dp"
+        android:layout_marginBottom="32dp"
+        android:src="@mipmap/ic_launcher"
+        android:contentDescription="@string/app_name" />
+
+    <!-- Spinner shown while enrolling -->
+    <ProgressBar
+        android:id="@+id/provisioning_progress"
+        style="?android:attr/progressBarStyle"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_marginBottom="24dp"
+        android:indeterminate="true"
+        android:visibility="visible" />
+
+    <!-- Primary status label -->
+    <TextView
+        android:id="@+id/provisioning_status_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textAlignment="center"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="?attr/colorOnSurface"
+        android:layout_marginBottom="12dp"
+        tools:text="@string/provisioning_enrolling" />
+
+    <!-- Error detail — hidden until an error occurs -->
+    <TextView
+        android:id="@+id/provisioning_error_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textAlignment="center"
+        android:textSize="14sp"
+        android:textColor="?attr/colorError"
+        android:layout_marginBottom="24dp"
+        android:visibility="gone"
+        tools:text="Enrollment failed (HTTP 401). Check token and retry." />
+
+    <!-- Retry button — hidden until an error occurs -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_provisioning_retry"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/provisioning_retry"
+        android:visibility="gone" />
+
+    <!-- Footnote -->
+    <TextView
+        android:id="@+id/provisioning_footnote"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textAlignment="center"
+        android:textSize="12sp"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        android:layout_marginTop="40dp"
+        android:text="@string/provisioning_footnote" />
+
+</LinearLayout>

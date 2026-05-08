@@ -256,14 +256,16 @@ class LauncherApplication : Application() {
     private fun loadAllowedApps() {
         applicationScope.launch(Dispatchers.IO) {
             try {
-                val allowedApps = database.allowedAppDao().getAll()
+                val allowedApps = database.appPolicyDao().getAllPolicies()
                 val remoteAllowedApps = SecurePreferences.getAllowedApps(applicationContext)
                 
                 val count: Int
                 val packageList: MutableList<String>
                 synchronized(allowedPackagesLock) {
                     allowedPackages.clear()
-                    packageList = allowedApps.map { it.packageName.lowercase() }.toMutableList()
+                    packageList = allowedApps
+                        .filter { it.mode.uppercase() == "REQUIRED" || it.mode.uppercase() == "ALLOWED" }
+                        .map { it.packageName.lowercase() }.toMutableList()
                     packageList.addAll(remoteAllowedApps.map { it.lowercase() })
                     allowedPackages.addAll(packageList)
                     count = allowedPackages.size

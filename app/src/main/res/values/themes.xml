@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Modern Base Application Theme -->
-    <style name="Theme.IIPSLauncher" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+    <style name="Theme.Dotoid" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
         <!-- Primary Colors -->
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryVariant">@color/primary_dark</item>
@@ -29,18 +29,18 @@
         <item name="android:windowLightStatusBar">false</item>
         
         <!-- Button Styles -->
-        <item name="materialButtonStyle">@style/Widget.IIPSLauncher.Button</item>
-        <item name="materialButtonOutlinedStyle">@style/Widget.IIPSLauncher.Button.Outlined</item>
+        <item name="materialButtonStyle">@style/Widget.Dotoid.Button</item>
+        <item name="materialButtonOutlinedStyle">@style/Widget.Dotoid.Button.Outlined</item>
         
         <!-- Card Styles -->
-        <item name="materialCardViewStyle">@style/Widget.IIPSLauncher.CardView</item>
+        <item name="materialCardViewStyle">@style/Widget.Dotoid.CardView</item>
         
         <!-- Text Input Styles -->
-        <item name="textInputStyle">@style/Widget.IIPSLauncher.TextInputLayout</item>
+        <item name="textInputStyle">@style/Widget.Dotoid.TextInputLayout</item>
     </style>
 
     <!-- Full Screen Theme for Launcher -->
-    <style name="Theme.IIPSLauncher.FullScreen" parent="Theme.IIPSLauncher">
+    <style name="Theme.Dotoid.FullScreen" parent="Theme.Dotoid">
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowActionBar">false</item>
         <item name="android:windowFullscreen">true</item>
@@ -51,7 +51,7 @@
     </style>
 
     <!-- NoActionBar Theme for Activities using Toolbar -->
-    <style name="Theme.IIPSLauncher.NoActionBar" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.Dotoid.NoActionBar" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- Primary Colors -->
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryVariant">@color/primary_dark</item>
@@ -78,12 +78,12 @@
         <item name="android:windowLightStatusBar">false</item>
         
         <!-- Button Styles -->
-        <item name="materialButtonStyle">@style/Widget.IIPSLauncher.Button</item>
-        <item name="materialButtonOutlinedStyle">@style/Widget.IIPSLauncher.Button.Outlined</item>
+        <item name="materialButtonStyle">@style/Widget.Dotoid.Button</item>
+        <item name="materialButtonOutlinedStyle">@style/Widget.Dotoid.Button.Outlined</item>
     </style>
     
     <!-- Custom Button Style -->
-    <style name="Widget.IIPSLauncher.Button" parent="Widget.MaterialComponents.Button">
+    <style name="Widget.Dotoid.Button" parent="Widget.MaterialComponents.Button">
         <item name="backgroundTint">@color/primary</item>
         <item name="android:textColor">@color/white</item>
         <item name="cornerRadius">12dp</item>
@@ -96,7 +96,7 @@
     </style>
     
     <!-- Outlined Button Style -->
-    <style name="Widget.IIPSLauncher.Button.Outlined" parent="Widget.MaterialComponents.Button.OutlinedButton">
+    <style name="Widget.Dotoid.Button.Outlined" parent="Widget.MaterialComponents.Button.OutlinedButton">
         <item name="strokeColor">@color/primary</item>
         <item name="android:textColor">@color/primary</item>
         <item name="cornerRadius">12dp</item>
@@ -108,7 +108,7 @@
     </style>
     
     <!-- Card View Style -->
-    <style name="Widget.IIPSLauncher.CardView" parent="Widget.MaterialComponents.CardView">
+    <style name="Widget.Dotoid.CardView" parent="Widget.MaterialComponents.CardView">
         <item name="cardBackgroundColor">@color/card_background</item>
         <item name="cardCornerRadius">16dp</item>
         <item name="cardElevation">2dp</item>
@@ -116,7 +116,7 @@
     </style>
     
     <!-- Text Input Layout Style -->
-    <style name="Widget.IIPSLauncher.TextInputLayout" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+    <style name="Widget.Dotoid.TextInputLayout" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
         <item name="boxCornerRadiusTopStart">12dp</item>
         <item name="boxCornerRadiusTopEnd">12dp</item>
         <item name="boxCornerRadiusBottomStart">12dp</item>
@@ -129,9 +129,9 @@
     <style name="Theme.App.Starting" parent="Theme.SplashScreen">
         <!-- Splash screen background: white to match the logo -->
         <item name="windowSplashScreenBackground">#FFFFFF</item>
-        <!-- Custom IIPS logo as the splash icon -->
+        <!-- Custom Dotoid logo as the splash icon -->
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_boot_logo</item>
         <!-- After splash, switch to the full screen launcher theme -->
-        <item name="postSplashScreenTheme">@style/Theme.IIPSLauncher.FullScreen</item>
+        <item name="postSplashScreenTheme">@style/Theme.Dotoid.FullScreen</item>
     </style>
 </resources>

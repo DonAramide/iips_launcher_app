@@ -7,6 +7,7 @@ import android.os.Looper
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -237,7 +238,7 @@ class AdminActivity : AppCompatActivity() {
                 binding.syncButton.text = getString(R.string.syncing)
                 
                 try {
-                    ConfigManager.sync(this@AdminActivity, url)
+                    com.iips.launcher.config.MDMManager.forcePolicySync(this@AdminActivity)
                     Toast.makeText(this@AdminActivity, R.string.sync_success, Toast.LENGTH_SHORT).show()
                     // Refresh logs and status after sync
                     loadUsageLogs()
@@ -271,6 +272,10 @@ class AdminActivity : AppCompatActivity() {
                 .show()
         }
 
+        binding.systemResetButton.setOnClickListener {
+            showSystemResetAuthDialog()
+        }
+
         // Persistence Lock Setup
         binding.persistenceLockSwitch.isChecked = SecurePreferences.isFactoryResetProtectionEnabled(this)
         binding.persistenceLockSwitch.setOnCheckedChangeListener { _, isChecked ->
@@ -290,6 +295,80 @@ class AdminActivity : AppCompatActivity() {
         binding.btnGeofenceEnrollment.setOnClickListener {
             val intent = Intent(this, GeofenceEnrollmentActivity::class.java)
             startActivity(intent)
+        }
+    }
+
+    private fun showSystemResetAuthDialog() {
+        val input = android.widget.EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            hint = "Enter Super Admin Password"
+        }
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("System Reset Authentication")
+            .setMessage("This action will WIPE ALL DATA and reset the launcher. Please enter the dynamic super admin password (yyyy/MM/DD/HH/mm-iips@admin123) to continue.")
+            .setView(input)
+            .setPositiveButton("WIPE EVERYTHING") { _, _ ->
+                val password = input.text.toString()
+                if (verifySuperAdminPassword(password)) {
+                    performSystemReset()
+                } else {
+                    Toast.makeText(this, "Invalid Super Admin Password", Toast.LENGTH_LONG).show()
+                }
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun verifySuperAdminPassword(input: String): Boolean {
+        val sdf = java.text.SimpleDateFormat("yyyy/MM/dd/HH/mm", java.util.Locale.US)
+        val currentTime = sdf.format(java.util.Date())
+        val expected = "$currentTime-iips@admin123"
+        
+        android.util.Log.d("AdminActivity", "Super Admin Auth - Expected: $expected, Received: $input")
+        
+        // Allow a 1-minute grace period (current or previous minute)
+        if (input == expected) return true
+        
+        val calendar = java.util.Calendar.getInstance()
+        calendar.add(java.util.Calendar.MINUTE, -1)
+        val previousTime = sdf.format(calendar.time)
+        val expectedPrevious = "$previousTime-iips@admin123"
+        
+        return input == expectedPrevious
+    }
+
+    private fun performSystemReset() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                // 1. Cancel all WorkManager tasks
+                androidx.work.WorkManager.getInstance(this@AdminActivity).cancelAllWork()
+                
+                // 2. Clear Database
+                database.clearAllTables()
+                
+                // 3. Clear Preferences
+                SecurePreferences.clearAll(this@AdminActivity)
+                
+                // 4. Disable Lockdown and Immersive mode
+                withContext(Dispatchers.Main) {
+                    DeviceController.stopLockTask(this@AdminActivity)
+                    DeviceController.disableImmersiveMode(this@AdminActivity)
+                    
+                    Toast.makeText(this@AdminActivity, "System Reset Successful. Restarting...", Toast.LENGTH_LONG).show()
+                    
+                    // 5. Restart Application to Onboarding
+                    val intent = Intent(this@AdminActivity, OnboardingActivity::class.java)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    startActivity(intent)
+                    finish()
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Log.e("AdminActivity", "System Reset Failed", e)
+                    Toast.makeText(this@AdminActivity, "Reset failed: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
 
@@ -324,18 +403,14 @@ class AdminActivity : AppCompatActivity() {
     }
 
     private fun updateGeofenceStatus() {
-        val config = SecurePreferences.getGeofenceConfig(this)
-        if (config != null && config.enabled) {
+        val snapshot = SecurePreferences.getDevicePolicySnapshot(this)
+        if (snapshot != null && snapshot.geofenceRules.isNotEmpty()) {
             binding.geofenceStatusBadge.text = getString(R.string.geofencing_enabled)
             binding.geofenceStatusBadge.setBackgroundColor(android.graphics.Color.parseColor("#4CAF50"))
             
-            val zones = config.zones
-            val zonesText = if (zones.isNullOrEmpty()) {
-                "No zones configured"
-            } else {
-                zones.joinToString("\n") { zone ->
-                    "• ${zone.name}: ${zone.lat}, ${zone.lng} (r=${zone.radius}m)"
-                }
+            val zones = snapshot.geofenceRules
+            val zonesText = zones.joinToString("\n") { zone ->
+                "• ${zone.name}: ${zone.lat}, ${zone.lng} (r=${zone.radius_m}m)"
             }
             binding.geofenceZonesText.text = zonesText
             

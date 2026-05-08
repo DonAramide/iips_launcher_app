@@ -54,10 +54,7 @@ class GeofenceService : Service() {
         
         setupLocationUpdates()
         
-        // Initial config sync
-        serviceScope.launch {
-            GeofenceManager.syncConfig(this@GeofenceService)
-        }
+
     }
 
     private fun setupLocationUpdates() {
@@ -87,6 +84,10 @@ class GeofenceService : Service() {
 
     private fun processLocation(location: Location) {
         serviceScope.launch {
+            if (SecurePreferences.getDeviceState(this@GeofenceService) != SecurePreferences.STATE_ACTIVE) {
+                return@launch
+            }
+            
             val isSpoofed = GeofenceManager.isLocationSpoofed(this@GeofenceService, location)
             val shouldLock = GeofenceManager.shouldLockDevice(this@GeofenceService, location)
             
@@ -136,7 +137,7 @@ class GeofenceService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("IIPS Security Active")
+            .setContentTitle("Dotoid Security Active")
             .setContentText("Monitoring device location")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentIntent(pendingIntent)

@@ -57,9 +57,34 @@ class LauncherActivity : AppCompatActivity() {
     private var lastLaunchTime: Long = 0
     private val LOCK_TASK_DISABLE_DURATION = 3000L // Keep lock task disabled for 3 seconds after launching app
 
+    private var debugWipeReceiver: BroadcastReceiver? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
+        
+        val state = SecurePreferences.getDeviceState(this)
+        when (state) {
+            SecurePreferences.STATE_NEW, SecurePreferences.STATE_ONBOARDING -> {
+                // Enterprise QR provisioning path: Device Owner + stored token but not yet enrolled.
+                // Route to the automated status screen instead of manual onboarding.
+                val isDeviceOwner = com.iips.launcher.device.DeviceAdminReceiver.isDeviceOwner(this)
+                val hasToken = SecurePreferences.getEnrollmentToken(this) != null
+                if (isDeviceOwner && hasToken && !SecurePreferences.isProvisioningCompleted(this)) {
+                    startActivity(Intent(this, ProvisioningStatusActivity::class.java))
+                } else {
+                    startActivity(Intent(this, OnboardingActivity::class.java))
+                }
+                finish()
+                return
+            }
+            SecurePreferences.STATE_REGISTERED, SecurePreferences.STATE_PENDING_APPROVAL -> {
+                startActivity(Intent(this, PendingActivity::class.java))
+                finish()
+                return
+            }
+        }
+
         binding = ActivityLauncherBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -70,7 +95,7 @@ class LauncherActivity : AppCompatActivity() {
         
         // Sync configuration from server
         lifecycleScope.launch {
-            ConfigManager.sync(this@LauncherActivity)
+            com.iips.launcher.config.MDMManager.forcePolicySync(this@LauncherActivity)
         }
         
         setupDeviceControls()
@@ -92,6 +117,76 @@ class LauncherActivity : AppCompatActivity() {
         
         setupGeofenceOverlay()
         setupQuickSettings()
+        setupHiddenGesture()
+        setupDebugWipeReceiver()
+    }
+
+    private fun setupDebugWipeReceiver() {
+        debugWipeReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == "com.dotoid.DEBUG_WIPE") {
+                    android.util.Log.w("LauncherActivity", "DEBUG WIPE TRIGGERED VIA ADB")
+                    Toast.makeText(this@LauncherActivity, "Debug Wipe Triggered", Toast.LENGTH_SHORT).show()
+                    performSystemReset()
+                }
+            }
+        }
+        val filter = IntentFilter("com.dotoid.DEBUG_WIPE")
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(debugWipeReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(debugWipeReceiver, filter)
+        }
+    }
+
+    private fun performSystemReset() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                // 1. Cancel all WorkManager tasks
+                androidx.work.WorkManager.getInstance(this@LauncherActivity).cancelAllWork()
+                
+                // 2. Clear Database
+                database.clearAllTables()
+                
+                // 3. Clear Preferences
+                SecurePreferences.clearAll(this@LauncherActivity)
+                
+                // 4. Disable Lockdown and Immersive mode
+                withContext(Dispatchers.Main) {
+                    com.iips.launcher.utils.DeviceController.stopLockTask(this@LauncherActivity)
+                    com.iips.launcher.utils.DeviceController.disableImmersiveMode(this@LauncherActivity)
+                    
+                    Toast.makeText(this@LauncherActivity, "System Reset Successful. Restarting...", Toast.LENGTH_LONG).show()
+                    
+                    // 5. Restart Application to Onboarding
+                    val intent = Intent(this@LauncherActivity, OnboardingActivity::class.java)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    startActivity(intent)
+                    finish()
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    android.util.Log.e("LauncherActivity", "System Reset Failed", e)
+                }
+            }
+        }
+    }
+
+    private var tapCount = 0
+    private var lastTapTime = 0L
+    private fun setupHiddenGesture() {
+        binding.root.setOnClickListener {
+            val currentTime = System.currentTimeMillis()
+            if (currentTime - lastTapTime > 500) { // Reset if more than 500ms between taps
+                tapCount = 0
+            }
+            lastTapTime = currentTime
+            tapCount++
+            if (tapCount >= 5) {
+                tapCount = 0
+                showAdminPasswordDialog()
+            }
+        }
     }
 
     private fun initializeMdm() {
@@ -99,8 +194,20 @@ class LauncherActivity : AppCompatActivity() {
             MDMManager.registerIfNeeded(this@LauncherActivity)
             if (SecurePreferences.isRegistered(this@LauncherActivity)) {
                 MDMManager.startHeartbeat(this@LauncherActivity)
+                MDMManager.startPolicySync(this@LauncherActivity)
+                MDMManager.forcePolicySync(this@LauncherActivity)
                 com.iips.launcher.device.GeofenceService.start(this@LauncherActivity)
+                startMdmService()
             }
+        }
+    }
+
+    private fun startMdmService() {
+        val intent = Intent(this, com.iips.launcher.mdm.MdmSocketService::class.java)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
         }
     }
 
@@ -126,6 +233,26 @@ class LauncherActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        
+        val state = SecurePreferences.getDeviceState(this)
+        when (state) {
+            SecurePreferences.STATE_NEW, SecurePreferences.STATE_ONBOARDING -> {
+                val isDeviceOwner = com.iips.launcher.device.DeviceAdminReceiver.isDeviceOwner(this)
+                val hasToken = SecurePreferences.getEnrollmentToken(this) != null
+                if (isDeviceOwner && hasToken && !SecurePreferences.isProvisioningCompleted(this)) {
+                    startActivity(Intent(this, ProvisioningStatusActivity::class.java))
+                } else {
+                    startActivity(Intent(this, OnboardingActivity::class.java))
+                }
+                finish()
+                return
+            }
+            SecurePreferences.STATE_REGISTERED, SecurePreferences.STATE_PENDING_APPROVAL -> {
+                startActivity(Intent(this, PendingActivity::class.java))
+                finish()
+                return
+            }
+        }
         
         // Check what activity is currently showing
         val topActivityName = try {
@@ -199,18 +326,17 @@ class LauncherActivity : AppCompatActivity() {
             DeviceController.blockSystemUI(this)
         }
         
-        // Force lock task if Device Owner - BUT don't enable if AdminActivity, AppSelectionActivity, allowed app is visible, OR we recently launched an allowed app
+        // Force lock task if Device Owner AND Kiosk is enabled - BUT don't enable if AdminActivity, AppSelectionActivity, allowed app is visible, OR we recently launched an allowed app
         if (DeviceAdminReceiver.isDeviceOwner(this) && 
             !isAdminActivityVisible && 
             !isAppSelectionActivityVisible && 
             !isAllowedAppVisible &&
             !recentlyLaunchedAllowedApp) {
-            DeviceController.startLockTask(this)
-            SecurePreferences.setLockdownEnabled(this, true)
+            com.iips.launcher.mdm.KioskController.resumeLockTask(this)
         } else if (isAllowedAppVisible || recentlyLaunchedAllowedApp) {
             // Ensure lock task is stopped when allowed app is visible or recently launched
             try {
-                DeviceController.stopLockTask(this)
+                com.iips.launcher.mdm.KioskController.pauseLockTask(this)
                 android.util.Log.d("LauncherActivity", "Stopped lock task because allowed app is visible or recently launched")
             } catch (e: Exception) {
                 android.util.Log.w("LauncherActivity", "Could not stop lock task: ${e.message}")
@@ -346,7 +472,7 @@ class LauncherActivity : AppCompatActivity() {
                 
                 if (!isFinishing && !isDestroyed && stillCanReenableLockTask) {
                     try {
-                        DeviceController.startLockTask(this)
+                        com.iips.launcher.mdm.KioskController.resumeLockTask(this)
                         android.util.Log.d("LauncherActivity", "Re-enabled lock task in onPause")
                     } catch (e: Exception) {
                         // Ignore if already in lock task
@@ -366,6 +492,7 @@ class LauncherActivity : AppCompatActivity() {
         batteryReceiver?.let { unregisterReceiver(it) }
         settingsReceiver?.let { unregisterReceiver(it) }
         geofenceReceiver?.let { unregisterReceiver(it) }
+        debugWipeReceiver?.let { unregisterReceiver(it) }
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -399,7 +526,7 @@ class LauncherActivity : AppCompatActivity() {
             
             // Only enforce lock task if Device Owner AND AdminActivity is NOT visible
             if (DeviceAdminReceiver.isDeviceOwner(this) && !isAdminActivityVisible) {
-                DeviceController.startLockTask(this)
+                com.iips.launcher.mdm.KioskController.resumeLockTask(this)
             }
         }
     }
@@ -493,7 +620,7 @@ class LauncherActivity : AppCompatActivity() {
                 
                 if (!isFinishing && !isDestroyed && stillNotAdminOrAllowed) {
                     try {
-                        DeviceController.startLockTask(this)
+                        com.iips.launcher.mdm.KioskController.resumeLockTask(this)
                         // Also ensure we're the active activity
                         val intent = Intent(this, LauncherActivity::class.java)
                         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or 
@@ -648,7 +775,7 @@ class LauncherActivity : AppCompatActivity() {
             
             // If locked by geofence, ensure lock task is on
             if (DeviceAdminReceiver.isDeviceOwner(this)) {
-                DeviceController.startLockTask(this)
+                com.iips.launcher.mdm.KioskController.resumeLockTask(this)
             }
         } else {
             binding.geofenceLockOverlay.visibility = View.GONE
@@ -675,7 +802,7 @@ class LauncherActivity : AppCompatActivity() {
             val devicePolicyManager = getSystemService(Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
             val componentName = DeviceAdminReceiver.getComponentName(this)
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                devicePolicyManager.setOrganizationName(componentName, "www.iips.app")
+                devicePolicyManager.setOrganizationName(componentName, "www.dotoid.com")
             }
         } catch (e: Exception) {
             android.util.Log.w("LauncherActivity", "Could not set organization name: ${e.message}")
@@ -683,46 +810,24 @@ class LauncherActivity : AppCompatActivity() {
 
         binding.statusText.visibility = View.GONE
         
-        // Only enable security features if Device Owner and admin is active
-        // Wrap in try-catch to prevent any crashes
-        try {
-            DeviceController.enableLockTaskMode(this)
-        } catch (e: Exception) {
-            // If this fails, show message but don't crash
-            android.util.Log.e("LauncherActivity", "Failed to enable lock task mode: ${e.message}")
-            binding.statusText.visibility = View.VISIBLE
-            binding.statusText.text = "Security features not available"
-        }
-
-        // Enable comprehensive security by default - blocks Settings, prevents uninstallation
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-            DeviceController.enableComprehensiveSecurity(this)
-        }
-        
-        // Prevent force stop
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-            DeviceController.preventForceStop(this)
-        }
-
         // Always enable factory reset protection
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP_MR1) {
             DeviceController.enableFactoryResetProtection(this)
             SecurePreferences.setFactoryResetProtectionEnabled(this, true)
         }
 
+        // Apply dynamic kiosk policy
+        com.iips.launcher.mdm.KioskController.applyPolicy(this)
+
         // Always enable immersive mode to prevent swipe-down
         DeviceController.enableImmersiveMode(this)
         SecurePreferences.setImmersiveModeEnabled(this, true)
-
-        // Enable lockdown by default
-        DeviceController.startLockTask(this)
-        SecurePreferences.setLockdownEnabled(this, true)
     }
 
     private fun loadApps() {
         lifecycleScope.launch {
             val allowedApps = withContext(Dispatchers.IO) {
-                database.allowedAppDao().getAll()
+                database.appPolicyDao().getAllPolicies()
             }
 
             if (allowedApps.isEmpty()) {
@@ -741,8 +846,11 @@ class LauncherActivity : AppCompatActivity() {
 
                 val resolvedApps = packageManager.queryIntentActivities(intent, 0)
                 
-                // Create a set of allowed package names for faster lookup (case-insensitive)
-                val allowedPackageNames = allowedApps.map { it.packageName.trim().lowercase() }.toSet()
+                // Filter rule: Only display apps where mode == "REQUIRED" OR (mode == "ALLOWED" && pinned == true)
+                val allowedPackageNames = allowedApps
+                    .filter { it.mode.uppercase() == "REQUIRED" || (it.mode.uppercase() == "ALLOWED" && it.pinned) }
+                    .map { it.packageName.trim().lowercase() }
+                    .toSet()
                 
                 allApps = resolvedApps.mapNotNull { resolveInfo ->
                     val packageName = resolveInfo.activityInfo.packageName.trim().lowercase()
@@ -849,6 +957,7 @@ class LauncherActivity : AppCompatActivity() {
                     }
                     
                     // Launch AdminActivity with proper flags to ensure it opens
+                    com.iips.launcher.config.MDMManager.forcePolicySync(this)
                     val intent = Intent(this, AdminActivity::class.java).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -921,19 +1030,10 @@ class LauncherActivity : AppCompatActivity() {
             binding.qsWifiIcon.setImageResource(android.R.drawable.ic_menu_mylocation)
         }
         
-        // SIM Info
-        val simInfo = com.iips.launcher.utils.HardwareProvider.getSimInfo(this)
-        val simStatus = if (simInfo.isPresent) simInfo.carrier ?: "SIM Present" else "No SIM"
-        binding.simText.text = simStatus
-        binding.qsSimStatus.text = "SIM: $simStatus"
-        
-        if (simInfo.isPresent) {
-            binding.qsSimIcon.setImageResource(android.R.drawable.ic_menu_call)
-            binding.simText.visibility = View.VISIBLE
-        } else {
-            binding.qsSimIcon.setImageResource(android.R.drawable.ic_delete)
-            binding.simText.visibility = View.GONE
-        }
+        // SIM Status (Deprecated in heartbeat, showing static label or hiding)
+        binding.simText.visibility = View.GONE
+        binding.qsSimStatus.text = "Cellular: Ready"
+        binding.qsSimIcon.setImageResource(android.R.drawable.ic_menu_call)
     }
     
     private fun updateBatteryStatus() {

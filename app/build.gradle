@@ -19,9 +19,13 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField "String", "BASE_URL", "\"https://bertie-archegoniate-causelessly.ngrok-free.dev/api/v1/\""
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            buildConfigField "String", "BASE_URL", "\"https://api-quasar.iips.app/api/v1/\""
         }
     }
     
@@ -36,6 +40,7 @@ android {
     
     buildFeatures {
         viewBinding true
+        buildConfig true
     }
 }
 

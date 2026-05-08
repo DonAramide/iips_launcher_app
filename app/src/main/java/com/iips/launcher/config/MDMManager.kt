@@ -21,14 +21,15 @@ import java.util.concurrent.TimeUnit
  */
 object MDMManager {
     private const val TAG = "MDMManager"
-    private const val BASE_URL = "https://api-quasar.iips.app/api/v1/"
+    private val BASE_URL = com.iips.launcher.BuildConfig.BASE_URL
 
     private val logging = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
+        level = HttpLoggingInterceptor.Level.HEADERS
     }
 
     private val client = OkHttpClient.Builder()
         .addInterceptor(logging)
+        .addInterceptor(MdmErrorInterceptor())
         .build()
 
     private val retrofit = Retrofit.Builder()
@@ -40,34 +41,51 @@ object MDMManager {
     private val service = retrofit.create(ConfigService::class.java)
 
     /**
-     * Register the device with the MDM server if not already registered.
+     * Register the device with the Quasar server (§3.1).
      */
-    suspend fun registerIfNeeded(context: Context) = withContext(Dispatchers.IO) {
+    suspend fun registerIfNeeded(context: Context, enrollmentToken: String? = null) = withContext(Dispatchers.IO) {
         if (SecurePreferences.isRegistered(context)) {
             Log.d(TAG, "Device already registered")
             return@withContext
         }
 
+        // Use provided token or fallback to stored one
+        val tokenToUse = enrollmentToken ?: SecurePreferences.getEnrollmentToken(context)
+        if (tokenToUse == null) {
+            Log.e(TAG, "Registration failed: No enrollment token available.")
+            return@withContext
+        }
+
         try {
+            val manufacturer = android.os.Build.MANUFACTURER
+            val model = android.os.Build.MODEL
+            val serial = getSerialNumber()
+            val fingerprintHash = com.iips.launcher.utils.SecurityUtils.calculateFingerprintHash(context)
+
             val request = RegistrationRequest(
-                serialNumber = getSerialNumber(),
-                deviceModel = Build.MODEL,
-                manufacturer = Build.MANUFACTURER,
-                androidVersion = Build.VERSION.RELEASE,
-                appVersion = "1.0.1" // Match version from build.gradle
+                enrollment_token = tokenToUse,
+                manufacturer = manufacturer,
+                model = model,
+                serial_number = serial,
+                fingerprint_hash = fingerprintHash
             )
 
-            Log.d(TAG, "Registering device: $request")
+            Log.d(TAG, "Registering device via Quasar: $request")
             val response = service.registerDevice(request)
 
             if (response.isSuccessful) {
                 response.body()?.let { reg ->
-                    SecurePreferences.setDeviceId(context, reg.deviceId)
-                    SecurePreferences.setDeviceToken(context, reg.deviceToken)
-                    Log.d(TAG, "Registration successful: ${reg.deviceId}")
+                    SecurePreferences.setDeviceId(context, reg.device.id)
+                    SecurePreferences.setDeviceToken(context, reg.access_token)
+                    SecurePreferences.setTokenExpiresAt(context, (System.currentTimeMillis() / 1000) + reg.expires_in)
+                    SecurePreferences.setFingerprintHash(context, fingerprintHash)
+                    SecurePreferences.setEnrollmentToken(context, tokenToUse)
                     
-                    // Start heartbeats immediately after successful registration
+                    Log.d(TAG, "Registration successful. Device ID: ${reg.device.id}")
+                    
+                    // Start telemetry and policy sync
                     startHeartbeat(context)
+                    startPolicySync(context)
                 }
             } else {
                 Log.e(TAG, "Registration failed: ${response.code()} ${response.errorBody()?.string()}")
@@ -96,6 +114,28 @@ object MDMManager {
         Log.d(TAG, "Heartbeat scheduled (60m interval)")
     }
 
+    fun startPolicySync(context: Context) {
+        if (!SecurePreferences.isRegistered(context)) {
+            Log.w(TAG, "Cannot start policy sync: Device not registered")
+            return
+        }
+
+        // Run every 15 minutes as minimum periodic interval for WorkManager, 
+        // though spec says 60-120 seconds. WorkManager minimum is 15 minutes.
+        // For sub-15 min, we would need a Foreground Service or Handler.
+        // Given we have MdmSocketService, we can also trigger it there, but here we schedule the fallback.
+        val workRequest = PeriodicWorkRequestBuilder<com.iips.launcher.workers.PolicySyncWorker>(
+            15, TimeUnit.MINUTES
+        ).build()
+
+        AndroidWorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            "mdm_policy_sync",
+            ExistingPeriodicWorkPolicy.KEEP,
+            workRequest
+        )
+        Log.d(TAG, "Policy Sync scheduled (15m interval)")
+    }
+
     /**
      * Force an immediate telemetry sync.
      */
@@ -103,6 +143,15 @@ object MDMManager {
         val workRequest = androidx.work.OneTimeWorkRequestBuilder<TelemetryWorker>().build()
         AndroidWorkManager.getInstance(context).enqueue(workRequest)
         Log.d(TAG, "Manual heartbeat triggered")
+    }
+
+    /**
+     * Force an immediate policy sync.
+     */
+    fun forcePolicySync(context: Context) {
+        val workRequest = androidx.work.OneTimeWorkRequestBuilder<com.iips.launcher.workers.PolicySyncWorker>().build()
+        AndroidWorkManager.getInstance(context).enqueue(workRequest)
+        Log.d(TAG, "Manual policy sync triggered")
     }
 
     /**
@@ -140,4 +189,5 @@ object MDMManager {
             "UNKNOWN_${Build.ID}"
         }
     }
+
 }

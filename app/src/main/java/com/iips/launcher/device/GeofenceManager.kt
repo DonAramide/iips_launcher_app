@@ -21,7 +21,7 @@ import kotlin.math.*
  */
 object GeofenceManager {
     private const val TAG = "GeofenceManager"
-    private const val BASE_URL = "https://api-quasar.iips.app/api/v1/"
+    private val BASE_URL = com.iips.launcher.BuildConfig.BASE_URL
     private const val TOLERANCE_BUFFER = 1.2f
 
     private val logging = HttpLoggingInterceptor().apply {
@@ -30,6 +30,7 @@ object GeofenceManager {
 
     private val client = OkHttpClient.Builder()
         .addInterceptor(logging)
+        .addInterceptor(MdmErrorInterceptor())
         .build()
 
     private val retrofit = Retrofit.Builder()
@@ -41,57 +42,16 @@ object GeofenceManager {
     private val service = retrofit.create(ConfigService::class.java)
 
     /**
-     * Fetch and cache geofence configuration from the server.
-     */
-    suspend fun syncConfig(context: Context) = withContext(Dispatchers.IO) {
-        val deviceId = SecurePreferences.getDeviceId(context) ?: return@withContext
-        
-        try {
-            Log.d(TAG, "Fetching geofence config for device: $deviceId")
-            val response = service.fetchGeofenceConfig(deviceId)
-            
-            if (response.isSuccessful) {
-                response.body()?.let { config ->
-                    SecurePreferences.setGeofenceConfig(context, config)
-                    Log.d(TAG, "Geofence config sync successful: Enabled=${config.enabled}")
-                    
-                    // Logic to transition modes
-                    val hasApprovedZones = config.zones?.any { it.status == "approved" } == true
-                    if (hasApprovedZones) {
-                        Log.d(TAG, "Approved zones detected. Switching to ENFORCEMENT mode.")
-                        SecurePreferences.setGeofenceMode(context, "enforcement")
-                    } else {
-                        Log.d(TAG, "No approved zones. Staying in ENROLLMENT mode.")
-                        SecurePreferences.setGeofenceMode(context, "enrollment")
-                    }
-                }
-            } else {
-                Log.e(TAG, "Failed to fetch geofence config: ${response.code()}")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error syncing geofence config", e)
-        }
-    }
-
-    /**
-     * Evaluate the current location against geofence zones.
+     * Evaluate the current location against geofence zones in the unified policy.
      * Returns true if the device should be LOCKED (outside all zones).
      */
     fun shouldLockDevice(context: Context, location: Location): Boolean {
-        // ENROLLMENT mode does not strictly enforce locking
-        val mode = SecurePreferences.getGeofenceMode(context)
-        if (mode == "enrollment") {
-            Log.d(TAG, "Device in ENROLLMENT mode. Skipping strict enforcement.")
-            return false
-        }
-
-        val config = SecurePreferences.getGeofenceConfig(context) ?: return false
-        if (!config.enabled) return false
-
-        // ONLY enforce "approved" zones
-        val zones = config.zones?.filter { it.status == "approved" } ?: return false
+        val snapshot = SecurePreferences.getDevicePolicySnapshot(context) ?: return false
+        
+        // ONLY enforce "approved" zones (or all rules in new spec)
+        val zones = snapshot.geofenceRules
         if (zones.isEmpty()) {
-            Log.d(TAG, "No approved zones found in ENFORCEMENT mode. Skipping lock.")
+            Log.d(TAG, "No geofence rules found in snapshot. Skipping lock.")
             return false
         }
 
@@ -102,7 +62,7 @@ object GeofenceManager {
                 zone.lat, zone.lng
             )
             
-            val effectiveRadius = zone.radius * TOLERANCE_BUFFER
+            val effectiveRadius = zone.radius_m * TOLERANCE_BUFFER
             
             Log.d(TAG, "Zone ${zone.name}: Distance=$distance, Radius=$effectiveRadius")
             
@@ -135,36 +95,33 @@ object GeofenceManager {
     }
 
     /**
-     * Report current status to the backend.
+     * Report current status to the backend via the event endpoint.
      */
     suspend fun reportStatus(context: Context, location: Location, isInside: Boolean) = withContext(Dispatchers.IO) {
-        val deviceId = SecurePreferences.getDeviceId(context) ?: return@withContext
+        val token = SecurePreferences.getDeviceToken(context) ?: return@withContext
         
-        val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
-        }
+        val payload = mapOf(
+            "latitude" to location.latitude,
+            "longitude" to location.longitude,
+            "accuracy" to location.accuracy,
+            "event" to (if (isInside) "GEOFENCE_INSIDE" else "GEOFENCE_OUTSIDE")
+        )
 
-        val request = GeofenceStatusRequest(
-            deviceId = deviceId,
-            lat = location.latitude,
-            lng = location.longitude,
-            insideZone = isInside,
-            mode = SecurePreferences.getGeofenceMode(context),
-            battery = HardwareProvider.getBatteryInfo(context).level,
-            mockDetected = location.isFromMockProvider,
-            timestamp = isoFormat.format(Date())
+        val request = com.iips.launcher.config.MdmEventRequest(
+            type = "GEOFENCE_STATUS",
+            payload = payload
         )
 
         try {
-            Log.d(TAG, "Reporting geofence status: $request")
-            val response = service.sendGeofenceStatus(request)
+            Log.d(TAG, "Reporting geofence status event: $request")
+            val response = service.sendEvent("Bearer $token", request)
             if (response.isSuccessful) {
-                Log.d(TAG, "Status reported successfully")
+                Log.d(TAG, "Geofence status reported successfully")
             } else {
-                Log.e(TAG, "Failed to report status: ${response.code()}")
+                Log.e(TAG, "Failed to report geofence status: ${response.code()}")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error reporting status", e)
+            Log.e(TAG, "Error reporting geofence status", e)
         }
     }
     
@@ -218,23 +175,4 @@ object GeofenceManager {
         ) != 0
     }
 
-    /**
-     * Submit geofence proposals to the backend.
-     */
-    suspend fun submitProposal(context: Context, zones: List<GeofenceZone>) = withContext(Dispatchers.IO) {
-        val deviceId = SecurePreferences.getDeviceId(context) ?: return@withContext
-        val request = GeofenceProposalRequest(deviceId, zones)
-        
-        try {
-            val response = service.submitGeofenceProposal(request)
-            if (response.isSuccessful) {
-                Log.d(TAG, "Geofence proposal submitted successfully")
-                SecurePreferences.setProposedZones(context, zones)
-            } else {
-                Log.e(TAG, "Failed to submit geofence proposal: ${response.code()}")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error submitting geofence proposal", e)
-        }
-    }
 }

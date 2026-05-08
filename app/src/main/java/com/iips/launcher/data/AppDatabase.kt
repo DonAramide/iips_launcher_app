@@ -6,13 +6,14 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [AllowedApp::class, AppUsageLog::class],
-    version = 1,
+    entities = [AllowedApp::class, AppUsageLog::class, AppPolicy::class],
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun allowedAppDao(): AllowedAppDao
     abstract fun appUsageLogDao(): AppUsageLogDao
+    abstract fun appPolicyDao(): AppPolicyDao
 
     companion object {
         @Volatile
@@ -24,7 +25,9 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "launcher_database"
-                ).build()
+                )
+                .fallbackToDestructiveMigration()
+                .build()
                 INSTANCE = instance
                 instance
             }

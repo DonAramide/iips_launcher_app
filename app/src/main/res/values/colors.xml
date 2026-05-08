@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- IIPS Branding Colors -->
+    <!-- Dotoid Branding Colors -->
     <color name="purple_200">#FFBB86FC</color>
     <color name="purple_500">#FF6200EE</color>
     <color name="purple_700">#FF3700B3</color>
@@ -9,7 +9,7 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     
-    <!-- Modern IIPS Brand Colors - Professional & Elegant -->
+    <!-- Modern Dotoid Brand Colors - Professional & Elegant -->
     <color name="primary">#1E3A8A</color>
     <color name="primary_dark">#1E40AF</color>
     <color name="primary_light">#3B82F6</color>
@@ -35,7 +35,7 @@
     <color name="card_elevation">#F1F5F9</color>
     
     <!-- Launcher Icon Background - Transparent -->
-    <color name="ic_launcher_background">#00000000</color>
+    <color name="ic_launcher_background">#FFFFFF</color>
 </resources>
 
 

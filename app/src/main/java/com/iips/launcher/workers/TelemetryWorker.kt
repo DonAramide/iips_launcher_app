@@ -1,6 +1,7 @@
 package com.iips.launcher.workers
 
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -26,7 +27,7 @@ class TelemetryWorker(context: Context, workerParams: WorkerParameters) :
 
     companion object {
         private const val TAG = "TelemetryWorker"
-        private const val BASE_URL = "https://api-quasar.iips.app/api/v1/"
+        private val BASE_URL = com.iips.launcher.BuildConfig.BASE_URL
     }
 
     // Manual instantiation of Retrofit for the worker context
@@ -36,6 +37,7 @@ class TelemetryWorker(context: Context, workerParams: WorkerParameters) :
 
     private val client = OkHttpClient.Builder()
         .addInterceptor(logging)
+        .addInterceptor(com.iips.launcher.config.MdmErrorInterceptor())
         .build()
 
     private val retrofit = Retrofit.Builder()
@@ -58,7 +60,7 @@ class TelemetryWorker(context: Context, workerParams: WorkerParameters) :
         val token = SecurePreferences.getDeviceToken(context) ?: return Result.failure()
 
         try {
-            val heartbeat = collectTelemetry(context, deviceId)
+            val heartbeat = collectTelemetry(context)
             Log.d(TAG, "Sending heartbeat: $heartbeat")
             
             val response = service.sendHeartbeat("Bearer $token", heartbeat)
@@ -76,22 +78,17 @@ class TelemetryWorker(context: Context, workerParams: WorkerParameters) :
         }
     }
 
-    private suspend fun collectTelemetry(context: Context, deviceId: String): HeartbeatRequest {
+    private suspend fun collectTelemetry(context: Context): HeartbeatRequest {
         val locationInfo = fetchCurrentLocation(context)
-        val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
-        }
+        val batteryInfo = HardwareProvider.getBatteryInfo(context)
+        val networkInfo = HardwareProvider.getNetworkInfo(context)
 
         return HeartbeatRequest(
-            deviceId = deviceId,
-            timestamp = isoFormat.format(Date()),
-            location = locationInfo,
-            battery = HardwareProvider.getBatteryInfo(context),
-            uptimeSeconds = android.os.SystemClock.elapsedRealtime() / 1000,
-            network = HardwareProvider.getNetworkInfo(context),
-            sim = HardwareProvider.getSimInfo(context),
-            deviceState = HardwareProvider.getDeviceStateInfo(context),
-            printer = HardwareProvider.getPrinterInfo(context)
+            battery_level = batteryInfo.level,
+            is_charging = batteryInfo.charging,
+            network_status = if (networkInfo.isConnected) networkInfo.type else "offline",
+            uptime = android.os.SystemClock.elapsedRealtime() / 1000,
+            location = if (locationInfo.lat != 0.0) locationInfo else null
         )
     }
 
@@ -102,30 +99,28 @@ class TelemetryWorker(context: Context, workerParams: WorkerParameters) :
         return try {
             val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
             // Note: This requires location permissions to be granted.
-            // Using getCurrentLocation for a fresh fix.
             val location = fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null).await()
             
             if (location != null) {
                 LocationInfo(
                     lat = location.latitude,
-                    lng = location.longitude,
-                    accuracy = location.accuracy
+                    lng = location.longitude
                 )
             } else {
-                // Fallback to last known or default
+                // Fallback to last known
                 val lastKnown = fusedLocationClient.lastLocation.await()
                 if (lastKnown != null) {
-                    LocationInfo(lastKnown.latitude, lastKnown.longitude, lastKnown.accuracy)
+                    LocationInfo(lastKnown.latitude, lastKnown.longitude)
                 } else {
-                    LocationInfo(0.0, 0.0, 0f) // Default if no location available
+                    LocationInfo(0.0, 0.0)
                 }
             }
         } catch (e: SecurityException) {
             Log.w(TAG, "Location permission missing: ${e.message}")
-            LocationInfo(0.0, 0.0, 0f)
+            LocationInfo(0.0, 0.0)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to fetch location", e)
-            LocationInfo(0.0, 0.0, 0f)
+            LocationInfo(0.0, 0.0)
         }
     }
 }

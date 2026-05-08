@@ -14,18 +14,22 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.gms.location.*
-import com.iips.launcher.config.GeofenceZone
+import com.iips.launcher.config.GeofenceRule
 import com.iips.launcher.databinding.ActivityGeofenceEnrollmentBinding
 import com.iips.launcher.databinding.ItemProposedZoneBinding
 import com.iips.launcher.device.GeofenceManager
 import com.iips.launcher.utils.SecurePreferences
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 class GeofenceEnrollmentActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityGeofenceEnrollmentBinding
     private lateinit var fusedLocationClient: FusedLocationProviderClient
-    private val proposedZones = mutableListOf<GeofenceZone>()
+    private val proposedZones = mutableListOf<GeofenceRule>()
     private lateinit var zoneAdapter: ProposedZoneAdapter
     private var currentLocation: Location? = null
 
@@ -115,12 +119,12 @@ class GeofenceEnrollmentActivity : AppCompatActivity() {
             return
         }
 
-        val newZone = GeofenceZone(
+        val newZone = GeofenceRule(
+            id = "proposed-${System.currentTimeMillis()}",
             name = name,
             lat = loc.latitude,
             lng = loc.longitude,
-            radius = radius,
-            status = "pending"
+            radius_m = radius.toDouble()
         )
 
         proposedZones.add(newZone)
@@ -150,10 +154,32 @@ class GeofenceEnrollmentActivity : AppCompatActivity() {
                 
                 android.util.Log.d("GeofenceEnrollment", "Submitting proposal with ${proposedZones.size} zones")
                 
-                GeofenceManager.submitProposal(this@GeofenceEnrollmentActivity, proposedZones)
-                
-                Toast.makeText(this@GeofenceEnrollmentActivity, "Proposal submitted for admin approval", Toast.LENGTH_LONG).show()
-                finish()
+                val token = SecurePreferences.getDeviceToken(this@GeofenceEnrollmentActivity)
+                if (token != null) {
+                    val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY }
+                    val client = OkHttpClient.Builder().addInterceptor(logging).build()
+                    val retrofit = Retrofit.Builder()
+                        .baseUrl(com.iips.launcher.BuildConfig.BASE_URL)
+                        .addConverterFactory(GsonConverterFactory.create())
+                        .client(client)
+                        .build()
+                    val service = retrofit.create(com.iips.launcher.config.ConfigService::class.java)
+                    
+                    val payload = mapOf("zones" to proposedZones)
+                    val request = com.iips.launcher.config.MdmEventRequest(
+                        type = "GEOFENCE_PROPOSAL",
+                        payload = payload
+                    )
+                    
+                    val response = service.sendEvent("Bearer $token", request)
+                    if (response.isSuccessful) {
+                        SecurePreferences.setProposedZones(this@GeofenceEnrollmentActivity, proposedZones)
+                        Toast.makeText(this@GeofenceEnrollmentActivity, "Proposal submitted for admin approval", Toast.LENGTH_LONG).show()
+                        finish()
+                    } else {
+                        throw Exception("Server error: ${response.code()}")
+                    }
+                }
             } catch (e: Exception) {
                 android.util.Log.e("GeofenceEnrollment", "Error submitting proposal", e)
                 Toast.makeText(this@GeofenceEnrollmentActivity, "Failed to submit: ${e.message}", Toast.LENGTH_LONG).show()
@@ -164,7 +190,7 @@ class GeofenceEnrollmentActivity : AppCompatActivity() {
     }
 
     inner class ProposedZoneAdapter(
-        private val zones: List<GeofenceZone>,
+        private val zones: List<GeofenceRule>,
         private val onDelete: (Int) -> Unit
     ) : RecyclerView.Adapter<ProposedZoneAdapter.ViewHolder>() {
 
@@ -178,7 +204,7 @@ class GeofenceEnrollmentActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val zone = zones[position]
             holder.binding.zoneName.text = zone.name
-            holder.binding.zoneDetails.text = "Lat: ${String.format("%.4f", zone.lat)}, Lng: ${String.format("%.4f", zone.lng)} (${zone.radius.toInt()}m)"
+            holder.binding.zoneDetails.text = "Lat: ${String.format("%.4f", zone.lat)}, Lng: ${String.format("%.4f", zone.lng)} (${zone.radius_m.toInt()}m)"
             holder.binding.btnDelete.setOnClickListener { onDelete(position) }
         }
 

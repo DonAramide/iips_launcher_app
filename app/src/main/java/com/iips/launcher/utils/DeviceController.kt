@@ -175,17 +175,24 @@ object DeviceController {
         }
     }
 
-    fun setHomeLauncher(context: Context, packageName: String) {
-        val devicePolicyManager =
-            context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+    fun setDefaultLauncher(context: Context) {
+        if (!DeviceAdminReceiver.isDeviceOwner(context)) return
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (DeviceAdminReceiver.isDeviceOwner(context)) {
-                devicePolicyManager.clearPackagePersistentPreferredActivities(
-                    DeviceAdminReceiver.getComponentName(context),
-                    packageName
-                )
-            }
+        val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        val admin = DeviceAdminReceiver.getComponentName(context)
+
+        val filter = android.content.IntentFilter(android.content.Intent.ACTION_MAIN).apply {
+            addCategory(android.content.Intent.CATEGORY_HOME)
+            addCategory(android.content.Intent.CATEGORY_DEFAULT)
+        }
+
+        val activityName = ComponentName(context, "com.iips.launcher.ui.LauncherActivity")
+        
+        try {
+            dpm.addPersistentPreferredActivity(admin, filter, activityName)
+            android.util.Log.i("DeviceController", "Default launcher set to ${activityName.flattenToShortString()}")
+        } catch (e: Exception) {
+            android.util.Log.e("DeviceController", "Failed to set default launcher: ${e.message}")
         }
     }
 

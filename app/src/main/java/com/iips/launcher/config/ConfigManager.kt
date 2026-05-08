@@ -25,86 +25,34 @@ object ConfigManager {
 
     private val client = OkHttpClient.Builder()
         .addInterceptor(logging)
+        .addInterceptor(MdmErrorInterceptor())
         .build()
 
     private val retrofit = Retrofit.Builder()
-        .baseUrl("https://placeholder.com/") // Base URL is required but overridden by @Url
+        .baseUrl(com.iips.launcher.BuildConfig.BASE_URL) // Used for standard endpoint calls
         .addConverterFactory(GsonConverterFactory.create())
         .client(client)
         .build()
 
     private val service = retrofit.create(ConfigService::class.java)
 
+
+
     /**
-     * Synchronize configuration with the server.
+     * Check device activation status from the server (§3.1 check).
      */
-    suspend fun sync(context: Context, customUrl: String? = null) = withContext(Dispatchers.IO) {
-        val url = customUrl ?: DEFAULT_CONFIG_URL
-        
+    suspend fun checkActivationStatus(context: Context, deviceId: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "Fetching config from: $url")
-            val response = service.fetchConfig(url)
-            
+            // Re-register or refresh to check status
+            val token = SecurePreferences.getDeviceToken(context) ?: return@withContext false
+            val response = service.fetchPolicy("Bearer $token")
             if (response.isSuccessful) {
-                response.body()?.let { config ->
-                    applyConfig(context, config)
-                    Log.d(TAG, "Config sync successful")
-                }
-            } else {
-                Log.e(TAG, "Config fetch failed: ${response.code()} ${response.message()}")
+                return@withContext true // If we can fetch policy, we are active
             }
+            false
         } catch (e: Exception) {
-            Log.e(TAG, "Error syncing config: ${e.message}", e)
+            Log.e(TAG, "Error checking activation status: ${e.message}")
+            false
         }
-    }
-
-    /**
-     * Apply the fetched configuration to the app settings and device policy.
-     */
-    private fun applyConfig(context: Context, config: ConfigResponse) {
-        // 1. Update Organization Name
-        config.organizationName?.let { name ->
-            SecurePreferences.setOrganizationName(context, name)
-            // Apply to Device Policy if possible
-            try {
-                val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
-                val admin = DeviceAdminReceiver.getComponentName(context)
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                    dpm.setOrganizationName(admin, name)
-                }
-                Unit
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to apply org name to DPM: ${e.message}")
-            }
-        }
-
-        // 2. Update Admin Password
-        config.adminPassword?.let { password ->
-            SecurePreferences.setAdminPassword(context, password)
-        }
-
-        // 3. Update Lockdown Mode
-        config.lockdownEnabled?.let { enabled ->
-            SecurePreferences.setLockdownEnabled(context, enabled)
-        }
-
-        config.allowedPackages?.let { packages ->
-            SecurePreferences.setAllowedApps(context, packages.toSet())
-        }
-        
-        // 5. Hardening: Re-apply security and persistence restrictions
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-            try {
-                DeviceController.enableComprehensiveSecurity(context)
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP_MR1) {
-                    DeviceController.enableFactoryResetProtection(context)
-                }
-                Log.d(TAG, "Security hardening re-applied during sync")
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to re-apply security hardening: ${e.message}")
-            }
-        }
-        
-        Log.d(TAG, "Applied remote configuration successfully")
     }
 }

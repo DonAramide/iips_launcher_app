@@ -313,6 +313,18 @@
                         android:textColor="@android:color/holo_red_dark"
                         style="@style/Widget.MaterialComponents.Button.TextButton" />
 
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/system_reset_button"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="System Reset"
+                        android:textColor="@android:color/holo_red_dark"
+                        app:backgroundTint="@android:color/white"
+                        app:strokeColor="@android:color/holo_red_dark"
+                        app:strokeWidth="1dp"
+                        android:layout_marginTop="8dp"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
                 </LinearLayout>
 
             </com.google.android.material.card.MaterialCardView>

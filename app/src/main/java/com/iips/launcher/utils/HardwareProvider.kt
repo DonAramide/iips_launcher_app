@@ -50,68 +50,11 @@ object HardwareProvider {
         
         return NetworkInfo(type = type, isConnected = isConnected)
     }
-
+    
     /**
-     * Collect SIM information.
+     * Returns system uptime in seconds.
      */
-    fun getSimInfo(context: Context): SimInfo {
-        val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-        val isPresent = tm.simState != TelephonyManager.SIM_STATE_ABSENT
-        val carrier = tm.networkOperatorName
-        
-        return SimInfo(
-            isPresent = isPresent,
-            carrier = if (isPresent) carrier else null
-        )
-    }
-
-    /**
-     * Collect Device State information.
-     */
-    fun getDeviceStateInfo(context: Context): DeviceStateInfo {
-        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-        val isScreenOn = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
-            pm.isInteractive
-        } else {
-            @Suppress("DEPRECATION")
-            pm.isScreenOn
-        }
-        
-        val km = context.getSystemService(Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
-        val isLocked = km.isKeyguardLocked
-        
-        return DeviceStateInfo(screenOn = isScreenOn, isLocked = isLocked)
-    }
-
-    /**
-     * Collect Printer information.
-     */
-    fun getPrinterInfo(context: Context): PrinterInfo? {
-        return try {
-            val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter() ?: return null
-            if (!bluetoothAdapter.isEnabled) return PrinterInfo(false, null, null)
-
-            val pairedDevices = bluetoothAdapter.bondedDevices
-            val printer = pairedDevices.firstOrNull { device ->
-                val deviceClass = device.bluetoothClass.deviceClass
-                deviceClass == BluetoothClass.Device.Major.IMAGING || 
-                deviceClass == 1664 // Common printer class
-            }
-
-            if (printer != null) {
-                // We can't strictly know "connected" without an active socket, 
-                // but we can report that a paired printer exists.
-                PrinterInfo(
-                    connected = true, // Simplified: paired = "available"
-                    name = printer.name,
-                    battery = null // Modern printers often don't report battery via basic BT profiles
-                )
-            } else {
-                PrinterInfo(false, null, null)
-            }
-        } catch (e: Exception) {
-            android.util.Log.w("HardwareProvider", "Error getting printer info: ${e.message}")
-            null
-        }
+    fun getUptimeSeconds(): Long {
+        return SystemClock.elapsedRealtime() / 1000
     }
 }

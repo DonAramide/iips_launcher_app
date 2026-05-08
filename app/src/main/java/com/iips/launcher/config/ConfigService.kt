@@ -4,52 +4,59 @@ import retrofit2.Response
 import retrofit2.http.*
 
 /**
- * Retrofit service for fetching remote configuration and MDM tasks.
+ * Retrofit service for the Dotoid Quasar API specification.
  */
 interface ConfigService {
     
     /**
-     * Fetch configuration from a dynamic URL.
+     * Fetch configuration from a dynamic URL (Legacy helper).
      */
     @GET
-    suspend fun fetchConfig(@Url url: String): Response<ConfigResponse>
+    suspend fun fetchConfig(@Url url: String): Response<okhttp3.ResponseBody>
 
     /**
-     * Register device with the MDM server.
+     * Register device with the Quasar server (§3.1) — legacy path.
+     * Auth: None. Uses enrollment_token in body.
      */
-    @POST("devices/register")
+    @POST("device/register")
     suspend fun registerDevice(@Body request: RegistrationRequest): Response<RegistrationResponse>
 
     /**
-     * Send heartbeat telemetry to the MDM server.
+     * Enterprise enrollment — primary path per Quasar spec.
+     * Called automatically by [com.iips.launcher.device.ProvisioningBootstrapService]
+     * after Android Enterprise QR provisioning completes.
+     * Auth: None. Uses enrollment_token in body.
      */
-    @POST("devices/heartbeat")
+    @POST("devices/enroll")
+    suspend fun enrollDevice(@Body request: EnrollmentRequest): Response<EnrollmentResponse>
+
+    /**
+     * Fetch unified active policy for the device (§3.2).
+     * Auth: Bearer JWT.
+     */
+    @GET("device/policy")
+    suspend fun fetchPolicy(
+        @Header("Authorization") authHeader: String
+    ): Response<PolicyResponse>
+
+    /**
+     * Send heartbeat telemetry to the server (§3.3).
+     * Auth: Bearer JWT.
+     */
+    @POST("device/heartbeat")
     suspend fun sendHeartbeat(
-        @Header("Authorization") token: String, // Bearer {device_token}
+        @Header("Authorization") authHeader: String,
         @Body request: HeartbeatRequest
-    ): Response<Unit>
+    ): Response<okhttp3.ResponseBody>
 
     /**
-     * Fetch geofence configuration from the backend.
+     * Report a client-side event (§3.4).
+     * Auth: Bearer JWT.
      */
-    @GET("device/geofence-config")
-    suspend fun fetchGeofenceConfig(
-        @Query("device_id") deviceId: String
-    ): Response<GeofenceConfigResponse>
-
-    /**
-     * Send periodic status updates to the backend.
-     */
-    @POST("device/status")
-    suspend fun sendGeofenceStatus(
-        @Body request: GeofenceStatusRequest
-    ): Response<Unit>
-
-    /**
-     * Submit geofence proposals for admin approval.
-     */
-    @POST("device/geofence-proposal")
-    suspend fun submitGeofenceProposal(
-        @Body request: GeofenceProposalRequest
-    ): Response<Unit>
+    @POST("device/event")
+    suspend fun sendEvent(
+        @Header("Authorization") authHeader: String,
+        @Body request: MdmEventRequest
+    ): Response<okhttp3.ResponseBody>
 }
+

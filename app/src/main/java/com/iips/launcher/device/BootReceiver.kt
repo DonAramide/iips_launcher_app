@@ -24,6 +24,33 @@ class BootReceiver : BroadcastReceiver() {
             Handler(Looper.getMainLooper()).postDelayed({
                 handleBootComplete(context)
             }, 2000) // 2 second delay
+        } else if (intent.action == "com.iips.launcher.INSTALL_COMPLETE") {
+            val status = intent.getIntExtra(android.content.pm.PackageInstaller.EXTRA_STATUS, -1)
+            val message = intent.getStringExtra(android.content.pm.PackageInstaller.EXTRA_STATUS_MESSAGE)
+            val appId = intent.getStringExtra("app_id")
+            val version = intent.getStringExtra("version") ?: "unknown"
+            
+            android.util.Log.i("BootReceiver", "Installation result for $appId: $status ($message)")
+            
+            if (appId != null) {
+                val reportStatus = if (status == android.content.pm.PackageInstaller.STATUS_SUCCESS) "SUCCESS" else "FAILED"
+                val data = androidx.work.Data.Builder()
+                    .putString(com.iips.launcher.workers.InstallReportingWorker.KEY_APP_ID, appId)
+                    .putString(com.iips.launcher.workers.InstallReportingWorker.KEY_VERSION, version)
+                    .putString(com.iips.launcher.workers.InstallReportingWorker.KEY_STATUS, reportStatus)
+                    .putString(com.iips.launcher.workers.InstallReportingWorker.KEY_ERROR_MESSAGE, message)
+                    .build()
+                    
+                val request = androidx.work.OneTimeWorkRequestBuilder<com.iips.launcher.workers.InstallReportingWorker>()
+                    .setInputData(data)
+                    .build()
+                    
+                androidx.work.WorkManager.getInstance(context).enqueue(request)
+            }
+        } else if (intent.action == "com.iips.launcher.UNINSTALL_COMPLETE") {
+            val status = intent.getIntExtra(android.content.pm.PackageInstaller.EXTRA_STATUS, -1)
+            val packageName = intent.getStringExtra(android.content.pm.PackageInstaller.EXTRA_PACKAGE_NAME)
+            android.util.Log.i("BootReceiver", "Uninstallation result for $packageName: $status")
         }
     }
     
