@@ -326,6 +326,16 @@ object SecurePreferences {
         prefs.edit().clear().commit()
     }
 
+    fun getSharedJsonParams(context: Context): String? {
+        val prefs = getEncryptedPrefs(context)
+        return prefs.getString("shared_json_params", null)
+    }
+
+    fun setSharedJsonParams(context: Context, json: String) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit().putString("shared_json_params", json).apply()
+    }
+
     // ── Enterprise QR Provisioning ──────────────────────────────────────────
 
     /** Backend URL injected via PROVISIONING_ADMIN_EXTRAS_BUNDLE (overrides BuildConfig.BASE_URL). */

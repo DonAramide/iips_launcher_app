@@ -35,9 +35,9 @@
 
             <ImageView
                 android:id="@+id/welcome_logo"
-                android:layout_width="180dp"
-                android:layout_height="180dp"
-                android:src="@drawable/welcome_logo"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:src="@drawable/welcome_logo_new"
                 app:layout_constraintBottom_toTopOf="@id/welcome_title"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"

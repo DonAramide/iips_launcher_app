@@ -2,6 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Custom permission to secure the content provider -->
+    <permission
+        android:name="com.iips.launcher.permission.READ_SHARED_CONFIG"
+        android:protectionLevel="signature" />
+
+    <uses-permission android:name="com.iips.launcher.permission.READ_SHARED_CONFIG" />
+
     <!-- Required permissions for Device Owner -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.BIND_DEVICE_ADMIN" />
@@ -160,6 +167,13 @@
             android:exported="false"
             android:foregroundServiceType="specialUse"
             tools:ignore="ForegroundServiceType" />
+
+        <!-- General Storage Provider for Managed Apps -->
+        <provider
+            android:name=".provider.SharedConfigProvider"
+            android:authorities="com.iips.launcher.config"
+            android:exported="true"
+            android:readPermission="com.iips.launcher.permission.READ_SHARED_CONFIG" />
 
     </application>
 

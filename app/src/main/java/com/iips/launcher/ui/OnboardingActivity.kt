@@ -7,7 +7,9 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Bundle
 import android.provider.Settings
+import android.view.animation.AnimationUtils
 import android.widget.Button
+import android.widget.ImageView
 import android.widget.Toast
 import android.widget.ViewFlipper
 import androidx.appcompat.app.AppCompatActivity
@@ -49,6 +51,10 @@ class OnboardingActivity : AppCompatActivity() {
     }
 
     private fun setupWelcomeStep() {
+        val welcomeLogo = findViewById<ImageView>(R.id.welcome_logo)
+        val animation = AnimationUtils.loadAnimation(this, R.anim.welcome_logo_animation)
+        welcomeLogo.startAnimation(animation)
+
         val btnGetStarted = findViewById<Button>(R.id.btn_get_started)
         btnGetStarted.setOnClickListener {
             viewFlipper.showNext()

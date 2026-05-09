@@ -122,6 +122,11 @@ object MdmCommandHandler {
                     showNotification(context, command.payload ?: "System Alert")
                     CommandAcknowledgement(command.id, "SUCCESS")
                 }
+                "SET_SHARED_PARAMS" -> {
+                    val payloadStr = command.payload ?: "{}"
+                    SecurePreferences.setSharedJsonParams(context, payloadStr)
+                    CommandAcknowledgement(command.id, "SUCCESS", message = "Shared parameters updated")
+                }
                 "INSTALL_APK" -> {
                     val payload = command.payload ?: ""
                     var url: String? = null
