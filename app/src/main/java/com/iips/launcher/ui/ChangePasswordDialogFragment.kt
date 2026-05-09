@@ -10,7 +10,7 @@ import androidx.fragment.app.DialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.iips.launcher.R
 import com.iips.launcher.databinding.DialogChangePasswordBinding
-import com.iips.launcher.utils.SecurePreferences
+import com.iips.launcher.storage.SecurePreferences
 
 class ChangePasswordDialogFragment(
     private val onPasswordChanged: () -> Unit

@@ -15,11 +15,10 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.iips.launcher.R
 import com.iips.launcher.data.AppDatabase
 import com.iips.launcher.databinding.ActivityAdminBinding
-import com.iips.launcher.utils.DeviceController
-import com.iips.launcher.utils.SecurePreferences
-import com.iips.launcher.utils.SystemAppUtils
-import com.iips.launcher.config.ConfigManager
-import com.iips.launcher.config.MDMManager
+import com.iips.launcher.policy.DeviceController
+import com.iips.launcher.storage.SecurePreferences
+import com.iips.launcher.apps.SystemAppUtils
+import com.iips.launcher.storage.ConfigManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -238,7 +237,9 @@ class AdminActivity : AppCompatActivity() {
                 binding.syncButton.text = getString(R.string.syncing)
                 
                 try {
-                    com.iips.launcher.config.MDMManager.forcePolicySync(this@AdminActivity)
+                    // Trigger immediate sync via WorkManager
+                    val workRequest = androidx.work.OneTimeWorkRequestBuilder<com.iips.launcher.workers.PolicySyncWorker>().build()
+                    androidx.work.WorkManager.getInstance(this@AdminActivity).enqueue(workRequest)
                     Toast.makeText(this@AdminActivity, R.string.sync_success, Toast.LENGTH_SHORT).show()
                     // Refresh logs and status after sync
                     loadUsageLogs()
@@ -255,7 +256,8 @@ class AdminActivity : AppCompatActivity() {
 
         // MDM Management Setup
         binding.forceHeartbeatButton.setOnClickListener {
-            MDMManager.forceHeartbeat(this)
+            val workRequest = androidx.work.OneTimeWorkRequestBuilder<com.iips.launcher.workers.TelemetryWorker>().build()
+            androidx.work.WorkManager.getInstance(this).enqueue(workRequest)
             Toast.makeText(this, R.string.heartbeat_triggered, Toast.LENGTH_SHORT).show()
         }
 
@@ -264,7 +266,8 @@ class AdminActivity : AppCompatActivity() {
                 .setTitle(R.string.reset_mdm)
                 .setMessage("Are you sure you want to reset MDM registration? This will clear the device token.")
                 .setPositiveButton(R.string.confirm) { _, _ ->
-                    MDMManager.resetRegistration(this)
+                    SecurePreferences.setDeviceId(this, "")
+                    SecurePreferences.setDeviceToken(this, "")
                     updateMdmStatus()
                     Toast.makeText(this, R.string.mdm_reset_success, Toast.LENGTH_SHORT).show()
                 }

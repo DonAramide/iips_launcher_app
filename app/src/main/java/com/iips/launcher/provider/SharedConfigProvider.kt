@@ -5,7 +5,7 @@ import android.content.ContentValues
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
-import com.iips.launcher.utils.SecurePreferences
+import com.iips.launcher.storage.SecurePreferences
 
 class SharedConfigProvider : ContentProvider() {
 

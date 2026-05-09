@@ -8,15 +8,35 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import com.iips.launcher.data.AppDatabase
-import com.iips.launcher.device.DeviceAdminReceiver
+import com.iips.launcher.policy.DeviceAdminReceiver
 import com.iips.launcher.ui.LauncherActivity
-import com.iips.launcher.utils.SecurePreferences
+import com.iips.launcher.storage.SecurePreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class LauncherApplication : Application() {
+@dagger.hilt.android.HiltAndroidApp
+class LauncherApplication : Application(), androidx.work.Configuration.Provider {
+    
+    @javax.inject.Inject
+    lateinit var workerFactory: androidx.hilt.work.HiltWorkerFactory
+
+    @javax.inject.Inject
+    lateinit var ownershipWatchdog: com.iips.launcher.deviceowner.OwnershipWatchdog
+
+    @javax.inject.Inject
+    lateinit var launcherWatchdog: com.iips.launcher.watchdog.LauncherWatchdog
+
+    @Inject lateinit var rolloutManager: com.iips.launcher.deployment.RolloutManager
+    @Inject lateinit var provisioningRecoveryManager: com.iips.launcher.deviceowner.ProvisioningRecoveryManager
+
+    override fun getWorkManagerConfiguration(): androidx.work.Configuration {
+        return androidx.work.Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
+    }
     
     private val handler = Handler(Looper.getMainLooper())
     private var lastLaunchTime = 0L
@@ -39,6 +59,14 @@ class LauncherApplication : Application() {
         // Load allowed apps with a small delay to ensure database is ready
         Handler(Looper.getMainLooper()).postDelayed({
             loadAllowedApps()
+            
+            // Start ownership monitoring and recovery
+            ownershipWatchdog.start()
+            launcherWatchdog.start()
+            com.iips.launcher.workers.OwnershipVerificationWorker.schedule(this)
+            com.iips.launcher.selfheal.SelfHealingWorker.schedule(this)
+            rolloutManager.resumeDeploymentValidation()
+            provisioningRecoveryManager.attemptRecovery()
         }, 500)
         
         // Monitor when other activities launch and bring launcher back - AGGRESSIVE MODE

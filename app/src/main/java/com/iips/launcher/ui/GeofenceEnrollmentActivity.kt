@@ -14,17 +14,17 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.gms.location.*
-import com.iips.launcher.config.GeofenceRule
+import com.iips.launcher.network.ConfigService
+import com.iips.launcher.network.models.GeofenceRule
+import com.iips.launcher.network.models.MdmEventRequest
 import com.iips.launcher.databinding.ActivityGeofenceEnrollmentBinding
 import com.iips.launcher.databinding.ItemProposedZoneBinding
-import com.iips.launcher.device.GeofenceManager
-import com.iips.launcher.utils.SecurePreferences
+import com.iips.launcher.storage.SecurePreferences
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class GeofenceEnrollmentActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityGeofenceEnrollmentBinding
@@ -32,6 +32,9 @@ class GeofenceEnrollmentActivity : AppCompatActivity() {
     private val proposedZones = mutableListOf<GeofenceRule>()
     private lateinit var zoneAdapter: ProposedZoneAdapter
     private var currentLocation: Location? = null
+
+    @Inject
+    lateinit var configService: ConfigService
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,7 +58,6 @@ class GeofenceEnrollmentActivity : AppCompatActivity() {
             submitProposal()
         }
 
-        // Load existing proposals if any
         val savedProposals = SecurePreferences.getProposedZones(this)
         proposedZones.addAll(savedProposals)
         zoneAdapter.notifyDataSetChanged()
@@ -91,8 +93,6 @@ class GeofenceEnrollmentActivity : AppCompatActivity() {
 
     private fun addCurrentLocation() {
         val loc = currentLocation
-        
-        // Clear previous errors
         binding.zoneNameLayout.error = null
         binding.zoneRadiusLayout.error = null
 
@@ -129,11 +129,8 @@ class GeofenceEnrollmentActivity : AppCompatActivity() {
 
         proposedZones.add(newZone)
         zoneAdapter.notifyDataSetChanged()
-        
-        // Reset inputs
         binding.zoneNameEdit.text?.clear()
         binding.zoneRadiusEdit.setText("150")
-        
         updateSubmitButton()
     }
 
@@ -142,47 +139,29 @@ class GeofenceEnrollmentActivity : AppCompatActivity() {
     }
 
     private fun submitProposal() {
-        if (proposedZones.isEmpty()) {
-            Toast.makeText(this, "Add at least one location first", Toast.LENGTH_SHORT).show()
-            return
-        }
+        if (proposedZones.isEmpty()) return
 
         lifecycleScope.launch {
             try {
                 binding.btnSubmitProposal.isEnabled = false
                 binding.btnSubmitProposal.text = "Submitting..."
                 
-                android.util.Log.d("GeofenceEnrollment", "Submitting proposal with ${proposedZones.size} zones")
-                
                 val token = SecurePreferences.getDeviceToken(this@GeofenceEnrollmentActivity)
                 if (token != null) {
-                    val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY }
-                    val client = OkHttpClient.Builder().addInterceptor(logging).build()
-                    val retrofit = Retrofit.Builder()
-                        .baseUrl(com.iips.launcher.BuildConfig.BASE_URL)
-                        .addConverterFactory(GsonConverterFactory.create())
-                        .client(client)
-                        .build()
-                    val service = retrofit.create(com.iips.launcher.config.ConfigService::class.java)
-                    
                     val payload = mapOf("zones" to proposedZones)
-                    val request = com.iips.launcher.config.MdmEventRequest(
-                        type = "GEOFENCE_PROPOSAL",
-                        payload = payload
-                    )
+                    val request = MdmEventRequest(type = "GEOFENCE_PROPOSAL", payload = payload)
                     
-                    val response = service.sendEvent("Bearer $token", request)
+                    val response = configService.sendEvent("Bearer $token", request)
                     if (response.isSuccessful) {
                         SecurePreferences.setProposedZones(this@GeofenceEnrollmentActivity, proposedZones)
                         Toast.makeText(this@GeofenceEnrollmentActivity, "Proposal submitted for admin approval", Toast.LENGTH_LONG).show()
                         finish()
                     } else {
-                        throw Exception("Server error: ${response.code()}")
+                        throw Exception("Server error: \${response.code()}")
                     }
                 }
             } catch (e: Exception) {
-                android.util.Log.e("GeofenceEnrollment", "Error submitting proposal", e)
-                Toast.makeText(this@GeofenceEnrollmentActivity, "Failed to submit: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@GeofenceEnrollmentActivity, "Failed to submit: \${e.message}", Toast.LENGTH_LONG).show()
                 binding.btnSubmitProposal.isEnabled = true
                 binding.btnSubmitProposal.text = "Submit for Approval"
             }
@@ -204,7 +183,7 @@ class GeofenceEnrollmentActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val zone = zones[position]
             holder.binding.zoneName.text = zone.name
-            holder.binding.zoneDetails.text = "Lat: ${String.format("%.4f", zone.lat)}, Lng: ${String.format("%.4f", zone.lng)} (${zone.radius_m.toInt()}m)"
+            holder.binding.zoneDetails.text = "Lat: \${String.format(\"%.4f\", zone.lat)}, Lng: \${String.format(\"%.4f\", zone.lng)} (\${zone.radius_m.toInt()}m)"
             holder.binding.btnDelete.setOnClickListener { onDelete(position) }
         }
 

@@ -6,7 +6,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Bundle
-import android.provider.Settings
 import android.view.animation.AnimationUtils
 import android.widget.Button
 import android.widget.ImageView
@@ -20,23 +19,29 @@ import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.material.textfield.TextInputEditText
 import com.iips.launcher.R
-import com.iips.launcher.config.MDMManager
-import com.iips.launcher.utils.SecurePreferences
+import com.iips.launcher.network.DeviceEnrollmentManager
+import com.iips.launcher.storage.SecurePreferences
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class OnboardingActivity : AppCompatActivity() {
 
     private lateinit var viewFlipper: ViewFlipper
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
+    @Inject
+    lateinit var enrollmentManager: DeviceEnrollmentManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_onboarding)
 
-        if (com.iips.launcher.device.DeviceAdminReceiver.isDeviceOwner(this)) {
-            startLockTask()
+        if (com.iips.launcher.policy.DeviceAdminReceiver.isDeviceOwner(this)) {
+            // startLockTask() // Optional: depends on requirements
         }
         
         SecurePreferences.setDeviceState(this, SecurePreferences.STATE_ONBOARDING)
@@ -95,8 +100,7 @@ class OnboardingActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            // Hash password and save to secure storage
-            val hashedPassword = com.iips.launcher.utils.HashUtils.sha256(password)
+            val hashedPassword = com.iips.launcher.security.SecurityUtils.sha256(password)
             SecurePreferences.setBusinessName(this, businessName)
             SecurePreferences.setAdminPassword(this, hashedPassword)
             SecurePreferences.setEnrollmentToken(this, enrollmentToken)
@@ -104,30 +108,26 @@ class OnboardingActivity : AppCompatActivity() {
             viewFlipper.showNext()
             updateProgress(60)
             
-            // Proceed to registration and location
-            startRegistrationAndLocationProcess(enrollmentToken)
+            startRegistrationProcess(enrollmentToken)
         }
     }
 
-    private fun startRegistrationAndLocationProcess(enrollmentToken: String? = null) {
+    private fun startRegistrationProcess(enrollmentToken: String? = null) {
         lifecycleScope.launch {
             try {
-                // 1. Request location permission first
                 requestLocationPermission()
                 
-                // 2. Register Device
-                MDMManager.registerIfNeeded(this@OnboardingActivity, enrollmentToken)
+                val success = enrollmentManager.enrollIfNeeded(enrollmentToken)
                 
-                // 3. Location is handled via callback and MDMManager heartbeat/policy sync will take care of sending it.
-                // We will wait for MDM registration.
-                
-                updateProgress(80)
-                
-                // Move to Finish step
-                withContext(Dispatchers.Main) {
-                    viewFlipper.showNext()
-                    updateProgress(100)
-                    SecurePreferences.setDeviceState(this@OnboardingActivity, SecurePreferences.STATE_REGISTERED)
+                if (success) {
+                    updateProgress(80)
+                    withContext(Dispatchers.Main) {
+                        viewFlipper.showNext()
+                        updateProgress(100)
+                        SecurePreferences.setDeviceState(this@OnboardingActivity, SecurePreferences.STATE_REGISTERED)
+                    }
+                } else {
+                    throw Exception("Enrollment failed")
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
@@ -141,7 +141,7 @@ class OnboardingActivity : AppCompatActivity() {
     private fun setupSyncStep() {
         findViewById<Button>(R.id.btn_retry_sync).setOnClickListener {
             it.visibility = android.view.View.GONE
-            startRegistrationAndLocationProcess()
+            startRegistrationProcess()
         }
     }
 
@@ -167,33 +167,18 @@ class OnboardingActivity : AppCompatActivity() {
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
                 LOCATION_PERMISSION_REQUEST_CODE
             )
-        } else {
-            getLocation()
         }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                getLocation()
-            } else {
+            if (grantResults.isEmpty() || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "Location permission is required for policy enforcement.", Toast.LENGTH_SHORT).show()
             }
         }
     }
-
-    @SuppressLint("MissingPermission")
-    private fun getLocation() {
-        fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
-            if (location != null) {
-                // Location retrieved successfully.
-                // GeofenceService / MDMManager will pick this up automatically during sync.
-            }
-        }
-    }
     
-    // Prevent backing out of onboarding
     override fun onBackPressed() {
         // Do nothing
     }

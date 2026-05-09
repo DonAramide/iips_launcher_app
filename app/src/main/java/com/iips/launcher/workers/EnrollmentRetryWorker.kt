@@ -5,8 +5,8 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.work.*
-import com.iips.launcher.device.ProvisioningBootstrapService
-import com.iips.launcher.utils.SecurePreferences
+import com.iips.launcher.provisioning.ProvisioningBootstrapService
+import com.iips.launcher.storage.SecurePreferences
 import java.util.concurrent.TimeUnit
 
 /**

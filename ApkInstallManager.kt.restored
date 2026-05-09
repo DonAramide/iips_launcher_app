@@ -1,0 +1,2 @@
+"package com.iips.launcher.mdm\n\nimport android.app.PendingIntent\nimport android.content.Context\nimport android.content.Intent\nimport android.content.pm.PackageInstaller\nimport android.os.Build\nimport android.util.Log\nimport com.iips.launcher.securi
+<truncated 5211 bytes>

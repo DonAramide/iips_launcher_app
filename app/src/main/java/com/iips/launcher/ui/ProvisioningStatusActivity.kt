@@ -11,8 +11,8 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.iips.launcher.R
-import com.iips.launcher.device.ProvisioningBootstrapService
-import com.iips.launcher.utils.SecurePreferences
+import com.iips.launcher.provisioning.ProvisioningBootstrapService
+import com.iips.launcher.storage.SecurePreferences
 
 /**
  * Headless status activity shown during and after enterprise QR provisioning.

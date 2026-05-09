@@ -2,50 +2,31 @@ package com.iips.launcher.workers
 
 import android.content.Context
 import android.util.Log
+import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.iips.launcher.config.ConfigService
-import com.iips.launcher.config.InstallResultRequest
-import com.iips.launcher.utils.SecurePreferences
+import com.iips.launcher.network.ConfigService
+import com.iips.launcher.network.models.MdmEventRequest
+import com.iips.launcher.storage.SecurePreferences
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
 
-/**
- * Worker responsible for reliably reporting the result of an APK installation.
- */
-class InstallReportingWorker(context: Context, workerParams: WorkerParameters) :
-    CoroutineWorker(context, workerParams) {
+@HiltWorker
+class InstallReportingWorker @AssistedInject constructor(
+    @Assisted context: Context,
+    @Assisted workerParams: WorkerParameters,
+    private val configService: ConfigService
+) : CoroutineWorker(context, workerParams) {
 
     companion object {
         private const val TAG = "InstallReportingWorker"
-        private val BASE_URL = com.iips.launcher.BuildConfig.BASE_URL
-        
         const val KEY_APP_ID = "app_id"
         const val KEY_VERSION = "version"
         const val KEY_STATUS = "status"
         const val KEY_ERROR_MESSAGE = "error_message"
     }
-
-    private val logging = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
-    }
-
-    private val client = OkHttpClient.Builder()
-        .addInterceptor(logging)
-        .addInterceptor(com.iips.launcher.config.MdmErrorInterceptor())
-        .build()
-
-    private val retrofit = Retrofit.Builder()
-        .baseUrl(BASE_URL)
-        .addConverterFactory(GsonConverterFactory.create())
-        .client(client)
-        .build()
-
-    private val configService = retrofit.create(ConfigService::class.java)
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val context = applicationContext
@@ -55,7 +36,6 @@ class InstallReportingWorker(context: Context, workerParams: WorkerParameters) :
             return@withContext Result.failure()
         }
 
-        val deviceId = SecurePreferences.getDeviceId(context) ?: return@withContext Result.failure()
         val token = SecurePreferences.getDeviceToken(context) ?: return@withContext Result.failure()
 
         val appId = inputData.getString(KEY_APP_ID) ?: return@withContext Result.failure()
@@ -70,20 +50,20 @@ class InstallReportingWorker(context: Context, workerParams: WorkerParameters) :
             "error" to (errorMessage ?: "")
         )
 
-        val request = com.iips.launcher.config.MdmEventRequest(
+        val request = MdmEventRequest(
             type = eventType,
             payload = payload
         )
 
         try {
-            Log.d(TAG, "Reporting install event for $appId: $eventType")
-            val response = configService.sendEvent("Bearer $token", request)
+            Log.d(TAG, "Reporting install event for \$appId: \$eventType")
+            val response = configService.sendEvent("Bearer \$token", request)
 
             if (response.isSuccessful) {
                 Log.d(TAG, "Successfully reported install event.")
                 Result.success()
             } else {
-                Log.e(TAG, "Failed to report install event: ${response.code()}")
+                Log.e(TAG, "Failed to report install event: \${response.code()}")
                 if (response.code() in 500..599 || response.code() == 429) {
                     Result.retry()
                 } else {

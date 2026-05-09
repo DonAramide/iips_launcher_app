@@ -17,7 +17,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import com.iips.launcher.R
 import com.iips.launcher.databinding.DialogAdminPasswordBinding
-import com.iips.launcher.utils.SecurePreferences
+import com.iips.launcher.storage.SecurePreferences
 
 class AdminPasswordDialogFragment(
     private val onSuccess: (Boolean) -> Unit

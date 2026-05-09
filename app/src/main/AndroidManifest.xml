@@ -27,8 +27,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" 
         tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.GET_PACKAGE_SIZE" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
@@ -37,7 +37,7 @@
         android:maxSdkVersion="32" />
     
     <!-- System App Permissions -->
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
 
     <!--
         System App Configuration:
@@ -82,7 +82,7 @@
         <!-- Device Admin Receiver (DPC) -->
         <!-- ACTION_PROFILE_PROVISIONING_COMPLETE is required for QR / zero-touch enrollment -->
         <receiver
-            android:name=".device.DeviceAdminReceiver"
+            android:name=".policy.DeviceAdminReceiver"
             android:permission="android.permission.BIND_DEVICE_ADMIN"
             android:exported="true">
             <meta-data
@@ -96,7 +96,7 @@
 
         <!-- Boot Receiver - Auto-start on boot (System App Feature) -->
         <receiver
-            android:name=".device.BootReceiver"
+            android:name=".core.BootReceiver"
             android:enabled="true"
             android:exported="true"
             android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
@@ -132,7 +132,7 @@
             android:exported="false" />
 
         <service
-            android:name=".device.GeofenceService"
+            android:name=".policy.GeofenceService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="location" />
@@ -146,7 +146,7 @@
         <!-- Enterprise Provisioning Bootstrap Service -->
         <!-- Started automatically by DeviceAdminReceiver after QR provisioning -->
         <service
-            android:name=".device.ProvisioningBootstrapService"
+            android:name=".provisioning.ProvisioningBootstrapService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="connectedDevice"
@@ -162,15 +162,36 @@
             android:launchMode="singleTop" />
 
         <service
-            android:name=".mdm.MdmSocketService"
+            android:name=".network.MdmSocketService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="specialUse"
             tools:ignore="ForegroundServiceType" />
 
+        <receiver
+            android:name=".apps.monitoring.PackageMonitorReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_ADDED" />
+                <action android:name="android.intent.action.PACKAGE_REMOVED" />
+                <action android:name="android.intent.action.PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.PACKAGE_CHANGED" />
+                <data android:scheme="package" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".install.SilentInstallReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.iips.launcher.INSTALL_COMPLETE" />
+            </intent-filter>
+        </receiver>
+
         <!-- General Storage Provider for Managed Apps -->
         <provider
-            android:name=".provider.SharedConfigProvider"
+            android:name=".storage.SharedConfigProvider"
             android:authorities="com.iips.launcher.config"
             android:exported="true"
             android:readPermission="com.iips.launcher.permission.READ_SHARED_CONFIG" />

@@ -14,7 +14,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.iips.launcher.config.MDMManager
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import com.iips.launcher.R
@@ -22,9 +21,9 @@ import com.iips.launcher.data.AllowedApp
 import com.iips.launcher.data.AppDatabase
 import com.iips.launcher.data.AppInfo
 import com.iips.launcher.databinding.ActivityLauncherBinding
-import com.iips.launcher.device.DeviceAdminReceiver
-import com.iips.launcher.utils.DeviceController
-import com.iips.launcher.utils.SecurePreferences
+import com.iips.launcher.policy.DeviceAdminReceiver
+import com.iips.launcher.policy.DeviceController
+import com.iips.launcher.storage.SecurePreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -33,7 +32,7 @@ import java.util.Date
 import java.util.Locale
 
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import com.iips.launcher.config.ConfigManager
+import com.iips.launcher.storage.ConfigManager
 
 class LauncherActivity : AppCompatActivity() {
 
@@ -68,7 +67,7 @@ class LauncherActivity : AppCompatActivity() {
             SecurePreferences.STATE_NEW, SecurePreferences.STATE_ONBOARDING -> {
                 // Enterprise QR provisioning path: Device Owner + stored token but not yet enrolled.
                 // Route to the automated status screen instead of manual onboarding.
-                val isDeviceOwner = com.iips.launcher.device.DeviceAdminReceiver.isDeviceOwner(this)
+                val isDeviceOwner = com.iips.launcher.policy.DeviceAdminReceiver.isDeviceOwner(this)
                 val hasToken = SecurePreferences.getEnrollmentToken(this) != null
                 if (isDeviceOwner && hasToken && !SecurePreferences.isProvisioningCompleted(this)) {
                     startActivity(Intent(this, ProvisioningStatusActivity::class.java))
@@ -95,7 +94,7 @@ class LauncherActivity : AppCompatActivity() {
         
         // Sync configuration from server
         lifecycleScope.launch {
-            com.iips.launcher.config.MDMManager.forcePolicySync(this@LauncherActivity)
+            // Policy sync is handled by WorkManager/MdmSocketService
         }
         
         setupDeviceControls()
@@ -153,8 +152,8 @@ class LauncherActivity : AppCompatActivity() {
                 
                 // 4. Disable Lockdown and Immersive mode
                 withContext(Dispatchers.Main) {
-                    com.iips.launcher.utils.DeviceController.stopLockTask(this@LauncherActivity)
-                    com.iips.launcher.utils.DeviceController.disableImmersiveMode(this@LauncherActivity)
+                    com.iips.launcher.policy.DeviceController.stopLockTask(this@LauncherActivity)
+                    com.iips.launcher.policy.DeviceController.disableImmersiveMode(this@LauncherActivity)
                     
                     Toast.makeText(this@LauncherActivity, "System Reset Successful. Restarting...", Toast.LENGTH_LONG).show()
                     
@@ -191,19 +190,16 @@ class LauncherActivity : AppCompatActivity() {
 
     private fun initializeMdm() {
         lifecycleScope.launch {
-            MDMManager.registerIfNeeded(this@LauncherActivity)
             if (SecurePreferences.isRegistered(this@LauncherActivity)) {
-                MDMManager.startHeartbeat(this@LauncherActivity)
-                MDMManager.startPolicySync(this@LauncherActivity)
-                MDMManager.forcePolicySync(this@LauncherActivity)
-                com.iips.launcher.device.GeofenceService.start(this@LauncherActivity)
+                com.iips.launcher.workers.TelemetryWorker.schedule(this@LauncherActivity)
+                com.iips.launcher.apps.inventory.AppInventoryWorker.schedule(this@LauncherActivity)
                 startMdmService()
             }
         }
     }
 
     private fun startMdmService() {
-        val intent = Intent(this, com.iips.launcher.mdm.MdmSocketService::class.java)
+        val intent = Intent(this, com.iips.launcher.network.MdmSocketService::class.java)
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             startForegroundService(intent)
         } else {
@@ -237,7 +233,7 @@ class LauncherActivity : AppCompatActivity() {
         val state = SecurePreferences.getDeviceState(this)
         when (state) {
             SecurePreferences.STATE_NEW, SecurePreferences.STATE_ONBOARDING -> {
-                val isDeviceOwner = com.iips.launcher.device.DeviceAdminReceiver.isDeviceOwner(this)
+                val isDeviceOwner = com.iips.launcher.policy.DeviceAdminReceiver.isDeviceOwner(this)
                 val hasToken = SecurePreferences.getEnrollmentToken(this) != null
                 if (isDeviceOwner && hasToken && !SecurePreferences.isProvisioningCompleted(this)) {
                     startActivity(Intent(this, ProvisioningStatusActivity::class.java))
@@ -332,11 +328,11 @@ class LauncherActivity : AppCompatActivity() {
             !isAppSelectionActivityVisible && 
             !isAllowedAppVisible &&
             !recentlyLaunchedAllowedApp) {
-            com.iips.launcher.mdm.KioskController.resumeLockTask(this)
+            com.iips.launcher.policy.KioskController.resumeLockTask(this)
         } else if (isAllowedAppVisible || recentlyLaunchedAllowedApp) {
             // Ensure lock task is stopped when allowed app is visible or recently launched
             try {
-                com.iips.launcher.mdm.KioskController.pauseLockTask(this)
+                com.iips.launcher.policy.KioskController.pauseLockTask(this)
                 android.util.Log.d("LauncherActivity", "Stopped lock task because allowed app is visible or recently launched")
             } catch (e: Exception) {
                 android.util.Log.w("LauncherActivity", "Could not stop lock task: ${e.message}")
@@ -472,7 +468,7 @@ class LauncherActivity : AppCompatActivity() {
                 
                 if (!isFinishing && !isDestroyed && stillCanReenableLockTask) {
                     try {
-                        com.iips.launcher.mdm.KioskController.resumeLockTask(this)
+                        com.iips.launcher.policy.KioskController.resumeLockTask(this)
                         android.util.Log.d("LauncherActivity", "Re-enabled lock task in onPause")
                     } catch (e: Exception) {
                         // Ignore if already in lock task
@@ -526,7 +522,7 @@ class LauncherActivity : AppCompatActivity() {
             
             // Only enforce lock task if Device Owner AND AdminActivity is NOT visible
             if (DeviceAdminReceiver.isDeviceOwner(this) && !isAdminActivityVisible) {
-                com.iips.launcher.mdm.KioskController.resumeLockTask(this)
+                com.iips.launcher.policy.KioskController.resumeLockTask(this)
             }
         }
     }
@@ -620,7 +616,7 @@ class LauncherActivity : AppCompatActivity() {
                 
                 if (!isFinishing && !isDestroyed && stillNotAdminOrAllowed) {
                     try {
-                        com.iips.launcher.mdm.KioskController.resumeLockTask(this)
+                        com.iips.launcher.policy.KioskController.resumeLockTask(this)
                         // Also ensure we're the active activity
                         val intent = Intent(this, LauncherActivity::class.java)
                         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or 
@@ -738,7 +734,7 @@ class LauncherActivity : AppCompatActivity() {
     private fun setupGeofenceOverlay() {
         binding.btnRetryLocation.setOnClickListener {
             // Force a location check by restarting the service or sending an intent
-            com.iips.launcher.device.GeofenceService.start(this)
+            com.iips.launcher.policy.GeofenceService.start(this)
             Toast.makeText(this, "Checking location...", Toast.LENGTH_SHORT).show()
         }
 
@@ -750,11 +746,11 @@ class LauncherActivity : AppCompatActivity() {
         geofenceReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 when (intent?.action) {
-                    com.iips.launcher.device.GeofenceService.ACTION_GEOFENCE_LOCK -> {
-                        val reason = intent.getStringExtra(com.iips.launcher.device.GeofenceService.EXTRA_REASON)
+                    com.iips.launcher.policy.GeofenceService.ACTION_GEOFENCE_LOCK -> {
+                        val reason = intent.getStringExtra(com.iips.launcher.policy.GeofenceService.EXTRA_REASON)
                         showGeofenceLock(true, reason)
                     }
-                    com.iips.launcher.device.GeofenceService.ACTION_GEOFENCE_UNLOCK -> {
+                    com.iips.launcher.policy.GeofenceService.ACTION_GEOFENCE_UNLOCK -> {
                         showGeofenceLock(false)
                     }
                 }
@@ -762,8 +758,8 @@ class LauncherActivity : AppCompatActivity() {
         }
         
         val filter = IntentFilter().apply {
-            addAction(com.iips.launcher.device.GeofenceService.ACTION_GEOFENCE_LOCK)
-            addAction(com.iips.launcher.device.GeofenceService.ACTION_GEOFENCE_UNLOCK)
+            addAction(com.iips.launcher.policy.GeofenceService.ACTION_GEOFENCE_LOCK)
+            addAction(com.iips.launcher.policy.GeofenceService.ACTION_GEOFENCE_UNLOCK)
         }
         registerReceiver(geofenceReceiver, filter)
     }
@@ -775,7 +771,7 @@ class LauncherActivity : AppCompatActivity() {
             
             // If locked by geofence, ensure lock task is on
             if (DeviceAdminReceiver.isDeviceOwner(this)) {
-                com.iips.launcher.mdm.KioskController.resumeLockTask(this)
+                com.iips.launcher.policy.KioskController.resumeLockTask(this)
             }
         } else {
             binding.geofenceLockOverlay.visibility = View.GONE
@@ -817,7 +813,7 @@ class LauncherActivity : AppCompatActivity() {
         }
 
         // Apply dynamic kiosk policy
-        com.iips.launcher.mdm.KioskController.applyPolicy(this)
+        com.iips.launcher.policy.KioskController.applyPolicy(this)
 
         // Always enable immersive mode to prevent swipe-down
         DeviceController.enableImmersiveMode(this)
@@ -957,7 +953,6 @@ class LauncherActivity : AppCompatActivity() {
                     }
                     
                     // Launch AdminActivity with proper flags to ensure it opens
-                    com.iips.launcher.config.MDMManager.forcePolicySync(this)
                     val intent = Intent(this, AdminActivity::class.java).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -1008,7 +1003,7 @@ class LauncherActivity : AppCompatActivity() {
         binding.dateText.text = sdfDate.format(now)
 
         // Battery
-        val batteryInfo = com.iips.launcher.utils.HardwareProvider.getBatteryInfo(this)
+        val batteryInfo = com.iips.launcher.core.HardwareProvider.getBatteryInfo(this)
         val batteryText = "${batteryInfo.level}%"
         binding.batteryText.text = batteryText
         binding.qsBatteryStatus.text = "Battery: $batteryText${if (batteryInfo.charging) " (Charging)" else ""}"
@@ -1020,7 +1015,7 @@ class LauncherActivity : AppCompatActivity() {
         }
 
         // Network
-        val networkInfo = com.iips.launcher.utils.HardwareProvider.getNetworkInfo(this)
+        val networkInfo = com.iips.launcher.core.HardwareProvider.getNetworkInfo(this)
         binding.networkText.text = networkInfo.type
         binding.qsWifiStatus.text = "Network: ${networkInfo.type}"
         
