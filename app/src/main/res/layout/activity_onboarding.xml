@@ -7,18 +7,7 @@
     android:background="@color/background"
     tools:context=".ui.OnboardingActivity">
 
-    <ProgressBar
-        android:id="@+id/onboarding_progress"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="match_parent"
-        android:layout_height="6dp"
-        android:max="100"
-        android:progress="20"
-        android:progressTint="@color/primary"
-        android:progressBackgroundTint="@color/divider"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+
 
 
 
@@ -27,7 +16,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:background="@drawable/bg_onboarding_gradient"
-        app:layout_constraintTop_toBottomOf="@id/onboarding_progress"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">

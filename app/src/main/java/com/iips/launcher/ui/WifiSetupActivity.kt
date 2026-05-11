@@ -48,6 +48,14 @@ class WifiSetupActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_wifi_setup)
 
+        // Fullscreen Immersive Mode
+        window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
+
         wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         recyclerView = findViewById(R.id.rv_wifi_networks)
         progressScan = findViewById(R.id.wifi_scan_progress)

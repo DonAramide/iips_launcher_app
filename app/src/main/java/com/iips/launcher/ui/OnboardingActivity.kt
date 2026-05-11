@@ -41,6 +41,14 @@ class OnboardingActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_onboarding)
+        
+        // Fullscreen Immersive Mode
+        window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
 
         if (com.iips.launcher.policy.DeviceAdminReceiver.isDeviceOwner(this)) {
             // startLockTask() // Optional: depends on requirements
@@ -87,7 +95,7 @@ class OnboardingActivity : AppCompatActivity() {
         val btnGetStarted = findViewById<Button>(R.id.btn_get_started)
         btnGetStarted.setOnClickListener {
             viewFlipper.showNext()
-            updateProgress(40)
+
         }
     }
 
@@ -152,7 +160,7 @@ class OnboardingActivity : AppCompatActivity() {
                 if (success) {
                     withContext(Dispatchers.Main) {
                         // Success! Move to the final screen
-                        updateProgress(100)
+
                         SecurePreferences.setDeviceState(this@OnboardingActivity, SecurePreferences.STATE_REGISTERED)
                         
                         // We skip the sync step flipper and go to finish
@@ -184,11 +192,6 @@ class OnboardingActivity : AppCompatActivity() {
             startActivity(intent)
             finish()
         }
-    }
-
-    private fun updateProgress(progress: Int) {
-        val progressBar = findViewById<android.widget.ProgressBar>(R.id.onboarding_progress)
-        progressBar.progress = progress
     }
 
     private val LOCATION_PERMISSION_REQUEST_CODE = 1001
