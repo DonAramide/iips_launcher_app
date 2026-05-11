@@ -39,7 +39,7 @@ class DeviceAdminReceiver : DeviceAdminReceiver() {
         const val EXTRA_POLICY_GROUP_ID   = "policy_group_id"
 
         fun getComponentName(context: Context): ComponentName =
-            ComponentName(context, DeviceAdminReceiver::class.java)
+            ComponentName(context, com.iips.launcher.policy.DeviceAdminReceiver::class.java)
 
         fun isDeviceOwner(context: Context): Boolean {
             return try {
