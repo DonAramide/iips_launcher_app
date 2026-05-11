@@ -167,7 +167,7 @@ object SecurityUtils {
                 android.os.Build.SERIAL
             }
         } catch (e: Exception) {
-            null
+            android.provider.Settings.Secure.getString(context.contentResolver, android.provider.Settings.Secure.ANDROID_ID)
         } ?: "no_serial"
 
         val raw = "$manufacturer|$model|$serial"

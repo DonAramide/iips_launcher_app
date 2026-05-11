@@ -27,10 +27,16 @@ class DeviceEnrollmentManager @Inject constructor(
         try {
             val manufacturer = Build.MANUFACTURER
             val model = Build.MODEL
-            val serial = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                try { Build.getSerial() } catch (e: Exception) { "UNKNOWN" }
-            } else {
-                Build.SERIAL
+            val serial = try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    Build.getSerial()
+                } else {
+                    @Suppress("DEPRECATION")
+                    Build.SERIAL
+                }
+            } catch (e: Exception) {
+                // If hardware serial is restricted, fallback to a consistent identifier
+                android.provider.Settings.Secure.getString(context.contentResolver, android.provider.Settings.Secure.ANDROID_ID)
             }
             val fingerprintHash = SecurityUtils.calculateFingerprintHash(context)
 

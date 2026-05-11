@@ -202,8 +202,15 @@ class ProvisioningBootstrapService : Service() {
 
     private fun getSerialNumber(): String? {
         return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Build.getSerial() else Build.SERIAL
-        } catch (e: Exception) { null }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Build.getSerial()
+            } else {
+                @Suppress("DEPRECATION")
+                Build.SERIAL
+            }
+        } catch (e: Exception) {
+            android.provider.Settings.Secure.getString(contentResolver, android.provider.Settings.Secure.ANDROID_ID)
+        }
     }
 
     private fun launchLauncher() {
