@@ -2,6 +2,7 @@ package com.iips.launcher.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
@@ -95,8 +96,29 @@ class OnboardingActivity : AppCompatActivity() {
         val btnGetStarted = findViewById<Button>(R.id.btn_get_started)
         btnGetStarted.setOnClickListener {
             viewFlipper.showNext()
-
         }
+        
+        updateWifiStatus()
+    }
+
+    private fun updateWifiStatus() {
+        val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager
+        val tvWifiStatus = findViewById<TextView>(R.id.tv_wifi_status)
+        
+        val wifiInfo = wifiManager.connectionInfo
+        if (wifiInfo != null && wifiInfo.networkId != -1) {
+            val ssid = wifiInfo.ssid.removeSurrounding("\"")
+            tvWifiStatus.text = "Connected to: $ssid"
+            tvWifiStatus.setTextColor(android.graphics.Color.parseColor("#4CAF50"))
+        } else {
+            tvWifiStatus.text = "Not Connected"
+            tvWifiStatus.setTextColor(android.graphics.Color.parseColor("#FF9800"))
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateWifiStatus()
     }
 
     private fun setupBusinessStep() {
