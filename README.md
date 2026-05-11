@@ -1,4 +1,4 @@
-# IIPS Launcher - Device Owner Kiosk Launcher App
+# Dotroid Launcher - Device Owner Kiosk Launcher App
 
 A comprehensive Android Device Owner / Kiosk-style launcher application designed to lock down Android devices and provide a controlled app environment. This launcher is ideal for kiosks, staff devices, or any scenario where you need to restrict device access to specific applications.
 

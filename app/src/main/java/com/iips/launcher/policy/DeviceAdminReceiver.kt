@@ -12,7 +12,7 @@ import com.iips.launcher.storage.SecurePreferences
 import com.iips.launcher.provisioning.ProvisioningBootstrapService
 
 /**
- * Dotoid Device Policy Controller (DPC) receiver.
+ * Dotroid Device Policy Controller (DPC) receiver.
  *
  * Handles Android Enterprise QR provisioning via:
  *  - [onProfileProvisioningComplete] — triggered when Android finishes installing and
@@ -30,7 +30,7 @@ import com.iips.launcher.provisioning.ProvisioningBootstrapService
 class DeviceAdminReceiver : DeviceAdminReceiver() {
 
     companion object {
-        private const val TAG = "DotoidDPC"
+        private const val TAG = "DotroidDPC"
 
         // Provisioning extras keys expected inside PROVISIONING_ADMIN_EXTRAS_BUNDLE
         const val EXTRA_BACKEND_URL       = "backend_url"
@@ -96,7 +96,7 @@ class DeviceAdminReceiver : DeviceAdminReceiver() {
         }
 
         // ── Enterprise initialization ────────────────────────────────────────
-        // 1. Set Dotoid as the default home launcher automatically
+        // 1. Set Dotroid as the default home launcher automatically
         com.iips.launcher.policy.DeviceController.setDefaultLauncher(context)
 
         // 2. Apply initial security restrictions common to all managed devices

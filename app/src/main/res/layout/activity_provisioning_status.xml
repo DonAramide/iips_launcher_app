@@ -13,7 +13,7 @@
         android:id="@+id/provisioning_logo"
         android:layout_width="160dp"
         android:layout_height="160dp"
-        android:src="@drawable/ic_dotoid_premium_branding"
+        android:src="@drawable/ic_dotroid_premium_branding"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
@@ -77,6 +77,6 @@
         android:textSize="13sp"
         android:textColor="@color/text_secondary"
         app:layout_constraintBottom_toBottomOf="parent"
-        android:text="Managed by Dotoid Enterprise System" />
+        android:text="Managed by Dotroid Enterprise System" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

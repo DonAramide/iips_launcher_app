@@ -119,7 +119,7 @@ class GeofenceService : Service() {
         val intent = Intent(this, LauncherActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Dotoid Security Active")
+            .setContentTitle("Dotroid Security Active")
             .setContentText("Monitoring device location")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentIntent(pendingIntent)

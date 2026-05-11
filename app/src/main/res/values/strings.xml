@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Dotoid</string>
-    <string name="welcome_message">Welcome to Dotoid</string>
+    <string name="app_name">Dotroid</string>
+    <string name="welcome_message">Welcome to Dotroid</string>
     <string name="select_apps">Select Apps</string>
     <string name="admin_panel">Admin Panel</string>
     <string name="enter_admin_password">Enter Admin Password</string>
@@ -73,7 +73,7 @@
     <string name="authorized_zones">Authorized Zones:</string>
 
     <!-- Enterprise provisioning status -->
-    <string name="provisioning_enrolling">Enrolling device into Dotoid MDM…</string>
+    <string name="provisioning_enrolling">Enrolling device into Dotroid MDM…</string>
     <string name="provisioning_failed">Enrollment Failed</string>
     <string name="provisioning_retry">Retry</string>
     <string name="provisioning_footnote">This device is being configured for enterprise use.\nDo not power off during setup.</string>

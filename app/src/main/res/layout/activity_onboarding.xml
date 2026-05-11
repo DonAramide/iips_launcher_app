@@ -20,19 +20,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_wifi_settings"
-        style="@style/Widget.MaterialComponents.Button.TextButton.Icon"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="8dp"
-        android:text="Wi-Fi"
-        app:icon="@android:drawable/ic_menu_directions"
-        android:textColor="@color/text_secondary"
-        app:iconTint="@color/text_secondary"
-        app:layout_constraintTop_toBottomOf="@id/onboarding_progress"
-        app:layout_constraintEnd_toEndOf="parent" />
+
 
     <ViewFlipper
         android:id="@+id/view_flipper"
@@ -48,13 +36,14 @@
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:background="#FFFFFF"
             android:padding="40dp">
 
             <ImageView
                 android:id="@+id/welcome_logo"
                 android:layout_width="200dp"
                 android:layout_height="200dp"
-                android:src="@drawable/ic_dotoid_premium_branding"
+                android:src="@drawable/ic_dotroid_premium_branding"
                 app:layout_constraintBottom_toTopOf="@id/welcome_title"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
@@ -105,19 +94,33 @@
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
-        <!-- Step 2: Business Setup -->
+        <!-- Step 2: Device & Business Setup -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:background="#FFFFFF"
             android:padding="32dp">
+
+            <!-- Branded Watermark -->
+            <ImageView
+                android:layout_width="300dp"
+                android:layout_height="300dp"
+                android:src="@drawable/ic_dotroid_premium_branding"
+                android:alpha="0.05"
+                android:rotation="-15"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent" />
 
             <TextView
                 android:id="@+id/setup_title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Business Setup"
-                android:textSize="24sp"
+                android:text="Device &amp; Business Setup"
+                android:textSize="28sp"
                 android:textStyle="bold"
+                android:textColor="@color/text_primary"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 android:layout_marginTop="32dp" />
@@ -276,8 +279,8 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/sync_subtitle" />
 
-        </androidx.constraintlayout.widget.ConstraintLayout>
-        
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
         <!-- Step 4: Finished -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
@@ -335,6 +338,33 @@
                 app:layout_constraintStart_toStartOf="parent" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
-
     </ViewFlipper>
+    <TextView
+        android:id="@+id/tv_serial_number"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="16dp"
+        android:alpha="0.8"
+        android:textColor="@color/text_primary"
+        android:textSize="12sp"
+        android:elevation="10dp"
+        android:fontFamily="monospace"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:text="SN: R52M3012D4Y" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_wifi_settings"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Wi-Fi"
+        android:elevation="10dp"
+        app:icon="@android:drawable/ic_menu_directions"
+        android:textColor="@color/text_primary"
+        app:iconTint="@color/text_primary"
+        app:layout_constraintTop_toBottomOf="@id/tv_serial_number"
+        app:layout_constraintEnd_toEndOf="parent" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

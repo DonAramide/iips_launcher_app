@@ -61,7 +61,7 @@
 
     <Button
         android:id="@+id/btn_retry_registration"
-        style="@style/Widget.Dotoid.Button.Outlined"
+        style="@style/Widget.Dotroid.Button.Outlined"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Retry Registration"

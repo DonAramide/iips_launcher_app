@@ -6,9 +6,11 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Bundle
+import android.view.View
 import android.view.animation.AnimationUtils
 import android.widget.Button
 import android.widget.ImageView
+import android.widget.TextView
 import android.widget.Toast
 import android.widget.ViewFlipper
 import androidx.appcompat.app.AppCompatActivity
@@ -54,17 +56,26 @@ class OnboardingActivity : AppCompatActivity() {
         setupSyncStep()
         setupFinishStep()
         setupWifiButton()
+        displaySerialNumber()
+    }
+
+    private fun displaySerialNumber() {
+        val serial = try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                android.os.Build.getSerial()
+            } else {
+                @Suppress("DEPRECATION")
+                android.os.Build.SERIAL
+            }
+        } catch (e: Exception) {
+            android.provider.Settings.Secure.getString(contentResolver, android.provider.Settings.Secure.ANDROID_ID)
+        }
+        findViewById<TextView>(R.id.tv_serial_number).text = "SN: $serial"
     }
 
     private fun setupWifiButton() {
-        findViewById<Button>(R.id.btn_wifi_settings).setOnClickListener {
-            try {
-                val intent = Intent(android.provider.Settings.ACTION_WIFI_SETTINGS)
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(intent)
-            } catch (e: Exception) {
-                Toast.makeText(this, "Could not open Wi-Fi settings", Toast.LENGTH_SHORT).show()
-            }
+        findViewById<View>(R.id.btn_wifi_settings).setOnClickListener {
+            startActivity(Intent(this, WifiSetupActivity::class.java))
         }
     }
 

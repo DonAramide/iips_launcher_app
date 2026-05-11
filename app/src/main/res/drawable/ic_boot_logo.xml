@@ -5,7 +5,7 @@
         </shape>
     </item>
     <item
-        android:drawable="@drawable/ic_dotoid_premium_branding"
+        android:drawable="@drawable/ic_dotroid_premium_branding"
         android:gravity="center"
         android:width="200dp"
         android:height="200dp"/>

@@ -14,6 +14,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Dotoid"
+rootProject.name = "Dotroid"
 include ':app'
 
