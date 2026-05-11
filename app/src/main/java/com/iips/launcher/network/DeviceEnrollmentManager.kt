@@ -19,7 +19,7 @@ class DeviceEnrollmentManager @Inject constructor(
 ) {
     private val TAG = "DeviceEnrollmentManager"
 
-    suspend fun enrollIfNeeded(enrollmentToken: String? = null): Boolean = withContext(Dispatchers.IO) {
+    suspend fun enrollIfNeeded(enrollmentToken: String? = null, agentCode: String? = null): Boolean = withContext(Dispatchers.IO) {
         if (SecurePreferences.isRegistered(context)) return@withContext true
 
         val token = enrollmentToken ?: SecurePreferences.getEnrollmentToken(context) ?: return@withContext false
@@ -44,7 +44,8 @@ class DeviceEnrollmentManager @Inject constructor(
                 serialNumber = serial,
                 fingerprint = Build.FINGERPRINT,
                 fingerprintHash = fingerprintHash,
-                appVersion = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0.0"
+                appVersion = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0.0",
+                agentCode = agentCode
             )
 
             val response = configService.enrollDevice(request)

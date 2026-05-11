@@ -11,17 +11,34 @@
         android:id="@+id/onboarding_progress"
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="6dp"
         android:max="100"
         android:progress="20"
+        android:progressTint="@color/primary"
+        android:progressBackgroundTint="@color/divider"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_wifi_settings"
+        style="@style/Widget.MaterialComponents.Button.TextButton.Icon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="8dp"
+        android:text="Wi-Fi"
+        app:icon="@android:drawable/ic_menu_directions"
+        android:textColor="@color/text_secondary"
+        app:iconTint="@color/text_secondary"
+        app:layout_constraintTop_toBottomOf="@id/onboarding_progress"
         app:layout_constraintEnd_toEndOf="parent" />
 
     <ViewFlipper
         android:id="@+id/view_flipper"
         android:layout_width="match_parent"
         android:layout_height="0dp"
+        android:background="@drawable/bg_onboarding_gradient"
         app:layout_constraintTop_toBottomOf="@id/onboarding_progress"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -31,51 +48,57 @@
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:padding="32dp">
+            android:padding="40dp">
 
             <ImageView
                 android:id="@+id/welcome_logo"
-                android:layout_width="80dp"
-                android:layout_height="80dp"
-                android:src="@drawable/welcome_logo_new"
+                android:layout_width="200dp"
+                android:layout_height="200dp"
+                android:src="@drawable/ic_dotoid_premium_branding"
                 app:layout_constraintBottom_toTopOf="@id/welcome_title"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintVertical_chainStyle="packed"
-                android:layout_marginBottom="24dp" />
+                android:layout_marginBottom="32dp" />
 
             <TextView
                 android:id="@+id/welcome_title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Welcome to Dotoid"
-                android:textSize="28sp"
+                android:text="Welcome"
+                android:textSize="32sp"
+                android:textColor="@color/text_primary"
+                android:fontFamily="sans-serif-medium"
                 android:textStyle="bold"
                 app:layout_constraintBottom_toTopOf="@id/welcome_subtitle"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/welcome_logo"
-                android:layout_marginBottom="12dp" />
+                android:layout_marginBottom="16dp" />
 
             <TextView
                 android:id="@+id/welcome_subtitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Securely manage your business device"
-                android:textSize="16sp"
-                android:textColor="#666666"
+                android:text="Your secure enterprise mobility workspace."
+                android:textSize="18sp"
+                android:textColor="@color/text_secondary"
+                android:gravity="center"
                 app:layout_constraintBottom_toTopOf="@id/btn_get_started"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/welcome_title"
-                android:layout_marginBottom="48dp" />
+                android:layout_marginBottom="64dp" />
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_get_started"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="Get Started"
+                android:layout_height="64dp"
+                android:text="GET STARTED"
+                android:textSize="18sp"
+                android:letterSpacing="0.1"
+                app:cornerRadius="16dp"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent" />
@@ -139,13 +162,29 @@
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/agent_code_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:hint="Agent Code (Optional)"
+                app:layout_constraintTop_toBottomOf="@id/business_name_layout">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/input_agent_code"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="AAA000"
+                    android:inputType="textCapCharacters" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/admin_password_layout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:hint="Admin Password"
                 app:passwordToggleEnabled="true"
-                app:layout_constraintTop_toBottomOf="@id/business_name_layout">
+                app:layout_constraintTop_toBottomOf="@id/agent_code_layout">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_admin_password"

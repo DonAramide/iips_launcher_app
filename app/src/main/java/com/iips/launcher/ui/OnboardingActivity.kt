@@ -53,6 +53,19 @@ class OnboardingActivity : AppCompatActivity() {
         setupBusinessStep()
         setupSyncStep()
         setupFinishStep()
+        setupWifiButton()
+    }
+
+    private fun setupWifiButton() {
+        findViewById<Button>(R.id.btn_wifi_settings).setOnClickListener {
+            try {
+                val intent = Intent(android.provider.Settings.ACTION_WIFI_SETTINGS)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(this, "Could not open Wi-Fi settings", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun setupWelcomeStep() {
@@ -73,12 +86,14 @@ class OnboardingActivity : AppCompatActivity() {
         val inputBusinessName = findViewById<TextInputEditText>(R.id.input_business_name)
         val inputPassword = findViewById<TextInputEditText>(R.id.input_admin_password)
         val inputConfirm = findViewById<TextInputEditText>(R.id.input_confirm_password)
+        val inputAgentCode = findViewById<TextInputEditText>(R.id.input_agent_code)
 
         btnContinue.setOnClickListener {
             val enrollmentToken = inputEnrollmentToken.text.toString().trim()
             val businessName = inputBusinessName.text.toString().trim()
             val password = inputPassword.text.toString()
             val confirm = inputConfirm.text.toString()
+            val agentCode = inputAgentCode.text.toString().trim()
 
             if (enrollmentToken.isEmpty()) {
                 inputEnrollmentToken.error = "Enrollment Token is required"
@@ -105,42 +120,49 @@ class OnboardingActivity : AppCompatActivity() {
             SecurePreferences.setAdminPassword(this, hashedPassword)
             SecurePreferences.setEnrollmentToken(this, enrollmentToken)
 
-            viewFlipper.showNext()
-            updateProgress(60)
-            
-            startRegistrationProcess(enrollmentToken)
+            // Do NOT call viewFlipper.showNext() yet. 
+            // Stay on this screen while we verify the token.
+            startRegistrationProcess(enrollmentToken, btnContinue, agentCode)
         }
     }
 
-    private fun startRegistrationProcess(enrollmentToken: String? = null) {
+    private fun startRegistrationProcess(enrollmentToken: String? = null, actionButton: Button? = null, agentCode: String? = null) {
         lifecycleScope.launch {
             try {
+                withContext(Dispatchers.Main) {
+                    actionButton?.isEnabled = false
+                    actionButton?.text = "Enrolling..."
+                }
+                
                 requestLocationPermission()
                 
-                val success = enrollmentManager.enrollIfNeeded(enrollmentToken)
+                val success = enrollmentManager.enrollIfNeeded(enrollmentToken, agentCode)
                 
                 if (success) {
-                    updateProgress(80)
                     withContext(Dispatchers.Main) {
-                        viewFlipper.showNext()
+                        // Success! Move to the final screen
                         updateProgress(100)
                         SecurePreferences.setDeviceState(this@OnboardingActivity, SecurePreferences.STATE_REGISTERED)
+                        
+                        // We skip the sync step flipper and go to finish
+                        viewFlipper.displayedChild = 3 // Step 4: Finished
                     }
                 } else {
-                    throw Exception("Enrollment failed")
+                    throw Exception("Enrollment failed (Invalid Token)")
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@OnboardingActivity, "Registration failed. Please retry.", Toast.LENGTH_LONG).show()
-                    findViewById<Button>(R.id.btn_retry_sync).visibility = android.view.View.VISIBLE
+                    actionButton?.isEnabled = true
+                    actionButton?.text = "Continue"
+                    Toast.makeText(this@OnboardingActivity, "Registration failed: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }
     }
 
     private fun setupSyncStep() {
+        // This step is now bypassed in the success path or used for retries
         findViewById<Button>(R.id.btn_retry_sync).setOnClickListener {
-            it.visibility = android.view.View.GONE
             startRegistrationProcess()
         }
     }

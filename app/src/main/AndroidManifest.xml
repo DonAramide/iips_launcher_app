@@ -52,7 +52,6 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Dotoid"
-        android:sharedUserId="android.uid.system"
         tools:targetApi="31">
         
         <!-- Main Launcher Activity - Set as Home Screen -->
@@ -91,6 +90,7 @@
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
                 <action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE" />
+                <action android:name="android.app.action.PROVISIONING_COMPLETE" />
             </intent-filter>
         </receiver>
 
@@ -191,10 +191,23 @@
 
         <!-- General Storage Provider for Managed Apps -->
         <provider
-            android:name=".storage.SharedConfigProvider"
+            android:name=".provider.SharedConfigProvider"
             android:authorities="com.iips.launcher.config"
             android:exported="true"
             android:readPermission="com.iips.launcher.permission.READ_SHARED_CONFIG" />
+
+        <!-- Disable default WorkManager initializer for on-demand initialization -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="\${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge"
+            tools:replace="android:authorities">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
 
     </application>
 

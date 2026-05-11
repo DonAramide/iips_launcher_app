@@ -4,9 +4,9 @@
             <solid android:color="#FFFFFF"/>
         </shape>
     </item>
-    <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@drawable/welcome_logo"/>
-    </item>
+    <item
+        android:drawable="@drawable/ic_dotoid_premium_branding"
+        android:gravity="center"
+        android:width="200dp"
+        android:height="200dp"/>
 </layer-list>

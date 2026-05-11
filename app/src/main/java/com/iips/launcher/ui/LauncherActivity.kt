@@ -62,6 +62,20 @@ class LauncherActivity : AppCompatActivity() {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         
+        // Custom exit animation for a premium feel
+        splashScreen.setOnExitAnimationListener { splashScreenProvider ->
+            val iconView = splashScreenProvider.iconView
+            iconView.animate()
+                .scaleX(1.2f)
+                .scaleY(1.2f)
+                .alpha(0f)
+                .setDuration(500)
+                .withEndAction {
+                    splashScreenProvider.remove()
+                }
+                .start()
+        }
+        
         val state = SecurePreferences.getDeviceState(this)
         when (state) {
             SecurePreferences.STATE_NEW, SecurePreferences.STATE_ONBOARDING -> {

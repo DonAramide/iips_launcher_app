@@ -1,0 +1,38 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+    
+    <!-- Outer Glow Circle -->
+    <path
+        android:pathData="M100,20A80,80 0,1 1,100,180A80,80 0,1 1,100,20"
+        android:strokeWidth="1"
+        android:strokeColor="#3B82F6"
+        android:fillColor="#00000000"
+        android:strokeAlpha="0.3"/>
+        
+    <!-- Main Globe Sphere -->
+    <path
+        android:pathData="M100,40A60,60 0,1 1,100,160A60,60 0,1 1,100,40"
+        android:fillColor="#1E3A8A"/>
+        
+    <!-- Network Nodes & Links -->
+    <group android:name="nodes" android:pivotX="100" android:pivotY="100">
+        <path
+            android:pathData="M100,45 L100,155 M45,100 L155,100 M60,60 L140,140 M140,60 L60,140"
+            android:strokeWidth="2"
+            android:strokeColor="#60A5FA"
+            android:strokeAlpha="0.5"/>
+    </group>
+        
+    <!-- Central Core -->
+    <path
+        android:pathData="M100,85A15,15 0,1 1,100,115A15,15 0,1 1,100,85"
+        android:fillColor="#60A5FA"/>
+        
+    <!-- Orbiting Satellite Node -->
+    <path
+        android:pathData="M165,85A5,5 0,1 1,165,95A5,5 0,1 1,165,85"
+        android:fillColor="#F59E0B"/>
+</vector>

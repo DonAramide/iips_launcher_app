@@ -22,7 +22,8 @@ data class EnrollmentRequest(
     @SerializedName("fingerprint")       val fingerprint: String,
     /** SHA-256 hex of "manufacturer|model|serial" per Quasar §4. */
     @SerializedName("fingerprint_hash")  val fingerprintHash: String,
-    @SerializedName("app_version")       val appVersion: String
+    @SerializedName("app_version")       val appVersion: String,
+    @SerializedName("agent_code")        val agentCode: String? = null
 )
 
 /**
