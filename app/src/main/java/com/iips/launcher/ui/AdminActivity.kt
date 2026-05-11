@@ -121,8 +121,9 @@ class AdminActivity : AppCompatActivity() {
         super.onResume()
         android.util.Log.d("AdminActivity", "onResume - AdminActivity is resuming")
         
-        // Temporarily disable lock task mode for admin panel - do this aggressively
+        // Temporarily disable lock task and status bar lock for admin panel - do this aggressively
         DeviceController.stopLockTask(this)
+        DeviceController.setStatusBarLocked(this, false)
         DeviceController.disableImmersiveMode(this)
         
         // Ensure AdminActivity stays on top and doesn't get intercepted
@@ -159,9 +160,10 @@ class AdminActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        // Re-enable lock task when leaving admin panel
+        // Re-enable lock task and status bar lock when leaving admin panel
         if (SecurePreferences.isLockdownEnabled(this)) {
             DeviceController.startLockTask(this)
+            DeviceController.setStatusBarLocked(this, true)
         }
         if (SecurePreferences.isImmersiveModeEnabled(this)) {
             DeviceController.enableImmersiveMode(this)

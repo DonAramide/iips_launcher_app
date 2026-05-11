@@ -52,7 +52,7 @@ class OnboardingActivity : AppCompatActivity() {
                 or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
 
         if (com.iips.launcher.policy.DeviceAdminReceiver.isDeviceOwner(this)) {
-            // startLockTask() // Optional: depends on requirements
+            com.iips.launcher.policy.DeviceController.setStatusBarLocked(this, true)
         }
         
         SecurePreferences.setDeviceState(this, SecurePreferences.STATE_ONBOARDING)

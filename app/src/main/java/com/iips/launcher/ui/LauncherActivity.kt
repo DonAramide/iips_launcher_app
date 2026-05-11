@@ -832,6 +832,9 @@ class LauncherActivity : AppCompatActivity() {
         // Always enable immersive mode to prevent swipe-down
         DeviceController.enableImmersiveMode(this)
         SecurePreferences.setImmersiveModeEnabled(this, true)
+
+        // Lock the system status bar (top bar) to prevent drag-down
+        DeviceController.setStatusBarLocked(this, true)
     }
 
     private fun loadApps() {

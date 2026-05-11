@@ -466,8 +466,29 @@ object DeviceController {
             // Other exceptions, skip security setup
         }
 
-        // Note: Swipe-down to notifications is blocked via immersive mode
-        // which is handled separately in blockSystemUI()
+        // Lock the status bar (top bar) to prevent drag-down
+        setStatusBarLocked(context, true)
+    }
+
+    /**
+     * Lock or unlock the status bar (top bar).
+     * Prevents pulling down notifications and quick settings.
+     */
+    fun setStatusBarLocked(context: Context, locked: Boolean) {
+        try {
+            if (!DeviceAdminReceiver.isDeviceOwner(context)) return
+
+            val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+            val admin = DeviceAdminReceiver.getComponentName(context)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                // This blocks notifications, quick settings, and other overlays
+                dpm.setStatusBarDisabled(admin, locked)
+                android.util.Log.i("DeviceController", "Status bar locked: $locked")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("DeviceController", "Failed to set status bar lock state: ${e.message}")
+        }
     }
     
     /**
