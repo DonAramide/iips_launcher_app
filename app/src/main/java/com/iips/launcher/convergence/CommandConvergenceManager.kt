@@ -27,7 +27,7 @@ class CommandConvergenceManager @Inject constructor(
     fun isSafeToExecute(commandId: String, commandType: String): Boolean {
         // 1. Prevent duplicate execution of the same ID
         if (SecurePreferences.isCommandExecuted(context, commandId)) {
-            Log.w(TAG, "Command \$commandId already executed. Skipping.")
+            Log.w(TAG, "Command $commandId already executed. Skipping.")
             return false
         }
 
@@ -43,7 +43,7 @@ class CommandConvergenceManager @Inject constructor(
         // 3. Track command attempts to prevent infinite failure loops
         val attempts = SecurePreferences.getCommandAttemptCount(context, commandId)
         if (attempts >= MAX_COMMAND_RETRY) {
-            Log.e(TAG, "Command \$commandId has exceeded max attempts (\$attempts). Abandoning.")
+            Log.e(TAG, "Command $commandId has exceeded max attempts ($attempts). Abandoning.")
             return false
         }
 

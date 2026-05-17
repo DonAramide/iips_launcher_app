@@ -1,6 +1,7 @@
 package com.iips.launcher.compliance
 
 import android.util.Log
+import com.iips.launcher.core.StructuredLogger
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -8,7 +9,9 @@ import javax.inject.Singleton
  * Manages the compliance state of the device based on enterprise rules.
  */
 @Singleton
-class ComplianceManager @Inject constructor() {
+class ComplianceManager @Inject constructor(
+    private val structuredLogger: StructuredLogger
+) {
     companion object {
         private const val TAG = "ComplianceManager"
     }
@@ -28,9 +31,20 @@ class ComplianceManager @Inject constructor() {
      */
     fun updateState(newState: ComplianceState, reason: String) {
         if (newState != currentState) {
-            Log.w(TAG, "Compliance transition: \$currentState -> \$newState (Reason: \$reason)")
+            Log.w(TAG, "Compliance transition: $currentState -> $newState (Reason: $reason)")
+            val previousState = currentState
             currentState = newState
-            // TODO: Emit compliance event telemetry
+            
+            structuredLogger.logEvent(
+                TAG,
+                "COMPLIANCE_STATE_CHANGED",
+                "Compliance state changed to $newState",
+                mapOf(
+                    "previous_state" to previousState.name,
+                    "new_state" to newState.name,
+                    "reason" to reason
+                )
+            )
         }
     }
 

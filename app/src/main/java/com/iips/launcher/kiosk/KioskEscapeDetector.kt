@@ -2,6 +2,8 @@ package com.iips.launcher.kiosk
 
 import android.content.Context
 import android.util.Log
+import com.iips.launcher.core.StructuredLogger
+import com.iips.launcher.kiosk.KioskManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -11,7 +13,9 @@ import javax.inject.Singleton
  */
 @Singleton
 class KioskEscapeDetector @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val structuredLogger: StructuredLogger,
+    private val kioskManager: KioskManager
 ) {
     companion object {
         private const val TAG = "KioskEscapeDetector"
@@ -45,7 +49,13 @@ class KioskEscapeDetector @Inject constructor(
 
     private fun handleEscapePattern() {
         Log.e(TAG, "Critical kiosk escape pattern detected!")
-        // TODO: Emit high-priority telemetry incident
-        // Potentially trigger a device lockdown
+        structuredLogger.logIncident(
+            TAG,
+            "KIOSK_ESCAPE_DETECTED",
+            "Multiple unauthorized activity launches detected within the threshold window.",
+            fatal = true
+        )
+        // Trigger a device lockdown
+        kioskManager.startEnforcementService()
     }
 }

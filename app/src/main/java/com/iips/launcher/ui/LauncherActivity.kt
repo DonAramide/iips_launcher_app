@@ -34,7 +34,10 @@ import java.util.Locale
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.iips.launcher.storage.ConfigManager
 
+@dagger.hilt.android.AndroidEntryPoint
 class LauncherActivity : AppCompatActivity() {
+
+    @javax.inject.Inject lateinit var broadcastEngine: com.iips.launcher.convergence.BroadcastRenderingEngine
 
     private lateinit var binding: ActivityLauncherBinding
     private lateinit var database: AppDatabase
@@ -132,6 +135,7 @@ class LauncherActivity : AppCompatActivity() {
         setupQuickSettings()
         setupHiddenGesture()
         setupDebugWipeReceiver()
+        setupBroadcastObserver()
     }
 
     private fun setupDebugWipeReceiver() {
@@ -1118,6 +1122,84 @@ class LauncherActivity : AppCompatActivity() {
     private fun registerSettingsInterceptor() {
         // Settings blocking is handled via Device Owner restrictions
         // Removed broadcast receiver to prevent freezing/loops
+    }
+
+    private val gson = com.google.gson.Gson()
+
+    private fun setupBroadcastObserver() {
+        lifecycleScope.launch {
+            broadcastEngine.activeBroadcast.collect { payload ->
+                if (payload != null) {
+                    renderBroadcast(payload)
+                } else {
+                    hideBroadcastOverlays()
+                }
+            }
+        }
+    }
+
+    private fun renderBroadcast(payload: com.iips.launcher.convergence.BroadcastPayload) {
+        val blockingContainer = binding.root.findViewById<View>(R.id.broadcast_blocking_container)
+        val bannerContainer = binding.root.findViewById<View>(R.id.broadcast_banner_container)
+        
+        when (payload.launcherMode.lowercase()) {
+            "silent" -> {
+                // Background telemetry only
+                hideBroadcastOverlays()
+            }
+            "toast" -> {
+                hideBroadcastOverlays()
+                Toast.makeText(this, "${payload.title}: ${payload.message}", Toast.LENGTH_LONG).show()
+            }
+            "banner" -> {
+                blockingContainer?.visibility = View.GONE
+                bannerContainer?.apply {
+                    visibility = View.VISIBLE
+                    alpha = 0f
+                    translationY = -100f
+                    animate().alpha(1f).translationY(0f).setDuration(300).start()
+                }
+                
+                binding.root.findViewById<android.widget.TextView>(R.id.broadcast_banner_title)?.text = payload.title
+                binding.root.findViewById<android.widget.TextView>(R.id.broadcast_banner_message)?.text = payload.message
+                
+                binding.root.findViewById<View>(R.id.broadcast_banner_close)?.setOnClickListener {
+                    bannerContainer?.animate()?.alpha(0f)?.translationY(-100f)?.setDuration(200)?.withEndAction {
+                        bannerContainer.visibility = View.GONE
+                        broadcastEngine.acknowledgeBroadcast(payload.broadcastId)
+                    }?.start()
+                }
+            }
+            "blocking", "kiosk-lock" -> {
+                bannerContainer?.visibility = View.GONE
+                blockingContainer?.apply {
+                    visibility = View.VISIBLE
+                    alpha = 0f
+                    animate().alpha(1f).setDuration(300).start()
+                }
+                
+                binding.root.findViewById<android.widget.TextView>(R.id.broadcast_blocking_title)?.text = payload.title
+                binding.root.findViewById<android.widget.TextView>(R.id.broadcast_blocking_message)?.text = payload.message
+                
+                val ackBtn = binding.root.findViewById<View>(R.id.broadcast_blocking_ack_button)
+                if (payload.requiresAcknowledgement) {
+                    ackBtn?.visibility = View.VISIBLE
+                    ackBtn?.setOnClickListener {
+                        blockingContainer?.animate()?.alpha(0f)?.setDuration(200)?.withEndAction {
+                            blockingContainer.visibility = View.GONE
+                            broadcastEngine.acknowledgeBroadcast(payload.broadcastId)
+                        }?.start()
+                    }
+                } else {
+                    ackBtn?.visibility = View.GONE
+                }
+            }
+        }
+    }
+
+    private fun hideBroadcastOverlays() {
+        binding.root.findViewById<View>(R.id.broadcast_blocking_container)?.visibility = View.GONE
+        binding.root.findViewById<View>(R.id.broadcast_banner_container)?.visibility = View.GONE
     }
 }
 

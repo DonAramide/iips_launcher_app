@@ -1,7 +1,9 @@
 package com.iips.launcher.selfheal
 
 import android.util.Log
+import com.google.gson.Gson
 import com.iips.launcher.core.StructuredLogger
+import com.iips.launcher.convergence.BroadcastRenderingEngine
 import com.iips.launcher.kiosk.KioskManager
 import com.iips.launcher.reconciliation.DriftEvent
 import javax.inject.Inject
@@ -13,7 +15,8 @@ import javax.inject.Singleton
 @Singleton
 class RuntimeRecoveryEngine @Inject constructor(
     private val kioskManager: KioskManager,
-    private val structuredLogger: StructuredLogger
+    private val structuredLogger: StructuredLogger,
+    private val broadcastRenderingEngine: BroadcastRenderingEngine
 ) {
     companion object {
         private const val TAG = "RuntimeRecovery"
@@ -35,7 +38,17 @@ class RuntimeRecoveryEngine @Inject constructor(
             
             is DriftEvent.LauncherNotDefault -> {
                 Log.w(TAG, "Launcher not default home. Kiosk state degraded.")
-                // TODO: Trigger a high-priority notification or persistent overlay if allowed
+                val payloadJson = Gson().toJson(mapOf(
+                    "broadcastId" to "recovery_kiosk_lock_${System.currentTimeMillis()}",
+                    "tenantId" to "local_recovery",
+                    "severity" to "CRITICAL",
+                    "launcherMode" to "kiosk-lock",
+                    "title" to "Security Alert",
+                    "message" to "Device compliance degraded. Re-applying security policies...",
+                    "requiresAcknowledgement" to false,
+                    "timestamp" to System.currentTimeMillis()
+                ))
+                broadcastRenderingEngine.dispatchBroadcast(payloadJson)
             }
 
             is DriftEvent.AdminDeactivated -> {

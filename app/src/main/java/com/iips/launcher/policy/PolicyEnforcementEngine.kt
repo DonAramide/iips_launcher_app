@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Build
 import android.os.UserManager
 import android.util.Log
+import com.iips.launcher.core.StructuredLogger
 import com.iips.launcher.network.models.DevicePolicySnapshot
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -16,7 +17,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class PolicyEnforcementEngine @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val structuredLogger: StructuredLogger
 ) {
     companion object {
         private const val TAG = "PolicyEnforcement"
@@ -55,7 +57,12 @@ class PolicyEnforcementEngine @Inject constructor(
             Log.i(TAG, "Policy enforcement completed successfully")
         } catch (e: Exception) {
             Log.e(TAG, "Policy enforcement failed", e)
-            // TODO: Generate compliance incident
+            structuredLogger.logIncident(
+                TAG,
+                "POLICY_ENFORCEMENT_FAILED",
+                "Failed to enforce device policy snapshot version ${snapshot.version}: ${e.message}",
+                fatal = false
+            )
         }
     }
 

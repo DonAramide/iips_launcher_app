@@ -1,6 +1,8 @@
 package com.iips.launcher.workers
 
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.*
@@ -62,8 +64,13 @@ class ProvisioningBootstrapWorker @AssistedInject constructor(
         }
 
         // 4. Verify Launcher Pinning
-        // TODO: Check if we are the default home app
-
+        val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) }
+        val resolveInfo = context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+        if (resolveInfo?.activityInfo?.packageName != context.packageName) {
+            Log.w(TAG, "Bootstrap warning: Dotroid is not pinned as the default home app yet")
+            // Not a hard failure here since KioskManager will attempt to enforce this separately,
+            // but we log it for compliance awareness.
+        }
         Log.i(TAG, "Post-provisioning bootstrap completed successfully")
         SecurePreferences.setProvisioningCompleted(context, true)
         

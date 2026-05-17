@@ -33,43 +33,43 @@ class PolicyDriftResolver @Inject constructor(
      * Resolves complex drift events.
      */
     fun resolve(event: DriftEvent) {
-        Log.i(TAG, "Resolving drift event: \${event.javaClass.simpleName}")
+        Log.i(TAG, "Resolving drift event: ${event.javaClass.simpleName}")
 
         when (event) {
             is DriftEvent.MissingRequiredPackages -> {
-                Log.w(TAG, "Drift: Missing packages: \${event.packages}")
+                Log.w(TAG, "Drift: Missing packages: ${event.packages}")
                 // In a real scenario, we'd check the install queue and trigger downloads
                 // For now, we log it for the next sync cycle to handle
             }
 
             is DriftEvent.ForbiddenPackagesInstalled -> {
-                Log.w(TAG, "Drift: Forbidden packages found: \${event.packages}")
+                Log.w(TAG, "Drift: Forbidden packages found: ${event.packages}")
                 for (pkg in event.packages) {
                     uninstallForbiddenPackage(pkg)
                 }
             }
 
             is DriftEvent.ProtectionDisabled -> {
-                Log.w(TAG, "Drift: Protection \${event.name} disabled. Forcing policy re-enforcement.")
+                Log.w(TAG, "Drift: Protection ${event.name} disabled. Forcing policy re-enforcement.")
                 forcePolicyEnforcement()
             }
 
             else -> {
-                Log.d(TAG, "Event \${event.javaClass.simpleName} handled by RuntimeRecoveryEngine or requires manual intervention")
+                Log.d(TAG, "Event ${event.javaClass.simpleName} handled by RuntimeRecoveryEngine or requires manual intervention")
             }
         }
     }
 
     private fun uninstallForbiddenPackage(packageName: String) {
         try {
-            Log.i(TAG, "Attempting silent uninstall of forbidden package: \$packageName")
+            Log.i(TAG, "Attempting silent uninstall of forbidden package: $packageName")
             // Android Enterprise doesn't have a direct 'silentUninstall' for user apps without User Action
             // UNLESS it was installed via MDM or we use PackageInstaller.
             // But we can at least HIDE it immediately.
             dpm.setApplicationHidden(admin, packageName, true)
-            Log.d(TAG, "Package \$packageName hidden as remediation")
+            Log.d(TAG, "Package $packageName hidden as remediation")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to remediate forbidden package \$packageName", e)
+            Log.e(TAG, "Failed to remediate forbidden package $packageName", e)
         }
     }
 

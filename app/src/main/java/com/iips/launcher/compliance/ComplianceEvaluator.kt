@@ -8,6 +8,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import com.iips.launcher.integrity.IntegrityManager
+
 /**
  * Evaluates various security and policy factors to calculate a compliance score.
  */
@@ -16,7 +18,8 @@ class ComplianceEvaluator @Inject constructor(
     @ApplicationContext private val context: Context,
     private val complianceManager: ComplianceManager,
     private val deviceOwnerManager: DeviceOwnerManager,
-    private val securityMonitor: SecurityMonitorManager
+    private val securityMonitor: SecurityMonitorManager,
+    private val integrityManager: IntegrityManager
 ) {
     /**
      * Performs a full compliance evaluation.
@@ -41,10 +44,19 @@ class ComplianceEvaluator @Inject constructor(
             complianceManager.updateState(ComplianceManager.ComplianceState.WARNING, "Policy is severely outdated")
         }
 
-        // 4. Check Play Integrity (placeholder)
-        // TODO: Integrate with IntegrityManager
+        // 4. Check Play Integrity
+        val integrityLevel = integrityManager.getIntegrityLevel()
+        if (integrityLevel == com.iips.launcher.integrity.IntegrityManager.IntegrityLevel.NONE) {
+            complianceManager.updateState(ComplianceManager.ComplianceState.CRITICAL, "Device fails basic integrity checks")
+            return
+        } else if (integrityLevel == com.iips.launcher.integrity.IntegrityManager.IntegrityLevel.MEETS_BASIC_INTEGRITY) {
+            complianceManager.updateState(ComplianceManager.ComplianceState.WARNING, "Device meets only basic integrity")
+            // Not a hard return, as basic integrity might be acceptable for some tenants
+        }
 
         // Default to compliant if no critical issues found
-        complianceManager.updateState(ComplianceManager.ComplianceState.COMPLIANT, "All checks passed")
+        if (complianceManager.getCurrentState() != ComplianceManager.ComplianceState.WARNING) {
+            complianceManager.updateState(ComplianceManager.ComplianceState.COMPLIANT, "All checks passed")
+        }
     }
 }

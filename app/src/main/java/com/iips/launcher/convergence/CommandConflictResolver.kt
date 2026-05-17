@@ -27,7 +27,7 @@ class CommandConflictResolver @Inject constructor() {
         
         for (cmd in commands) {
             if (cmd.type == "REBOOT" && hasOta) {
-                Log.w(TAG, "Deferring REBOOT command \${cmd.id} due to pending INSTALL/OTA")
+                Log.w(TAG, "Deferring REBOOT command ${cmd.id} due to pending INSTALL/OTA")
                 continue
             }
             resolved.add(cmd)

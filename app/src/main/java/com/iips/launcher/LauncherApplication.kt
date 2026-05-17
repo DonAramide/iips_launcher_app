@@ -31,6 +31,12 @@ class LauncherApplication : Application(), androidx.work.Configuration.Provider 
 
     @Inject lateinit var rolloutManager: com.iips.launcher.deployment.RolloutManager
     @Inject lateinit var provisioningRecoveryManager: com.iips.launcher.deviceowner.ProvisioningRecoveryManager
+    @Inject lateinit var connectionManager: com.iips.launcher.convergence.DotroidRuntimeConnectionManager
+    @Inject lateinit var telemetryEngine: com.iips.launcher.convergence.DeviceTelemetryEngine
+    @Inject lateinit var complianceRuntime: com.iips.launcher.convergence.ComplianceGovernanceRuntime
+    @Inject lateinit var integrityRuntime: com.iips.launcher.convergence.IntegrityTrustRuntime
+    @Inject lateinit var replayRuntime: com.iips.launcher.convergence.ReplayRecoveryRuntime
+    @Inject lateinit var validationSuite: com.iips.launcher.convergence.DotroidRuntimeValidationSuite
 
     override fun getWorkManagerConfiguration(): androidx.work.Configuration {
         return androidx.work.Configuration.Builder()
@@ -56,6 +62,16 @@ class LauncherApplication : Application(), androidx.work.Configuration.Provider 
         // Initialize database and load allowed apps
         database = AppDatabase.getDatabase(this)
         
+        // Concurrently spin up runtime enterprise network socket convergence infrastructure
+        connectionManager.startConnection()
+        telemetryEngine.startHarvesting()
+        complianceRuntime.startMonitoring()
+        integrityRuntime.startEngine()
+        replayRuntime.attemptJournalDrain()
+        
+        // Execute validation harness checks to verify resilience parameters natively
+        validationSuite.runValidationSequence()
+
         // Load allowed apps with a small delay to ensure database is ready
         Handler(Looper.getMainLooper()).postDelayed({
             loadAllowedApps()

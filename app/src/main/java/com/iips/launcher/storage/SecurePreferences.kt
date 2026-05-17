@@ -406,4 +406,15 @@ object SecurePreferences {
         val prefs = getEncryptedPrefs(context)
         prefs.edit().putLong("last_reboot_time", time).apply()
     }
+
+    fun getOfflineTelemetryQueue(context: Context): List<String> {
+        val prefs = getEncryptedPrefs(context)
+        val set = prefs.getStringSet("offline_telemetry_queue", emptySet()) ?: emptySet()
+        return set.toList()
+    }
+
+    fun setOfflineTelemetryQueue(context: Context, queue: List<String>) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit().putStringSet("offline_telemetry_queue", queue.toSet()).apply()
+    }
 }

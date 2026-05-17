@@ -34,7 +34,12 @@ class RecoveryCoordinator @Inject constructor(
             // 2. Force re-enforce current policy
             policyManager.enforceCurrent()
             
-            // 3. TODO: Potentially clear persistent app cache if corrupt
+            // 3. Clear persistent app cache if corrupt
+            try {
+                context.cacheDir.deleteRecursively()
+            } catch (ex: Exception) {
+                Log.w(TAG, "Failed to clear app cache during recovery", ex)
+            }
             
             Log.i(TAG, "Emergency recovery flow completed")
         } catch (e: Exception) {

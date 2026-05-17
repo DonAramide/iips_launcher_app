@@ -343,5 +343,8 @@
         android:elevation="101dp"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- Core Fleet Broadcast Overlay Surfaces -->
+    <include layout="@layout/broadcast_rendering_overlay" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>
 
