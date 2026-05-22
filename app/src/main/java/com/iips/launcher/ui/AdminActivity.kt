@@ -72,6 +72,14 @@ class AdminActivity : AppCompatActivity() {
             if (status.isDeviceOwner) android.graphics.Color.parseColor("#2196F3") 
             else android.graphics.Color.parseColor("#757575")
         )
+
+        val snapshot = SecurePreferences.getDevicePolicySnapshot(this)
+        val isPinEnabled = snapshot?.kioskPinEnabled == true && !snapshot.kioskPin.isNullOrEmpty()
+        binding.kioskLockBadge.text = if (isPinEnabled) "Kiosk Lock: PIN ENABLED" else "Kiosk Lock: DISABLED"
+        binding.kioskLockBadge.setBackgroundColor(
+            if (isPinEnabled) android.graphics.Color.parseColor("#9C27B0") 
+            else android.graphics.Color.parseColor("#757575")
+        )
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {

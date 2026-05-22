@@ -134,4 +134,24 @@
         <!-- After splash, switch to the full screen launcher theme -->
         <item name="postSplashScreenTheme">@style/Theme.Dotroid.FullScreen</item>
     </style>
+
+    <!-- Keypad Button Styles for Lock Screen -->
+    <style name="Widget.Dotroid.KeypadButton" parent="Widget.MaterialComponents.Button">
+        <item name="android:layout_width">72dp</item>
+        <item name="android:layout_height">72dp</item>
+        <item name="android:layout_margin">12dp</item>
+        <item name="backgroundTint">#1E293B</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="cornerRadius">36dp</item>
+        <item name="android:textSize">26sp</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="rippleColor">#3B82F6</item>
+    </style>
+
+    <style name="Widget.Dotroid.KeypadButton.Icon" parent="Widget.Dotroid.KeypadButton">
+        <item name="android:padding">0dp</item>
+        <item name="iconPadding">0dp</item>
+    </style>
 </resources>

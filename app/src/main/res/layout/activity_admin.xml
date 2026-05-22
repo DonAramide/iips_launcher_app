@@ -279,6 +279,19 @@
                             android:paddingVertical="4dp"
                             android:background="#757575"
                             android:textColor="#FFFFFF" />
+
+                        <TextView
+                            android:id="@+id/kioskLockBadge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Kiosk Lock: DISABLED"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:paddingHorizontal="10dp"
+                            android:paddingVertical="4dp"
+                            android:background="#757575"
+                            android:textColor="#FFFFFF"
+                            android:layout_marginStart="12dp" />
                     </LinearLayout>
 
                     <com.google.android.material.switchmaterial.SwitchMaterial

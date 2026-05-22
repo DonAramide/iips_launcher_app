@@ -10,7 +10,7 @@ import com.iips.launcher.network.models.*
 object SecurePreferences {
     private const val PREFS_NAME = "launcher_secure_prefs"
 
-    private fun getEncryptedPrefs(context: Context): SharedPreferences {
+    fun getEncryptedPrefs(context: Context): SharedPreferences {
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()

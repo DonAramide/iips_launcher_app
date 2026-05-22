@@ -228,6 +228,15 @@
             android:theme="@style/Theme.Dotroid.NoActionBar"
             android:excludeFromRecents="true"
             android:exported="false" />
+
+        <!-- Kiosk Lock Screen Activity -->
+        <activity
+            android:name=".ui.KioskLockActivity"
+            android:launchMode="singleInstance"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Dotroid.FullScreen"
+            android:excludeFromRecents="true"
+            android:exported="false" />
     </application>
 
 </manifest>

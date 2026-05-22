@@ -61,6 +61,7 @@ class LauncherActivity : AppCompatActivity() {
     private val LOCK_TASK_DISABLE_DURATION = 3000L // Keep lock task disabled for 3 seconds after launching app
 
     private var debugWipeReceiver: BroadcastReceiver? = null
+    private var screenOffReceiver: BroadcastReceiver? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
@@ -133,6 +134,7 @@ class LauncherActivity : AppCompatActivity() {
         setupHiddenGesture()
         setupDebugWipeReceiver()
         setupBroadcastObserver()
+        setupScreenLock()
     }
 
     private fun setupDebugWipeReceiver() {
@@ -151,6 +153,19 @@ class LauncherActivity : AppCompatActivity() {
         } else {
             registerReceiver(debugWipeReceiver, filter)
         }
+    }
+
+    private fun setupScreenLock() {
+        screenOffReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == Intent.ACTION_SCREEN_OFF) {
+                    android.util.Log.d("LauncherActivity", "Screen off - locking kiosk")
+                    com.iips.launcher.policy.KioskLockManager.lockDevice()
+                }
+            }
+        }
+        val filter = IntentFilter(Intent.ACTION_SCREEN_OFF)
+        registerReceiver(screenOffReceiver, filter)
     }
 
     private fun performSystemReset() {
@@ -261,6 +276,15 @@ class LauncherActivity : AppCompatActivity() {
                 finish()
                 return
             }
+        }
+        
+        // Check if Kiosk Lock screen should be displayed
+        if (com.iips.launcher.policy.KioskLockManager.isKioskLocked(this)) {
+            android.util.Log.i("LauncherActivity", "Kiosk lock screen is active, redirecting...")
+            val lockIntent = Intent(this, KioskLockActivity::class.java)
+            lockIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            startActivity(lockIntent)
+            return
         }
         
         // Check what activity is currently showing
@@ -502,6 +526,7 @@ class LauncherActivity : AppCompatActivity() {
         settingsReceiver?.let { unregisterReceiver(it) }
         geofenceReceiver?.let { unregisterReceiver(it) }
         debugWipeReceiver?.let { unregisterReceiver(it) }
+        screenOffReceiver?.let { unregisterReceiver(it) }
     }
 
     override fun onNewIntent(intent: Intent?) {

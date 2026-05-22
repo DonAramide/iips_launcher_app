@@ -144,6 +144,8 @@ data class DevicePolicySnapshot(
     val statusBarDisabled: Boolean = false,
     val settingsLock: Boolean = false,
     val screenCaptureDisabled: Boolean = false,
+    val kioskPinEnabled: Boolean = false,
+    val kioskPin: String? = null,
     
     // System Restrictions
     val safeBootDisabled: Boolean = true,
