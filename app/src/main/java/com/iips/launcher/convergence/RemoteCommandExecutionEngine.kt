@@ -89,6 +89,11 @@ class RemoteCommandExecutionEngine @Inject constructor(
         val type = root.getAsJsonPrimitive("type")?.asString?.lowercase() ?: return
         Log.i(TAG, "Routing websocket message type: $type")
 
+        if (type == "connected" || type == "error" || type == "state.changed" || type == "pong") {
+            Log.d(TAG, "Skipping legacy command processing for control message: $type")
+            return
+        }
+
         when (type) {
             "general" -> {
                 // 1. General information broadcast
@@ -310,6 +315,10 @@ class RemoteCommandExecutionEngine @Inject constructor(
         scope.launch {
             try {
                 val command = gson.fromJson(commandJson, MdmCommand::class.java) ?: return@launch
+                if (command.id.isNullOrEmpty() || command.type.isNullOrEmpty()) {
+                    Log.w(TAG, "Ingested frame is not a valid MDM command (missing id or type). Skipping execution.")
+                    return@launch
+                }
                 Log.i(TAG, "Ingesting Edge Command Context [ID: ${command.id}, Target Type: ${command.type}]")
 
                 // Idempotency validation guard: suppress duplicate payload executions

@@ -252,13 +252,15 @@ object SecurePreferences {
         prefs.edit().putString("tenant_id", tenantId).apply()
     }
 
-    fun isCommandExecuted(context: Context, commandId: String): Boolean {
+    fun isCommandExecuted(context: Context, commandId: String?): Boolean {
+        if (commandId.isNullOrEmpty()) return true
         val prefs = getEncryptedPrefs(context)
         val executedIds = prefs.getStringSet("executed_command_ids", emptySet()) ?: emptySet()
         return executedIds.contains(commandId)
     }
 
-    fun markCommandAsExecuted(context: Context, commandId: String) {
+    fun markCommandAsExecuted(context: Context, commandId: String?) {
+        if (commandId.isNullOrEmpty()) return
         val prefs = getEncryptedPrefs(context)
         val executedIds = prefs.getStringSet("executed_command_ids", emptySet())?.toMutableSet() ?: mutableSetOf()
         executedIds.add(commandId)
