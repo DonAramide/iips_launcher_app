@@ -126,9 +126,12 @@ class QrScannerActivity : AppCompatActivity() {
             try {
                 val cameraProvider = cameraProviderFuture.get()
 
-                val preview = Preview.Builder().build().also {
-                    it.setSurfaceProvider(previewView.surfaceProvider)
-                }
+                // Set target resolution to match ImageAnalysis aspect ratio
+                val preview = Preview.Builder()
+                    .setTargetResolution(Size(1280, 720))
+                    .build().also {
+                        it.setSurfaceProvider(previewView.surfaceProvider)
+                    }
 
                 val imageAnalysis = ImageAnalysis.Builder()
                     .setTargetResolution(Size(1280, 720))
@@ -154,13 +157,31 @@ class QrScannerActivity : AppCompatActivity() {
                 })
 
                 cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
+                val camera = cameraProvider.bindToLifecycle(
                     this,
                     CameraSelector.DEFAULT_BACK_CAMERA,
                     preview,
                     imageAnalysis
                 )
-                Log.i(TAG, "Camera bound successfully")
+
+                // Set up touch listener on previewView to perform tap-to-focus
+                previewView.setOnTouchListener { _, event ->
+                    if (event.action == android.view.MotionEvent.ACTION_DOWN) {
+                        try {
+                            val factory = previewView.meteringPointFactory
+                            val point = factory.createPoint(event.x, event.y)
+                            val action = androidx.camera.core.FocusMeteringAction.Builder(point, androidx.camera.core.FocusMeteringAction.FLAG_AF)
+                                .setAutoCancelDuration(3, java.util.concurrent.TimeUnit.SECONDS)
+                                .build()
+                            camera.cameraControl.startFocusAndMetering(action)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to trigger tap-to-focus", e)
+                        }
+                    }
+                    true
+                }
+
+                Log.i(TAG, "Camera bound successfully with matching aspect ratios and tap-to-focus")
 
             } catch (e: Exception) {
                 Log.e(TAG, "Camera start failed", e)
@@ -257,7 +278,6 @@ class QrScannerActivity : AppCompatActivity() {
     ) : ImageAnalysis.Analyzer {
 
         var onFrameAnalyzed: (() -> Unit)? = null
-        private var frameCounter = 0
 
         @androidx.camera.core.ExperimentalGetImage
         override fun analyze(imageProxy: ImageProxy) {
@@ -269,94 +289,31 @@ class QrScannerActivity : AppCompatActivity() {
             }
 
             val rotation = imageProxy.imageInfo.rotationDegrees
-            val width = imageProxy.width
-            val height = imageProxy.height
-            val currentFrame = frameCounter++
 
             try {
-                if (currentFrame % 2 == 0) {
-                    // Process original frame
-                    Log.d("BarcodeAnalyzer", "analyze frame $currentFrame: original ${width}x${height}, format=${imageProxy.format}, rotation=$rotation")
-                    val image = InputImage.fromMediaImage(mediaImage, rotation)
-                    processScanner(image, imageProxy, isInverted = false)
-                } else {
-                    // Process inverted grayscale frame
-                    Log.d("BarcodeAnalyzer", "analyze frame $currentFrame: inverted ${width}x${height}, rotation=$rotation")
-                    val invertedNv21Bytes = invertYPlaneToNv21(imageProxy)
-                    val image = InputImage.fromByteArray(
-                        invertedNv21Bytes,
-                        width,
-                        height,
-                        rotation,
-                        InputImage.IMAGE_FORMAT_NV21
-                    )
-                    processScanner(image, imageProxy, isInverted = true)
-                }
-            } catch (e: Exception) {
-                Log.e("BarcodeAnalyzer", "Error during frame analysis selection", e)
-                imageProxy.close()
-            }
-        }
-
-        private fun processScanner(image: InputImage, imageProxy: ImageProxy, isInverted: Boolean) {
-            scanner.process(image)
-                .addOnSuccessListener { barcodes ->
-                    if (barcodes.isNotEmpty()) {
-                        Log.d("BarcodeAnalyzer", "process success: detected ${barcodes.size} barcodes (isInverted=$isInverted)")
-                    }
-                    for (barcode in barcodes) {
-                        val raw = barcode.rawValue
-                        Log.d("BarcodeAnalyzer", "detected raw value: $raw")
-                        if (!raw.isNullOrBlank()) {
-                            onDetected(raw)
-                            return@addOnSuccessListener
+                val image = InputImage.fromMediaImage(mediaImage, rotation)
+                scanner.process(image)
+                    .addOnSuccessListener { barcodes ->
+                        for (barcode in barcodes) {
+                            val raw = barcode.rawValue
+                            if (!raw.isNullOrBlank()) {
+                                Log.d("BarcodeAnalyzer", "detected raw value: $raw")
+                                onDetected(raw)
+                                return@addOnSuccessListener
+                            }
                         }
                     }
-                }
-                .addOnFailureListener { e ->
-                    Log.e("BarcodeAnalyzer", "process failure (isInverted=$isInverted): ${e.message}", e)
-                }
-                .addOnCompleteListener {
-                    onFrameAnalyzed?.invoke()
-                    imageProxy.close()
-                }
-        }
-
-        private fun invertYPlaneToNv21(imageProxy: ImageProxy): ByteArray {
-            val width = imageProxy.width
-            val height = imageProxy.height
-            val nv21 = ByteArray(width * height * 3 / 2)
-            
-            val yPlane = imageProxy.planes[0]
-            val yBuffer = yPlane.buffer
-            yBuffer.rewind()
-            val ySize = width * height
-            val rowStride = yPlane.rowStride
-            val pixelStride = yPlane.pixelStride
-            
-            if (pixelStride == 1 && rowStride == width) {
-                yBuffer.get(nv21, 0, ySize)
-                for (i in 0 until ySize) {
-                    nv21[i] = (255 - (nv21[i].toInt() and 0xFF)).toByte()
-                }
-            } else {
-                var nv21Idx = 0
-                val rowBytes = ByteArray(rowStride)
-                for (row in 0 until height) {
-                    yBuffer.position(row * rowStride)
-                    val length = Math.min(rowStride, yBuffer.remaining())
-                    yBuffer.get(rowBytes, 0, length)
-                    for (col in 0 until width) {
-                        nv21[nv21Idx++] = (255 - (rowBytes[col * pixelStride].toInt() and 0xFF)).toByte()
+                    .addOnFailureListener { e ->
+                        Log.e("BarcodeAnalyzer", "process failure: ${e.message}", e)
                     }
-                }
+                    .addOnCompleteListener {
+                        onFrameAnalyzed?.invoke()
+                        imageProxy.close()
+                    }
+            } catch (e: Exception) {
+                Log.e("BarcodeAnalyzer", "Error during frame analysis", e)
+                imageProxy.close()
             }
-            
-            val vuStart = width * height
-            val vuSize = width * height / 2
-            java.util.Arrays.fill(nv21, vuStart, vuStart + vuSize, 128.toByte())
-            
-            return nv21
         }
     }
 }
