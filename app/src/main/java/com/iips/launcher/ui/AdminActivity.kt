@@ -223,38 +223,7 @@ class AdminActivity : AppCompatActivity() {
             factoryResetProtectionListener?.invoke(isChecked)
         }
 
-        // Config Server Setup
-        binding.configUrlEditText.setText(SecurePreferences.getConfigUrl(this))
-        binding.syncButton.setOnClickListener {
-            val url = binding.configUrlEditText.text.toString().trim()
-            if (url.isEmpty()) {
-                Toast.makeText(this, "Please enter a valid URL", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
 
-            SecurePreferences.setConfigUrl(this, url)
-            
-            lifecycleScope.launch {
-                binding.syncButton.isEnabled = false
-                binding.syncButton.text = getString(R.string.syncing)
-                
-                try {
-                    // Trigger immediate sync via WorkManager
-                    val workRequest = androidx.work.OneTimeWorkRequestBuilder<com.iips.launcher.workers.PolicySyncWorker>().build()
-                    androidx.work.WorkManager.getInstance(this@AdminActivity).enqueue(workRequest)
-                    Toast.makeText(this@AdminActivity, R.string.sync_success, Toast.LENGTH_SHORT).show()
-                    // Refresh logs and status after sync
-                    loadUsageLogs()
-                    updateLockdownStatus()
-                    updateMdmStatus() // Also update MDM status as sync might affect it
-                } catch (e: Exception) {
-                    Toast.makeText(this@AdminActivity, getString(R.string.sync_failed, e.message), Toast.LENGTH_LONG).show()
-                } finally {
-                    binding.syncButton.isEnabled = true
-                    binding.syncButton.text = getString(R.string.sync_config)
-                }
-            }
-        }
 
         // MDM Management Setup
         binding.forceHeartbeatButton.setOnClickListener {
