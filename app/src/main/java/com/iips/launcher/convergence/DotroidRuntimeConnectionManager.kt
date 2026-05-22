@@ -86,8 +86,9 @@ class DotroidRuntimeConnectionManager @Inject constructor(
         }
 
         Log.i(TAG, "Initiating real-time edge runtime connection to gateway...")
+        val wsUrl = SecurePreferences.getWebSocketUrl(context)
         val request = Request.Builder()
-            .url(GATEWAY_WS_URL)
+            .url(wsUrl)
             .addHeader("Authorization", "Bearer $token")
             .build()
 

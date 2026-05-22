@@ -96,8 +96,12 @@ class IntegrityTrustRuntime @Inject constructor(
         if (currentTrustScore < CRITICAL_TRUST_THRESHOLD) {
             Log.e(TAG, "CRITICAL: Device runtime Trust Index ($currentTrustScore) degraded below threshold bounds!")
             
-            // Execute automated containment actions on compromise
-            enforceTrustQuarantine(detectedAnomalies)
+            // Execute automated containment actions on compromise (only if not a debug build)
+            if (!com.iips.launcher.BuildConfig.DEBUG) {
+                enforceTrustQuarantine(detectedAnomalies)
+            } else {
+                Log.w(TAG, "DEBUG BUILD: Skipping trust quarantine enforcement.")
+            }
         }
     }
 

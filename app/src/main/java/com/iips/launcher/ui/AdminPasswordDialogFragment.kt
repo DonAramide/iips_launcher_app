@@ -95,10 +95,12 @@ class AdminPasswordDialogFragment(
     private fun validatePassword() {
         val enteredPassword = binding.passwordInput.text.toString()
         val correctPassword = SecurePreferences.getAdminPassword(requireContext())
+        val enteredHashed = com.iips.launcher.security.SecurityUtils.sha256(enteredPassword)
+        val isMatch = correctPassword.isNotEmpty() && enteredHashed == correctPassword
 
-        android.util.Log.d("AdminPasswordDialog", "Password validation - Entered: ${enteredPassword.isNotEmpty()}, Match: ${enteredPassword == correctPassword}")
+        android.util.Log.d("AdminPasswordDialog", "Password validation - Entered: ${enteredPassword.isNotEmpty()}, Match: $isMatch")
 
-        if (enteredPassword == correctPassword) {
+        if (isMatch) {
             android.util.Log.d("AdminPasswordDialog", "Password correct, calling onSuccess callback")
             // Call success callback first, then dismiss
             onSuccess(true)

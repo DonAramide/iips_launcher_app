@@ -106,17 +106,15 @@ class ProvisioningBootstrapService : Service() {
             val fingerprintHash = SecurityUtils.calculateFingerprintHash(this)
             val serial = getSerialNumber()
 
+            val agentCode = SecurePreferences.getAgentCode(this)
             val request = EnrollmentRequest(
                 enrollmentToken = enrollmentToken,
-                tenantId = tenantId,
-                policyGroupId = policyGroupId,
                 manufacturer = Build.MANUFACTURER,
                 model = Build.MODEL,
-                androidVersion = Build.VERSION.RELEASE,
                 serialNumber = serial,
-                fingerprint = Build.FINGERPRINT,
                 fingerprintHash = fingerprintHash,
-                appVersion = BuildConfig.VERSION_NAME
+                agentCode = agentCode,
+                businessName = SecurePreferences.getBusinessName(this)
             )
 
             val response = enrollWithRetry(request)
@@ -170,6 +168,14 @@ class ProvisioningBootstrapService : Service() {
         SecurePreferences.setFingerprintHash(this, fingerprintHash)
         SecurePreferences.setDeviceState(this, SecurePreferences.STATE_ACTIVE)
         SecurePreferences.setProvisioningCompleted(this, true)
+        
+        val provUrl = SecurePreferences.getProvisioningBackendUrl(this)
+            ?: SecurePreferences.getBackendUrl(this)
+        if (!provUrl.isNullOrBlank()) {
+            val normalizedUrl = com.iips.launcher.policy.DeviceAdminReceiver.normalizeBackendUrl(provUrl)
+            SecurePreferences.setConfigUrl(this, normalizedUrl)
+        }
+        
         SecurePreferences.clearProvisioningExtras(this)
 
         TelemetryWorker.schedule(this)
@@ -202,14 +208,15 @@ class ProvisioningBootstrapService : Service() {
 
     private fun getSerialNumber(): String? {
         return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val s = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 Build.getSerial()
             } else {
                 @Suppress("DEPRECATION")
                 Build.SERIAL
             }
+            if (s.isNullOrBlank() || s.equals("unknown", ignoreCase = true)) null else s
         } catch (e: Exception) {
-            android.provider.Settings.Secure.getString(contentResolver, android.provider.Settings.Secure.ANDROID_ID)
+            null
         }
     }
 

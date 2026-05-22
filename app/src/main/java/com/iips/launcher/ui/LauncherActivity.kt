@@ -38,6 +38,7 @@ import com.iips.launcher.storage.ConfigManager
 class LauncherActivity : AppCompatActivity() {
 
     @javax.inject.Inject lateinit var broadcastEngine: com.iips.launcher.convergence.BroadcastRenderingEngine
+    @javax.inject.Inject lateinit var configService: com.iips.launcher.network.ConfigService
 
     private lateinit var binding: ActivityLauncherBinding
     private lateinit var database: AppDatabase
@@ -79,18 +80,14 @@ class LauncherActivity : AppCompatActivity() {
                 .start()
         }
         
+        // Process provisioning extras on cold start
+        com.iips.launcher.network.DeviceEnrollmentManager.extractAndPersistProvisioningExtras(this, intent)
+
         val state = SecurePreferences.getDeviceState(this)
         when (state) {
             SecurePreferences.STATE_NEW, SecurePreferences.STATE_ONBOARDING -> {
-                // Enterprise QR provisioning path: Device Owner + stored token but not yet enrolled.
-                // Route to the automated status screen instead of manual onboarding.
-                val isDeviceOwner = com.iips.launcher.policy.DeviceAdminReceiver.isDeviceOwner(this)
-                val hasToken = SecurePreferences.getEnrollmentToken(this) != null
-                if (isDeviceOwner && hasToken && !SecurePreferences.isProvisioningCompleted(this)) {
-                    startActivity(Intent(this, ProvisioningStatusActivity::class.java))
-                } else {
-                    startActivity(Intent(this, OnboardingActivity::class.java))
-                }
+                // Always route to OnboardingActivity — it now contains the full enrollment form
+                startActivity(Intent(this, OnboardingActivity::class.java))
                 finish()
                 return
             }
@@ -248,16 +245,14 @@ class LauncherActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         
+        // Process provisioning extras on resume
+        com.iips.launcher.network.DeviceEnrollmentManager.extractAndPersistProvisioningExtras(this, intent)
+
         val state = SecurePreferences.getDeviceState(this)
         when (state) {
             SecurePreferences.STATE_NEW, SecurePreferences.STATE_ONBOARDING -> {
-                val isDeviceOwner = com.iips.launcher.policy.DeviceAdminReceiver.isDeviceOwner(this)
-                val hasToken = SecurePreferences.getEnrollmentToken(this) != null
-                if (isDeviceOwner && hasToken && !SecurePreferences.isProvisioningCompleted(this)) {
-                    startActivity(Intent(this, ProvisioningStatusActivity::class.java))
-                } else {
-                    startActivity(Intent(this, OnboardingActivity::class.java))
-                }
+                // Always route to OnboardingActivity — it now contains the full enrollment form
+                startActivity(Intent(this, OnboardingActivity::class.java))
                 finish()
                 return
             }
@@ -756,6 +751,10 @@ class LauncherActivity : AppCompatActivity() {
             Toast.makeText(this, "Checking location...", Toast.LENGTH_SHORT).show()
         }
 
+        binding.btnRequestLocationAuth.setOnClickListener {
+            requestLocationAuthorization()
+        }
+
         binding.btnAdminUnlock.setOnClickListener {
             showAdminPasswordDialog()
         }
@@ -793,6 +792,81 @@ class LauncherActivity : AppCompatActivity() {
             }
         } else {
             binding.geofenceLockOverlay.visibility = View.GONE
+        }
+    }
+
+    private fun requestLocationAuthorization() {
+        if (androidx.core.app.ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "Location permission is required for authorization request", Toast.LENGTH_LONG).show()
+            androidx.core.app.ActivityCompat.requestPermissions(this, arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION), 101)
+            return
+        }
+
+        Toast.makeText(this, "Acquiring current GPS coordinates...", Toast.LENGTH_SHORT).show()
+        val fusedLocationClient = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(this)
+        
+        try {
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                if (location != null) {
+                    sendLocationAuthProposal(location)
+                } else {
+                    val locationRequest = com.google.android.gms.location.LocationRequest.Builder(
+                        com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, 1000L
+                    ).setMaxUpdates(1).build()
+                    
+                    val callback = object : com.google.android.gms.location.LocationCallback() {
+                        override fun onLocationResult(result: com.google.android.gms.location.LocationResult) {
+                            val loc = result.lastLocation
+                            if (loc != null) {
+                                sendLocationAuthProposal(loc)
+                            } else {
+                                Toast.makeText(this@LauncherActivity, "Could not acquire GPS lock. Please retry.", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }
+                    fusedLocationClient.requestLocationUpdates(
+                        locationRequest, callback, android.os.Looper.getMainLooper()
+                    )
+                }
+            }.addOnFailureListener { e ->
+                Toast.makeText(this, "Failed to get location: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        } catch (e: SecurityException) {
+            Toast.makeText(this, "Security exception: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun sendLocationAuthProposal(location: android.location.Location) {
+        lifecycleScope.launch {
+            try {
+                val token = SecurePreferences.getDeviceToken(this@LauncherActivity)
+                if (token == null) {
+                    Toast.makeText(this@LauncherActivity, "Device token not found. Please register device first.", Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+
+                val proposedRule = com.iips.launcher.network.models.GeofenceRule(
+                    id = "auth-req-${System.currentTimeMillis()}",
+                    name = "Authorized Site Request",
+                    lat = location.latitude,
+                    lng = location.longitude,
+                    radius_m = 150.0
+                )
+                val payload = mapOf("zones" to listOf(proposedRule))
+                val request = com.iips.launcher.network.models.MdmEventRequest(
+                    type = "GEOFENCE_PROPOSAL",
+                    payload = payload
+                )
+
+                val response = configService.sendEvent("Bearer $token", request)
+                if (response.isSuccessful) {
+                    Toast.makeText(this@LauncherActivity, "Location proposal sent successfully to Quasar!", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(this@LauncherActivity, "Server rejected request (Code: ${response.code()})", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this@LauncherActivity, "Network error: ${e.message}", Toast.LENGTH_LONG).show()
+            }
         }
     }
 

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Transparent center with white corner brackets via layer-list -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Transparent center -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent" />
+        </shape>
+    </item>
+    <!-- Thin white border -->
+    <item>
+        <shape android:shape="rectangle">
+            <stroke android:width="2dp" android:color="#80FFFFFF" />
+            <corners android:radius="8dp" />
+            <solid android:color="@android:color/transparent" />
+        </shape>
+    </item>
+    <!-- Top-left corner accent -->
+    <item android:top="0dp" android:left="0dp" android:bottom="220dp" android:right="220dp">
+        <shape android:shape="rectangle">
+            <stroke android:width="4dp" android:color="#FFFFFF" />
+            <corners android:topLeftRadius="8dp" />
+            <solid android:color="@android:color/transparent" />
+        </shape>
+    </item>
+    <!-- Top-right corner accent -->
+    <item android:top="0dp" android:left="220dp" android:bottom="220dp" android:right="0dp">
+        <shape android:shape="rectangle">
+            <stroke android:width="4dp" android:color="#FFFFFF" />
+            <corners android:topRightRadius="8dp" />
+            <solid android:color="@android:color/transparent" />
+        </shape>
+    </item>
+    <!-- Bottom-left corner accent -->
+    <item android:top="220dp" android:left="0dp" android:bottom="0dp" android:right="220dp">
+        <shape android:shape="rectangle">
+            <stroke android:width="4dp" android:color="#FFFFFF" />
+            <corners android:bottomLeftRadius="8dp" />
+            <solid android:color="@android:color/transparent" />
+        </shape>
+    </item>
+    <!-- Bottom-right corner accent -->
+    <item android:top="220dp" android:left="220dp" android:bottom="0dp" android:right="0dp">
+        <shape android:shape="rectangle">
+            <stroke android:width="4dp" android:color="#FFFFFF" />
+            <corners android:bottomRightRadius="8dp" />
+            <solid android:color="@android:color/transparent" />
+        </shape>
+    </item>
+</layer-list>

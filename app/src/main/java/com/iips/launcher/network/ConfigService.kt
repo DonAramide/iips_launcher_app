@@ -13,7 +13,7 @@ interface ConfigService {
     @GET
     suspend fun fetchConfig(@Url url: String): Response<okhttp3.ResponseBody>
 
-    @POST("devices/enroll")
+    @POST("device/register")
     suspend fun enrollDevice(@Body request: EnrollmentRequest): Response<EnrollmentResponse>
 
     @GET("device/policy")

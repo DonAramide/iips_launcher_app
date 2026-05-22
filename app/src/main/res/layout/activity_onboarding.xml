@@ -138,28 +138,33 @@
                 app:layout_constraintTop_toBottomOf="@id/setup_title"
                 app:layout_constraintStart_toStartOf="parent" />
 
+            <!-- Enrollment Token with QR scan icon -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/enrollment_token_layout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="32dp"
+                android:layout_marginTop="24dp"
                 android:hint="Enrollment Token"
+                app:endIconMode="custom"
+                app:endIconDrawable="@drawable/ic_qr_scan"
+                app:endIconContentDescription="Scan QR Code"
+                app:endIconTint="@color/primary"
                 app:layout_constraintTop_toBottomOf="@id/setup_desc">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_enrollment_token"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="text" />
+                    android:inputType="text"
+                    android:maxLines="1" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/business_name_layout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="12dp"
                 android:hint="Business Name"
                 app:layout_constraintTop_toBottomOf="@id/enrollment_token_layout">
-
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_business_name"
                     android:layout_width="match_parent"
@@ -171,10 +176,9 @@
                 android:id="@+id/agent_code_layout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="12dp"
                 android:hint="Agent Code (Optional)"
                 app:layout_constraintTop_toBottomOf="@id/business_name_layout">
-
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_agent_code"
                     android:layout_width="match_parent"
@@ -187,11 +191,10 @@
                 android:id="@+id/admin_password_layout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="12dp"
                 android:hint="Admin Password"
                 app:passwordToggleEnabled="true"
                 app:layout_constraintTop_toBottomOf="@id/agent_code_layout">
-
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_admin_password"
                     android:layout_width="match_parent"
@@ -203,11 +206,10 @@
                 android:id="@+id/confirm_password_layout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="12dp"
                 android:hint="Confirm Password"
                 app:passwordToggleEnabled="true"
                 app:layout_constraintTop_toBottomOf="@id/admin_password_layout">
-
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/input_confirm_password"
                     android:layout_width="match_parent"
@@ -215,11 +217,14 @@
                     android:inputType="textPassword" />
             </com.google.android.material.textfield.TextInputLayout>
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_setup_continue"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
-                android:text="Continue"
+                android:text="CONTINUE"
+                android:textSize="16sp"
+                android:letterSpacing="0.1"
+                app:cornerRadius="8dp"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent" />
@@ -347,7 +352,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginEnd="16dp"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="48dp"
         android:alpha="0.8"
         android:textColor="@color/text_primary"
         android:textSize="12sp"

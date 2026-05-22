@@ -39,6 +39,29 @@ class OnboardingActivity : AppCompatActivity() {
     @Inject
     lateinit var enrollmentManager: DeviceEnrollmentManager
 
+    // ── QR Scanner ───────────────────────────────────────────────────────────
+
+    private val qrScanLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val token      = result.data?.getStringExtra(QrScannerActivity.EXTRA_TOKEN)
+            val backendUrl = result.data?.getStringExtra(QrScannerActivity.EXTRA_BACKEND_URL)
+
+            if (!token.isNullOrBlank()) {
+                val inputEnrollmentToken = findViewById<TextInputEditText>(R.id.input_enrollment_token)
+                inputEnrollmentToken.setText(token.trim())
+                inputEnrollmentToken.setSelection(token.trim().length)
+                Toast.makeText(this, "Token populated from QR", Toast.LENGTH_SHORT).show()
+            }
+            if (!backendUrl.isNullOrBlank()) {
+                val normalized = com.iips.launcher.policy.DeviceAdminReceiver.normalizeBackendUrl(backendUrl)
+                SecurePreferences.setProvisioningBackendUrl(this, normalized)
+                SecurePreferences.setBackendUrl(this, normalized)
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_onboarding)
@@ -129,11 +152,16 @@ class OnboardingActivity : AppCompatActivity() {
         val inputConfirm = findViewById<TextInputEditText>(R.id.input_confirm_password)
         val inputAgentCode = findViewById<TextInputEditText>(R.id.input_agent_code)
 
+        val enrollmentTokenLayout = findViewById<com.google.android.material.textfield.TextInputLayout>(R.id.enrollment_token_layout)
+        enrollmentTokenLayout.setEndIconOnClickListener {
+            qrScanLauncher.launch(Intent(this, QrScannerActivity::class.java))
+        }
+
         btnContinue.setOnClickListener {
             val enrollmentToken = inputEnrollmentToken.text.toString().trim()
             val businessName = inputBusinessName.text.toString().trim()
-            val password = inputPassword.text.toString()
-            val confirm = inputConfirm.text.toString()
+            val password = inputPassword.text.toString().trim()
+            val confirm = inputConfirm.text.toString().trim()
             val agentCode = inputAgentCode.text.toString().trim()
 
             if (enrollmentToken.isEmpty()) {

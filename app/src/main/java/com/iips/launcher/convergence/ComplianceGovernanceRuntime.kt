@@ -56,6 +56,12 @@ class ComplianceGovernanceRuntime @Inject constructor(
     }
 
     private suspend fun evaluateKioskInvariants() {
+        val state = SecurePreferences.getDeviceState(context)
+        if (state == SecurePreferences.STATE_NEW || state == SecurePreferences.STATE_ONBOARDING) {
+            Log.d(TAG, "Device is in onboarding state ($state). Skipping Kiosk Governance checks.")
+            return
+        }
+
         val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
         val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val packageManager = context.packageManager

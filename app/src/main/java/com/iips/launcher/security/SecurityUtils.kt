@@ -160,14 +160,15 @@ object SecurityUtils {
         
         // Attempt to get serial number (requires Device Owner or READ_PHONE_STATE)
         val serial = try {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val s = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                 android.os.Build.getSerial()
             } else {
                 @Suppress("DEPRECATION")
                 android.os.Build.SERIAL
             }
+            if (s.isNullOrBlank() || s.equals("unknown", ignoreCase = true)) null else s
         } catch (e: Exception) {
-            android.provider.Settings.Secure.getString(context.contentResolver, android.provider.Settings.Secure.ANDROID_ID)
+            null
         } ?: "no_serial"
 
         val raw = "$manufacturer|$model|$serial"

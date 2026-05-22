@@ -14,6 +14,20 @@ object KioskController {
      * Reads the current policy from SecurePreferences and applies its restrictions via DeviceController.
      */
     fun applyPolicy(context: Context) {
+        val state = SecurePreferences.getDeviceState(context)
+        if (state == SecurePreferences.STATE_NEW || state == SecurePreferences.STATE_ONBOARDING) {
+            Log.d(TAG, "Device is in onboarding/new state ($state). Disabling kiosk mode and stopping lock task.")
+            SecurePreferences.setLockdownEnabled(context, false)
+            DeviceController.disableLockTaskMode(context)
+            if (context is Activity) {
+                DeviceController.stopLockTask(context)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                DeviceController.blockSettingsAccess(context, false)
+            }
+            return
+        }
+
         val snapshot = SecurePreferences.getDevicePolicySnapshot(context)
         val kioskEnabled = SecurePreferences.getKioskModeEnabled(context)
         val settingsLocked = SecurePreferences.isSettingsLocked(context)

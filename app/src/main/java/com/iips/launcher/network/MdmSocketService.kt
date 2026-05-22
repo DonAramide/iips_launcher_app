@@ -55,7 +55,7 @@ class MdmSocketService : Service() {
 
     private fun connect() {
         val token = SecurePreferences.getDeviceToken(this) ?: return
-        val wsUrl = "wss://api-quasar.iips.app/api/v1/do-mdm/devices/ws"
+        val wsUrl = SecurePreferences.getWebSocketUrl(this)
 
         val request = Request.Builder()
             .url(wsUrl)

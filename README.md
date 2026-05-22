@@ -38,6 +38,17 @@ A comprehensive Android Device Owner / Kiosk-style launcher application designed
 - **Language**: Kotlin
 - **Architecture**: MVVM with Room database
 - **Dependencies**: AndroidX, Material Design, Room, Security Crypto
+## API & Enrollment Specification
+
+### Manual Enrollment Setup
+For devices that bypass standard Android QR code provisioning, the launcher supports a manual setup interface (gated behind the `ALLOW_MANUAL_ENROLL` property or enabled automatically in debug builds).
+
+#### Configuration & Constraints
+- **API Base URL**: The base URL (configured via `BASE_URL` in `build.gradle`, conceptually `DOTOID_API_BASE_URL`) must end with `/api/v1/` (e.g. `https://your-mdm-domain.com/api/v1/`).
+- **Registration Endpoint**: `POST /api/v1/device/register` (executes without authentication headers during the initial bootstrap/handshake phase).
+- **Token Sources**:
+  - Generated via `admin/device/enrollment-token` in the Quasar admin dashboard.
+  - Obtained from the `mdm_provisioning_profiles` token via the Admin QR API.
 
 ## Installation & Setup
 

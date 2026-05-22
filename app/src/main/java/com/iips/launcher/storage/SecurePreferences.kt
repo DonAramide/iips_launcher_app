@@ -26,8 +26,7 @@ object SecurePreferences {
 
     fun getAdminPassword(context: Context): String {
         val prefs = getEncryptedPrefs(context)
-        return prefs.getString("admin_password", context.getString(R.string.default_admin_password)) ?: 
-               context.getString(R.string.default_admin_password)
+        return prefs.getString("admin_password", "") ?: ""
     }
 
     fun setAdminPassword(context: Context, password: String) {
@@ -338,6 +337,16 @@ object SecurePreferences {
         return prefs.getString("provisioning_backend_url", null)
     }
 
+    fun setBackendUrl(context: Context, url: String) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit().putString("backend_url", url).apply()
+    }
+
+    fun getBackendUrl(context: Context): String? {
+        val prefs = getEncryptedPrefs(context)
+        return prefs.getString("backend_url", null)
+    }
+
     fun setEnrollmentToken(context: Context, token: String) {
         val prefs = getEncryptedPrefs(context)
         prefs.edit().putString("enrollment_token", token).apply()
@@ -348,6 +357,16 @@ object SecurePreferences {
         return prefs.getString("enrollment_token", null)
     }
 
+    fun setAgentCode(context: Context, agentCode: String) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit().putString("agent_code", agentCode).apply()
+    }
+
+    fun getAgentCode(context: Context): String? {
+        val prefs = getEncryptedPrefs(context)
+        return prefs.getString("agent_code", null)
+    }
+
     fun clearProvisioningExtras(context: Context) {
         val prefs = getEncryptedPrefs(context)
         prefs.edit()
@@ -355,6 +374,8 @@ object SecurePreferences {
             .remove("tenant_id")
             .remove("policy_group_id")
             .remove("provisioning_backend_url")
+            .remove("backend_url")
+            .remove("agent_code")
             .apply()
     }
     fun getGeofenceMode(context: Context): String {
@@ -389,12 +410,12 @@ object SecurePreferences {
 
     fun getCommandAttemptCount(context: Context, commandId: String): Int {
         val prefs = getEncryptedPrefs(context)
-        return prefs.getInt("cmd_attempt_\$commandId", 0)
+        return prefs.getInt("cmd_attempt_$commandId", 0)
     }
 
     fun setCommandAttemptCount(context: Context, commandId: String, count: Int) {
         val prefs = getEncryptedPrefs(context)
-        prefs.edit().putInt("cmd_attempt_\$commandId", count).apply()
+        prefs.edit().putInt("cmd_attempt_$commandId", count).apply()
     }
 
     fun getLastRebootTime(context: Context): Long {
@@ -416,5 +437,38 @@ object SecurePreferences {
     fun setOfflineTelemetryQueue(context: Context, queue: List<String>) {
         val prefs = getEncryptedPrefs(context)
         prefs.edit().putStringSet("offline_telemetry_queue", queue.toSet()).apply()
+    }
+
+    fun getWebSocketUrl(context: Context): String {
+        val customUrl = getProvisioningBackendUrl(context)
+            ?: getBackendUrl(context)
+            ?: getConfigUrl(context)
+        
+        val normalized = try {
+            com.iips.launcher.policy.DeviceAdminReceiver.normalizeBackendUrl(customUrl)
+        } catch (e: Exception) {
+            customUrl
+        }
+        
+        val wsBase = when {
+            normalized.startsWith("https://") -> normalized.replace("https://", "wss://")
+            normalized.startsWith("http://") -> normalized.replace("http://", "ws://")
+            else -> "wss://$normalized"
+        }
+        
+        val cleanBase = if (wsBase.endsWith("/api/v1/")) {
+            wsBase
+        } else if (wsBase.endsWith("/api/v1")) {
+            "$wsBase/"
+        } else {
+            val trimmed = wsBase.trimEnd('/')
+            if (trimmed.endsWith("/api/v1")) {
+                "$trimmed/"
+            } else {
+                "$trimmed/api/v1/"
+            }
+        }
+        
+        return "${cleanBase}do-mdm/devices/ws"
     }
 }

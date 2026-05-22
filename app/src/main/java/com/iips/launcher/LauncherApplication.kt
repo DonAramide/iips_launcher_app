@@ -37,6 +37,7 @@ class LauncherApplication : Application(), androidx.work.Configuration.Provider 
     @Inject lateinit var integrityRuntime: com.iips.launcher.convergence.IntegrityTrustRuntime
     @Inject lateinit var replayRuntime: com.iips.launcher.convergence.ReplayRecoveryRuntime
     @Inject lateinit var validationSuite: com.iips.launcher.convergence.DotroidRuntimeValidationSuite
+    @Inject lateinit var remoteCommandEngine: com.iips.launcher.convergence.RemoteCommandExecutionEngine
 
     override fun getWorkManagerConfiguration(): androidx.work.Configuration {
         return androidx.work.Configuration.Builder()
@@ -95,16 +96,17 @@ class LauncherApplication : Application(), androidx.work.Configuration.Provider 
                 
                 android.util.Log.d("LauncherApplication", "onActivityStarted: $activityName, package: $packageName")
                 
-                // Never intercept AdminActivity, AppSelectionActivity, or own package activities
+                // Never intercept AdminActivity, AppSelectionActivity, own package, or system permission activities
                 val isAdminActivity = activityName.contains("AdminActivity", ignoreCase = true) ||
                                      activityName == "com.iips.launcher.ui.AdminActivity"
                 val isAppSelectionActivity = activityName.contains("AppSelectionActivity", ignoreCase = true) ||
                                             activityName == "com.iips.launcher.ui.AppSelectionActivity"
                 val isOwnPackage = packageName == "com.iips.launcher" || 
                                   packageName.contains("iips.launcher", ignoreCase = true)
+                val isBypass = isSystemBypassPackage(packageName)
                 
-                if (isAdminActivity || isAppSelectionActivity || isOwnPackage) {
-                    android.util.Log.d("LauncherApplication", "Allowing own package/admin activity to start: $packageName")
+                if (isAdminActivity || isAppSelectionActivity || isOwnPackage || isBypass) {
+                    android.util.Log.d("LauncherApplication", "Allowing own package/admin/bypass activity to start: $packageName")
                     return // Don't intercept these activities
                 }
                 
@@ -164,17 +166,18 @@ class LauncherApplication : Application(), androidx.work.Configuration.Provider 
                 
                 android.util.Log.d("LauncherApplication", "onActivityResumed: $activityName, package: $packageName")
                 
-                // Check first if it's AdminActivity or own package before intercepting
+                // Check first if it's AdminActivity, own package, or system permission before intercepting
                 val isAdminActivity = activityName.contains("AdminActivity", ignoreCase = true) ||
                                      activityName == "com.iips.launcher.ui.AdminActivity"
                 val isAppSelectionActivity = activityName.contains("AppSelectionActivity", ignoreCase = true) ||
                                             activityName == "com.iips.launcher.ui.AppSelectionActivity"
                 val isOwnPackage = packageName == "com.iips.launcher" || 
                                   packageName.contains("iips.launcher", ignoreCase = true)
+                val isBypass = isSystemBypassPackage(packageName)
                 
-                // Never intercept AdminActivity, AppSelectionActivity, or own package activities
-                if (isAdminActivity || isAppSelectionActivity || isOwnPackage) {
-                    android.util.Log.d("LauncherApplication", "Allowing own package/admin activity to resume: $packageName")
+                // Never intercept AdminActivity, AppSelectionActivity, own package, or system permission activities
+                if (isAdminActivity || isAppSelectionActivity || isOwnPackage || isBypass) {
+                    android.util.Log.d("LauncherApplication", "Allowing own package/admin/bypass activity to resume: $packageName")
                     return // Don't intercept these activities
                 }
                 
@@ -254,6 +257,10 @@ class LauncherApplication : Application(), androidx.work.Configuration.Provider 
                 
                 val packageName = activity.packageName?.lowercase() ?: ""
                 
+                if (isSystemBypassPackage(packageName)) {
+                    return
+                }
+                
                 // ALWAYS block Settings FIRST
                 val isSettingsApp = packageName.contains("settings", ignoreCase = true) ||
                                    packageName == "com.android.settings"
@@ -325,6 +332,11 @@ class LauncherApplication : Application(), androidx.work.Configuration.Provider 
         loadAllowedApps()
     }
     
+    fun isSystemBypassPackage(packageName: String): Boolean {
+        val lower = packageName.lowercase()
+        return lower.contains("packageinstaller") || lower.contains("permissioncontroller")
+    }
+
     fun isPackageAllowed(packageName: String): Boolean {
         return synchronized(allowedPackagesLock) {
             packageName.lowercase() in allowedPackages

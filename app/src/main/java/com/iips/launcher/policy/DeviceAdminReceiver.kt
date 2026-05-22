@@ -59,11 +59,28 @@ class DeviceAdminReceiver : DeviceAdminReceiver() {
 
         /**
          * Validate that a backend URL is safe to use:
-         *  - Must start with https://
+         *  - Must start with https:// (or http:// in debug builds)
          *  - Must be longer than 10 characters
          */
-        fun isValidBackendUrl(url: String): Boolean =
-            url.startsWith("https://") && url.length > 10
+        fun isValidBackendUrl(url: String): Boolean {
+            val isHttpAllowed = com.iips.launcher.BuildConfig.DEBUG
+            return (url.startsWith("https://") || (isHttpAllowed && url.startsWith("http://"))) && url.length > 10
+        }
+
+        /**
+         * Normalize the backend URL to ensure it ends with a trailing slash and "/api/v1/".
+         */
+        fun normalizeBackendUrl(url: String): String {
+            var trimmed = url.trim()
+            if (trimmed.isEmpty()) return ""
+            if (!trimmed.endsWith("/")) {
+                trimmed += "/"
+            }
+            if (!trimmed.endsWith("api/v1/")) {
+                trimmed += "api/v1/"
+            }
+            return trimmed
+        }
     }
 
     // ── Provisioning complete ────────────────────────────────────────────────
@@ -79,21 +96,8 @@ class DeviceAdminReceiver : DeviceAdminReceiver() {
         super.onProfileProvisioningComplete(context, intent)
         Log.i(TAG, "onProfileProvisioningComplete — starting enterprise bootstrap")
 
-        // Extract admin extras bundle from provisioning intent
-        val extras: PersistableBundle? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            intent.getParcelableExtra(
-                android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE
-            )
-        } else {
-            null
-        }
-
-        if (extras != null) {
-            persistProvisioningExtras(context, extras)
-        } else {
-            Log.w(TAG, "onProfileProvisioningComplete — no admin extras bundle found; " +
-                       "will rely on previously stored enrollment token if present")
-        }
+        // Delegate provisioning extras extraction to DeviceEnrollmentManager
+        com.iips.launcher.network.DeviceEnrollmentManager.extractAndPersistProvisioningExtras(context, intent)
 
         // ── Enterprise initialization ────────────────────────────────────────
         // 1. Set Dotroid as the default home launcher automatically
