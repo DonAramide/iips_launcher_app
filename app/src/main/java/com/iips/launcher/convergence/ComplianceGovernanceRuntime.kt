@@ -87,11 +87,16 @@ class ComplianceGovernanceRuntime @Inject constructor(
             // Dispatch live Real-time compliance alert packets
             emitComplianceAlert(failedInvariants)
 
-            // Trigger fallback native quarantine rendering overlays safely
-            renderQuarantineOverlay(failedInvariants)
+            // Suppress lockdown overlay in debug mode to allow local testing and developer setup
+            if (com.iips.launcher.BuildConfig.DEBUG) {
+                Log.w(TAG, "[DEBUG MODE] Suppressing quarantine lockdown overlay for deviations: $failedInvariants")
+            } else {
+                // Trigger fallback native quarantine rendering overlays safely
+                renderQuarantineOverlay(failedInvariants)
 
-            // Auto-retry Self-Healing verification tasks
-            executeSelfHealingRemediations(isLockTaskActive)
+                // Auto-retry Self-Healing verification tasks
+                executeSelfHealingRemediations(isLockTaskActive)
+            }
         } else {
             Log.v(TAG, "Kiosk Containment metrics verified pristine.")
         }
