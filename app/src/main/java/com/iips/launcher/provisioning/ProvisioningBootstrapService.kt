@@ -16,6 +16,10 @@ import com.iips.launcher.BuildConfig
 import com.iips.launcher.network.ConfigService
 import com.iips.launcher.network.models.EnrollmentRequest
 import com.iips.launcher.network.models.EnrollmentResponse
+import com.iips.launcher.network.models.LocationInfo
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import kotlinx.coroutines.tasks.await
 import com.iips.launcher.ui.LauncherActivity
 import com.iips.launcher.ui.ProvisioningStatusActivity
 import com.iips.launcher.storage.SecurePreferences
@@ -107,6 +111,7 @@ class ProvisioningBootstrapService : Service() {
             val serial = getSerialNumber()
 
             val agentCode = SecurePreferences.getAgentCode(this)
+            val locInfo = fetchCurrentLocation(this)
             val request = EnrollmentRequest(
                 enrollmentToken = enrollmentToken,
                 manufacturer = Build.MANUFACTURER,
@@ -114,7 +119,10 @@ class ProvisioningBootstrapService : Service() {
                 serialNumber = serial,
                 fingerprintHash = fingerprintHash,
                 agentCode = agentCode,
-                businessName = SecurePreferences.getBusinessName(this)
+                businessName = SecurePreferences.getBusinessName(this),
+                latitude = locInfo?.lat,
+                longitude = locInfo?.lng,
+                location = locInfo
             )
 
             val response = enrollWithRetry(request)
@@ -247,5 +255,40 @@ class ProvisioningBootstrapService : Service() {
     private fun updateNotification(text: String) {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(NOTIF_ID, buildNotification(text))
+    }
+
+    private suspend fun fetchCurrentLocation(context: Context): LocationInfo? {
+        try {
+            val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+            val location = fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null).await()
+            if (location != null) {
+                return LocationInfo(location.latitude, location.longitude)
+            }
+            val lastKnown = fusedLocationClient.lastLocation.await()
+            if (lastKnown != null) {
+                return LocationInfo(lastKnown.latitude, lastKnown.longitude)
+            }
+        } catch (e: SecurityException) {
+            // Ignore
+        } catch (e: Exception) {
+            // Ignore
+        }
+
+        // Fallback: LocationManager
+        try {
+            val lm = context.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+            val providers = lm.getProviders(true)
+            for (provider in providers) {
+                val loc = lm.getLastKnownLocation(provider)
+                if (loc != null) {
+                    return LocationInfo(loc.latitude, loc.longitude)
+                }
+            }
+        } catch (e: SecurityException) {
+            // Ignore
+        } catch (e: Exception) {
+            // Ignore
+        }
+        return null
     }
 }

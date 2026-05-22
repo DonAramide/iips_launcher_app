@@ -875,7 +875,7 @@ class LauncherActivity : AppCompatActivity() {
                     name = "Authorized Site Request",
                     lat = location.latitude,
                     lng = location.longitude,
-                    radius_m = 150.0
+                    radius_m = 30.0
                 )
                 val payload = mapOf("zones" to listOf(proposedRule))
                 val request = com.iips.launcher.network.models.MdmEventRequest(

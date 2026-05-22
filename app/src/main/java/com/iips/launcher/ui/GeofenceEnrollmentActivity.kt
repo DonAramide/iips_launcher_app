@@ -109,8 +109,8 @@ class GeofenceEnrollmentActivity : AppCompatActivity() {
 
         val radiusStr = binding.zoneRadiusEdit.text.toString().trim()
         val radius = radiusStr.toFloatOrNull() ?: 0f
-        if (radius < 50) {
-            binding.zoneRadiusLayout.error = "Minimum radius is 50m"
+        if (radius < 30) {
+            binding.zoneRadiusLayout.error = "Minimum radius is 30m"
             return
         }
 
@@ -130,7 +130,7 @@ class GeofenceEnrollmentActivity : AppCompatActivity() {
         proposedZones.add(newZone)
         zoneAdapter.notifyDataSetChanged()
         binding.zoneNameEdit.text?.clear()
-        binding.zoneRadiusEdit.setText("150")
+        binding.zoneRadiusEdit.setText("30")
         updateSubmitButton()
     }
 

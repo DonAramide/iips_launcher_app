@@ -6,12 +6,16 @@ import android.os.Build
 import android.os.PersistableBundle
 import android.util.Log
 import com.iips.launcher.network.models.EnrollmentRequest
+import com.iips.launcher.network.models.LocationInfo
 import com.iips.launcher.security.SecurityUtils
 import com.iips.launcher.storage.SecurePreferences
 import com.iips.launcher.policy.DeviceAdminReceiver
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.tasks.await
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -32,6 +36,7 @@ class DeviceEnrollmentManager @Inject constructor(
             val serial = com.iips.launcher.security.SecurityUtils.getSerialNumber(context)
             val fingerprintHash = SecurityUtils.calculateFingerprintHash(context)
 
+            val locInfo = fetchCurrentLocation(context)
             val request = EnrollmentRequest(
                 enrollmentToken = token,
                 manufacturer = manufacturer,
@@ -39,7 +44,10 @@ class DeviceEnrollmentManager @Inject constructor(
                 serialNumber = serial,
                 fingerprintHash = fingerprintHash,
                 agentCode = agentCode,
-                businessName = SecurePreferences.getBusinessName(context)
+                businessName = SecurePreferences.getBusinessName(context),
+                latitude = locInfo?.lat,
+                longitude = locInfo?.lng,
+                location = locInfo
             )
 
             val response = configService.enrollDevice(request)
@@ -168,5 +176,40 @@ class DeviceEnrollmentManager @Inject constructor(
                 Log.d(TAG, "Stored top-level policy_group_id: $topPolicyGroupId")
             }
         }
+    }
+
+    private suspend fun fetchCurrentLocation(context: Context): LocationInfo? {
+        try {
+            val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+            val location = fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null).await()
+            if (location != null) {
+                return LocationInfo(location.latitude, location.longitude)
+            }
+            val lastKnown = fusedLocationClient.lastLocation.await()
+            if (lastKnown != null) {
+                return LocationInfo(lastKnown.latitude, lastKnown.longitude)
+            }
+        } catch (e: SecurityException) {
+            // Ignore
+        } catch (e: Exception) {
+            // Ignore
+        }
+
+        // Fallback: LocationManager
+        try {
+            val lm = context.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+            val providers = lm.getProviders(true)
+            for (provider in providers) {
+                val loc = lm.getLastKnownLocation(provider)
+                if (loc != null) {
+                    return LocationInfo(loc.latitude, loc.longitude)
+                }
+            }
+        } catch (e: SecurityException) {
+            // Ignore
+        } catch (e: Exception) {
+            // Ignore
+        }
+        return null
     }
 }
