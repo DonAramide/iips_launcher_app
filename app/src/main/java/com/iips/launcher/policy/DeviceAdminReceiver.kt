@@ -116,6 +116,9 @@ class DeviceAdminReceiver : DeviceAdminReceiver() {
         super.onEnabled(context, intent)
         Log.i(TAG, "onEnabled — Device admin enabled")
 
+        // Ensure permissions are granted
+        com.iips.launcher.policy.DeviceController.grantOwnPermissions(context)
+
         // If we already have a stored provisioning token but haven't completed
         // provisioning yet (e.g. app was killed mid-flow), restart bootstrap.
         if (!SecurePreferences.isProvisioningCompleted(context) &&

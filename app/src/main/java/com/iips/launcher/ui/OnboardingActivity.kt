@@ -92,16 +92,7 @@ class OnboardingActivity : AppCompatActivity() {
     }
 
     private fun displaySerialNumber() {
-        val serial = try {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                android.os.Build.getSerial()
-            } else {
-                @Suppress("DEPRECATION")
-                android.os.Build.SERIAL
-            }
-        } catch (e: Exception) {
-            android.provider.Settings.Secure.getString(contentResolver, android.provider.Settings.Secure.ANDROID_ID)
-        }
+        val serial = com.iips.launcher.security.SecurityUtils.getSerialNumber(this)
         findViewById<TextView>(R.id.tv_serial_number).text = "SN: $serial"
     }
 

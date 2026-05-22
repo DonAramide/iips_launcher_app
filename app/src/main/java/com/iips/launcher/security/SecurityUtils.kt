@@ -151,26 +151,73 @@ object SecurityUtils {
         }
     }
     /**
+     * Retrieves the hardware serial number of the device, with fallback options.
+     */
+    fun getSerialNumber(context: Context): String {
+        try {
+            val s = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                try {
+                    android.os.Build.getSerial()
+                } catch (se: SecurityException) {
+                    @Suppress("DEPRECATION")
+                    android.os.Build.SERIAL
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                android.os.Build.SERIAL
+            }
+            if (!s.isNullOrBlank() && !s.equals("unknown", ignoreCase = true)) {
+                return s
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
+
+        try {
+            val c = Class.forName("android.os.SystemProperties")
+            val get = c.getMethod("get", String::class.java)
+            val serial = get.invoke(c, "ro.serialno") as String
+            if (!serial.isNullOrBlank() && !serial.equals("unknown", ignoreCase = true)) {
+                return serial
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
+
+        try {
+            val c = Class.forName("android.os.SystemProperties")
+            val get = c.getMethod("get", String::class.java)
+            val serial = get.invoke(c, "ril.serialnumber") as String
+            if (!serial.isNullOrBlank() && !serial.equals("unknown", ignoreCase = true)) {
+                return serial
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
+
+        try {
+            val androidId = android.provider.Settings.Secure.getString(
+                context.contentResolver,
+                android.provider.Settings.Secure.ANDROID_ID
+            )
+            if (!androidId.isNullOrBlank() && !androidId.equals("unknown", ignoreCase = true)) {
+                return androidId
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
+
+        return "unknown_serial"
+    }
+
+    /**
      * Calculates the Dotoid fingerprint_hash (§4).
      * Format: SHA256Hex(manufacturer | model | (serial ?: "no_serial"))
      */
     fun calculateFingerprintHash(context: Context): String {
         val manufacturer = android.os.Build.MANUFACTURER
         val model = android.os.Build.MODEL
-        
-        // Attempt to get serial number (requires Device Owner or READ_PHONE_STATE)
-        val serial = try {
-            val s = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                android.os.Build.getSerial()
-            } else {
-                @Suppress("DEPRECATION")
-                android.os.Build.SERIAL
-            }
-            if (s.isNullOrBlank() || s.equals("unknown", ignoreCase = true)) null else s
-        } catch (e: Exception) {
-            null
-        } ?: "no_serial"
-
+        val serial = getSerialNumber(context)
         val raw = "$manufacturer|$model|$serial"
         return sha256(raw)
     }

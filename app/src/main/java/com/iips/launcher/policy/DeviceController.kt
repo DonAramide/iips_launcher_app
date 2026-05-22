@@ -390,6 +390,9 @@ object DeviceController {
                 return
             }
 
+            // Programmatically grant all requested permissions
+            grantOwnPermissions(context)
+
             // Block Settings access completely - do this aggressively
             blockSettingsAccess(context, true)
             
@@ -538,6 +541,54 @@ object DeviceController {
         } catch (e: Exception) {
             // Other exceptions - log but don't crash
             android.util.Log.w("DeviceController", "Error preventing force stop", e)
+        }
+    }
+
+    /**
+     * Programmatically grants the app's own requested runtime permissions.
+     */
+    fun grantOwnPermissions(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+        try {
+            if (!DeviceAdminReceiver.isDeviceOwner(context)) return
+
+            val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+            val admin = DeviceAdminReceiver.getComponentName(context)
+            val packageName = context.packageName
+
+            val permissions = listOf(
+                android.Manifest.permission.READ_PHONE_STATE,
+                android.Manifest.permission.ACCESS_FINE_LOCATION,
+                android.Manifest.permission.ACCESS_COARSE_LOCATION,
+                android.Manifest.permission.CAMERA
+            )
+
+            permissions.forEach { permission ->
+                try {
+                    dpm.setPermissionGrantState(
+                        admin,
+                        packageName,
+                        permission,
+                        DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED
+                    )
+                    android.util.Log.i("DeviceController", "Successfully granted permission: $permission")
+                } catch (e: Exception) {
+                    android.util.Log.w("DeviceController", "Failed to grant permission $permission: ${e.message}")
+                }
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                try {
+                    dpm.setPermissionGrantState(
+                        admin,
+                        packageName,
+                        android.Manifest.permission.ACCESS_BACKGROUND_LOCATION,
+                        DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED
+                    )
+                } catch (e: Exception) { }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("DeviceController", "Error granting permissions", e)
         }
     }
 

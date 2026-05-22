@@ -29,17 +29,7 @@ class DeviceEnrollmentManager @Inject constructor(
         try {
             val manufacturer = Build.MANUFACTURER
             val model = Build.MODEL
-            val serial = try {
-                val s = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    Build.getSerial()
-                } else {
-                    @Suppress("DEPRECATION")
-                    Build.SERIAL
-                }
-                if (s.isNullOrBlank() || s.equals("unknown", ignoreCase = true)) null else s
-            } catch (e: Exception) {
-                null
-            }
+            val serial = com.iips.launcher.security.SecurityUtils.getSerialNumber(context)
             val fingerprintHash = SecurityUtils.calculateFingerprintHash(context)
 
             val request = EnrollmentRequest(

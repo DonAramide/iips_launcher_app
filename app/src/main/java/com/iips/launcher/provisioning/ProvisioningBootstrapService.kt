@@ -207,17 +207,7 @@ class ProvisioningBootstrapService : Service() {
     }
 
     private fun getSerialNumber(): String? {
-        return try {
-            val s = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                Build.getSerial()
-            } else {
-                @Suppress("DEPRECATION")
-                Build.SERIAL
-            }
-            if (s.isNullOrBlank() || s.equals("unknown", ignoreCase = true)) null else s
-        } catch (e: Exception) {
-            null
-        }
+        return com.iips.launcher.security.SecurityUtils.getSerialNumber(this)
     }
 
     private fun launchLauncher() {
