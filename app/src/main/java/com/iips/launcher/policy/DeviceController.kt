@@ -418,13 +418,17 @@ object DeviceController {
             // Block access to app info/uninstall/force stop screens
             val restrictions = mutableListOf(
                 android.os.UserManager.DISALLOW_CONFIG_CREDENTIALS,
-                android.os.UserManager.DISALLOW_DEBUGGING_FEATURES,
                 android.os.UserManager.DISALLOW_SAFE_BOOT,
-                android.os.UserManager.DISALLOW_USB_FILE_TRANSFER,
                 android.os.UserManager.DISALLOW_MODIFY_ACCOUNTS,
                 android.os.UserManager.DISALLOW_APPS_CONTROL,  // Prevents app management access - BLOCKS FORCE STOP
                 android.os.UserManager.DISALLOW_CONFIG_PRIVATE_DNS
             )
+
+            // Keep debugging and USB transfer enabled in debug builds to prevent locking developers out of ADB
+            if (!com.iips.launcher.BuildConfig.DEBUG) {
+                restrictions.add(android.os.UserManager.DISALLOW_DEBUGGING_FEATURES)
+                restrictions.add(android.os.UserManager.DISALLOW_USB_FILE_TRANSFER)
+            }
             
             // Add additional restrictions if available (Android 6.0+)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
