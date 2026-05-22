@@ -132,7 +132,13 @@ class RemoteCommandExecutionEngine @Inject constructor(
             }
             "location_request" -> {
                 // 5. Location Request
-                reportCurrentLocation()
+                val commandId = root.getAsJsonPrimitive("command_id")?.asString ?: root.getAsJsonPrimitive("commandId")?.asString
+                val requestId = root.getAsJsonPrimitive("request_id")?.asString ?: root.getAsJsonPrimitive("requestId")?.asString
+                reportCurrentLocation(commandId, requestId)
+            }
+            "ping" -> {
+                val requestId = root.getAsJsonPrimitive("request_id")?.asString ?: root.getAsJsonPrimitive("requestId")?.asString
+                sendPingResponse(requestId)
             }
             "update_request" -> {
                 // 6. Update Request
@@ -244,17 +250,12 @@ class RemoteCommandExecutionEngine @Inject constructor(
         }
     }
 
-    private fun reportCurrentLocation() {
+    private fun reportCurrentLocation(commandId: String? = null, incomingRequestId: String? = null) {
         val fusedLocationClient = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(context)
         try {
             fusedLocationClient.lastLocation.addOnSuccessListener { location ->
                 if (location != null) {
-                    sendWebsocketAck("LOCATION_REPORT", mapOf(
-                        "latitude" to location.latitude,
-                        "longitude" to location.longitude,
-                        "accuracy" to location.accuracy,
-                        "timestamp" to location.time
-                    ))
+                    transmitLocationReportFrame(location.latitude, location.longitude, location.accuracy, commandId, incomingRequestId)
                 } else {
                     val locationRequest = com.google.android.gms.location.LocationRequest.Builder(
                         com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, 1000L
@@ -264,12 +265,7 @@ class RemoteCommandExecutionEngine @Inject constructor(
                         override fun onLocationResult(result: com.google.android.gms.location.LocationResult) {
                             val loc = result.lastLocation
                             if (loc != null) {
-                                sendWebsocketAck("LOCATION_REPORT", mapOf(
-                                    "latitude" to loc.latitude,
-                                    "longitude" to loc.longitude,
-                                    "accuracy" to loc.accuracy,
-                                    "timestamp" to loc.time
-                                ))
+                                transmitLocationReportFrame(loc.latitude, loc.longitude, loc.accuracy, commandId, incomingRequestId)
                             } else {
                                 sendWebsocketAck("LOCATION_REPORT_FAILED", mapOf("error" to "Device returned null coordinates"))
                             }
@@ -285,6 +281,52 @@ class RemoteCommandExecutionEngine @Inject constructor(
         } catch (e: SecurityException) {
             Log.e(TAG, "Permission missing for location request", e)
             sendWebsocketAck("LOCATION_REPORT_FAILED", mapOf("error" to "Security permission missing"))
+        }
+    }
+
+    private fun transmitLocationReportFrame(
+        lat: Double,
+        lng: Double,
+        accuracy: Float,
+        commandId: String? = null,
+        incomingRequestId: String? = null
+    ) {
+        scope.launch {
+            val reqId = incomingRequestId ?: "loc-${System.currentTimeMillis()}"
+            val dataMap = mutableMapOf<String, Any>(
+                "latitude" to lat,
+                "longitude" to lng,
+                "accuracy" to accuracy.toDouble()
+            )
+            if (commandId != null) {
+                dataMap["command_id"] = commandId
+            }
+
+            val frameMap = mapOf(
+                "type" to "LOCATION_REPORT",
+                "request_id" to reqId,
+                "data" to dataMap
+            )
+            val jsonFrame = gson.toJson(frameMap)
+            val sent = connectionManager.transmitFrame(jsonFrame)
+            if (!sent) {
+                val queue = SecurePreferences.getOfflineTelemetryQueue(context).toMutableList()
+                queue.add(jsonFrame)
+                SecurePreferences.setOfflineTelemetryQueue(context, queue)
+            }
+        }
+    }
+
+    private fun sendPingResponse(requestId: String?) {
+        scope.launch {
+            val responseMap = mutableMapOf<String, Any>(
+                "type" to "pong"
+            )
+            if (requestId != null) {
+                responseMap["request_id"] = requestId
+            }
+            responseMap["data"] = mapOf("ok" to true)
+            connectionManager.transmitFrame(gson.toJson(responseMap))
         }
     }
 
