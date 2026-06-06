@@ -243,12 +243,25 @@ class AdminActivity : AppCompatActivity() {
         binding.resetMdmButton.setOnClickListener {
             androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle(R.string.reset_mdm)
-                .setMessage("Are you sure you want to reset MDM registration? This will clear the device token.")
+                .setMessage("Are you sure you want to reset MDM registration? This will clear the device token and restart onboarding.")
                 .setPositiveButton(R.string.confirm) { _, _ ->
                     SecurePreferences.setDeviceId(this, "")
                     SecurePreferences.setDeviceToken(this, "")
+                    SecurePreferences.setDeviceState(this, SecurePreferences.STATE_ONBOARDING)
+                    
+                    try {
+                        val intent = Intent(this, com.iips.launcher.network.MdmSocketService::class.java)
+                        stopService(intent)
+                    } catch (e: Exception) {}
+
                     updateMdmStatus()
                     Toast.makeText(this, R.string.mdm_reset_success, Toast.LENGTH_SHORT).show()
+
+                    // Redirect to Onboarding
+                    val intent = Intent(this, OnboardingActivity::class.java)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    startActivity(intent)
+                    finish()
                 }
                 .setNegativeButton(R.string.cancel, null)
                 .show()
@@ -281,43 +294,14 @@ class AdminActivity : AppCompatActivity() {
     }
 
     private fun showSystemResetAuthDialog() {
-        val input = android.widget.EditText(this).apply {
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-            hint = "Enter Super Admin Password"
-        }
-
         androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("System Reset Authentication")
-            .setMessage("This action will WIPE ALL DATA and reset the launcher. Please enter the dynamic super admin password (yyyy/MM/DD/HH/mm-iips@admin123) to continue.")
-            .setView(input)
+            .setTitle("System Reset Confirmation")
+            .setMessage("This action will WIPE ALL DATA and reset the launcher. Are you sure you want to continue?")
             .setPositiveButton("WIPE EVERYTHING") { _, _ ->
-                val password = input.text.toString()
-                if (verifySuperAdminPassword(password)) {
-                    performSystemReset()
-                } else {
-                    Toast.makeText(this, "Invalid Super Admin Password", Toast.LENGTH_LONG).show()
-                }
+                performSystemReset()
             }
             .setNegativeButton(R.string.cancel, null)
             .show()
-    }
-
-    private fun verifySuperAdminPassword(input: String): Boolean {
-        val sdf = java.text.SimpleDateFormat("yyyy/MM/dd/HH/mm", java.util.Locale.US)
-        val currentTime = sdf.format(java.util.Date())
-        val expected = "$currentTime-iips@admin123"
-        
-        android.util.Log.d("AdminActivity", "Super Admin Auth - Expected: $expected, Received: $input")
-        
-        // Allow a 1-minute grace period (current or previous minute)
-        if (input == expected) return true
-        
-        val calendar = java.util.Calendar.getInstance()
-        calendar.add(java.util.Calendar.MINUTE, -1)
-        val previousTime = sdf.format(calendar.time)
-        val expectedPrevious = "$previousTime-iips@admin123"
-        
-        return input == expectedPrevious
     }
 
     private fun performSystemReset() {
