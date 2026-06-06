@@ -131,6 +131,12 @@ class DeviceEnrollmentManager @Inject constructor(
                     SecurePreferences.setPolicyGroupId(context, policyGroupId)
                     Log.d(TAG, "Stored policy_group_id from bundle: $policyGroupId")
                 }
+
+                val businessName = extras.getString("business_name") ?: extras.getString("businessName")
+                if (!businessName.isNullOrBlank()) {
+                    SecurePreferences.setBusinessName(context, businessName)
+                    Log.i(TAG, "Stored business_name from bundle: $businessName")
+                }
             } else {
                 Log.d(TAG, "No PROVISIONING_ADMIN_EXTRAS_BUNDLE found in intent")
             }
@@ -140,6 +146,12 @@ class DeviceEnrollmentManager @Inject constructor(
             if (!topToken.isNullOrBlank()) {
                 SecurePreferences.setEnrollmentToken(context, topToken)
                 Log.i(TAG, "Stored top-level enrollment token (redacted)")
+            }
+
+            val topBusinessName = intent.getStringExtra("business_name") ?: intent.getStringExtra("businessName")
+            if (!topBusinessName.isNullOrBlank()) {
+                SecurePreferences.setBusinessName(context, topBusinessName)
+                Log.i(TAG, "Stored top-level business_name: $topBusinessName")
             }
 
             val topBackendUrl = intent.getStringExtra("backend_url") 

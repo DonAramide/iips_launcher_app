@@ -244,7 +244,14 @@ object SecurePreferences {
 
     fun getTenantId(context: Context): String? {
         val prefs = getEncryptedPrefs(context)
-        return prefs.getString("tenant_id", null)
+        val storedId = prefs.getString("tenant_id", null)
+        if (storedId.isNullOrEmpty() || storedId == "default") {
+            val bizName = getBusinessName(context)
+            if (!bizName.isNullOrEmpty()) {
+                return bizName
+            }
+        }
+        return storedId ?: "default"
     }
 
     fun setTenantId(context: Context, tenantId: String) {
