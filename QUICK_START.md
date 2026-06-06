@@ -25,7 +25,7 @@
    Or manually:
    ```bash
    adb install app/build/outputs/apk/debug/app-debug.apk
-   adb shell dpm set-device-owner com.iips.launcher/.device.DeviceAdminReceiver
+   adb shell dpm set-device-owner com.iips.launcher/.policy.DeviceAdminReceiver
    ```
 
 3. Complete device setup wizard

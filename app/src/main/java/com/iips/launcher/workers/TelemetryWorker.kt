@@ -37,13 +37,14 @@ class TelemetryWorker @AssistedInject constructor(
                 .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
                 .build()
 
-            val request = androidx.work.PeriodicWorkRequestBuilder<TelemetryWorker>(1, java.util.concurrent.TimeUnit.HOURS)
+            val request = androidx.work.OneTimeWorkRequestBuilder<TelemetryWorker>()
                 .setConstraints(constraints)
+                .setInitialDelay(1, java.util.concurrent.TimeUnit.MINUTES)
                 .build()
 
-            androidx.work.WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            androidx.work.WorkManager.getInstance(context).enqueueUniqueWork(
                 WORK_NAME,
-                androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+                androidx.work.ExistingWorkPolicy.REPLACE,
                 request
             )
         }
@@ -51,16 +52,17 @@ class TelemetryWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         val context = applicationContext
+        Log.d(TAG, "TelemetryWorker executing...")
         
-        if (!SecurePreferences.isRegistered(context)) {
-            Log.w(TAG, "Device not registered, skipping heartbeat")
-            return Result.retry()
-        }
-
-        val deviceId = SecurePreferences.getDeviceId(context) ?: return Result.failure()
-        val token = SecurePreferences.getDeviceToken(context) ?: return Result.failure()
-
         try {
+            if (!SecurePreferences.isRegistered(context)) {
+                Log.w(TAG, "Device not registered, skipping heartbeat")
+                return Result.success()
+            }
+
+            if (SecurePreferences.getDeviceId(context) == null) return Result.success()
+            val token = SecurePreferences.getDeviceToken(context) ?: return Result.success()
+
             val heartbeat = collectTelemetry(context)
             Log.d(TAG, "Sending heartbeat: $heartbeat")
             
@@ -70,23 +72,25 @@ class TelemetryWorker @AssistedInject constructor(
             
             val response = repository.sendHeartbeat(token, signature, timestamp, nonce, heartbeat)
             
-            return if (response.isSuccessful) {
+            if (response.isSuccessful) {
                 Log.d(TAG, "Heartbeat sent successfully")
-                Result.success()
             } else {
                 Log.e(TAG, "Heartbeat failed: ${response.code()}")
-                if (response.code() in 500..599) Result.retry() else Result.failure()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error in TelemetryWorker", e)
-            return Result.retry()
+        } finally {
+            // Always reschedule next run 1 minute later
+            schedule(context)
         }
+        return Result.success()
     }
 
     private suspend fun collectTelemetry(context: Context): HeartbeatRequest {
         val locationInfo = fetchCurrentLocation(context)
         val batteryInfo = HardwareProvider.getBatteryInfo(context)
         val networkInfo = HardwareProvider.getNetworkInfo(context)
+        val simInfo = HardwareProvider.getSimInfo(context)
 
         return HeartbeatRequest(
             deviceId = SecurePreferences.getDeviceId(context) ?: "unknown",
@@ -97,7 +101,10 @@ class TelemetryWorker @AssistedInject constructor(
             networkStatus = if (networkInfo.isConnected) networkInfo.type else "offline",
             uptime = android.os.SystemClock.elapsedRealtime() / 1000,
             location = if (locationInfo.lat != 0.0) locationInfo else null,
-            deviceTime = System.currentTimeMillis()
+            deviceTime = System.currentTimeMillis(),
+            isSimPresent = simInfo.isPresent,
+            simOperator = simInfo.simOperator,
+            simNetworkType = simInfo.simNetworkType
         )
     }
 

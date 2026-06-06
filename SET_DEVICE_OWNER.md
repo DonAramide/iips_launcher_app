@@ -127,7 +127,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 **⚠️ TIMING IS CRITICAL:** Run this command while the device is STILL in the setup wizard, before you tap "Finish" or "Get Started"!
 
 ```bash
-adb shell dpm set-device-owner "com.iips.launcher/.device.DeviceAdminReceiver"
+adb shell dpm set-device-owner "com.iips.launcher/.policy.DeviceAdminReceiver"
 ```
 
 **Expected output:** `Success: Device owner set to package ComponentInfo{...}`
@@ -154,7 +154,7 @@ adb shell pm uninstall com.iips.launcher
 
 **You should see:**
 ```
-Device owner: ComponentInfo{com.iips.launcher/com.iips.launcher.device.DeviceAdminReceiver}
+Device owner: ComponentInfo{com.iips.launcher/com.iips.launcher.policy.DeviceAdminReceiver}
 ```
 
 ### Step 7: Complete Device Setup
@@ -248,7 +248,7 @@ If you see another package listed or uninstall succeeds, Device Owner is NOT set
 
 ```bash
 adb install app/build/outputs/apk/debug/app-debug.apk && \
-adb shell dpm set-device-owner "com.iips.launcher/.device.DeviceAdminReceiver" && \
+adb shell dpm set-device-owner "com.iips.launcher/.policy.DeviceAdminReceiver" && \
 adb shell dpm list-owners && \
 adb shell cmd package set-home-activity "com.iips.launcher/.ui.LauncherActivity"
 ```

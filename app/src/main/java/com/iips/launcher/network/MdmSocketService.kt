@@ -18,7 +18,6 @@ import com.iips.launcher.network.models.MdmEventRequest
 import com.iips.launcher.storage.SecurePreferences
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
-import okhttp3.*
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -26,7 +25,6 @@ import javax.inject.Inject
 class MdmSocketService : Service() {
     private val TAG = "MdmSocketService"
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var webSocket: WebSocket? = null
     private val gson = Gson()
     
     @Inject
@@ -36,7 +34,7 @@ class MdmSocketService : Service() {
     lateinit var configService: ConfigService
 
     @Inject
-    lateinit var okHttpClient: OkHttpClient
+    lateinit var connectionManager: com.iips.launcher.convergence.DotroidRuntimeConnectionManager
 
     override fun onCreate() {
         super.onCreate()
@@ -46,41 +44,24 @@ class MdmSocketService : Service() {
             acknowledge(ack)
         }
         
-        connect()
+        // Listen to incoming frames from the shared connectionManager
+        scope.launch {
+            connectionManager.incomingFrames.collect { text ->
+                try {
+                    val command = gson.fromJson(text, MdmCommand::class.java)
+                    if (command != null && !command.id.isNullOrEmpty() && !command.type.isNullOrEmpty() && !command.signature.isNullOrEmpty()) {
+                        Log.i(TAG, "MDM Command received via shared WebSocket: ${command.type} (${command.id})")
+                        commandManager.enqueueCommand(command)
+                    }
+                } catch (e: Exception) {
+                    // Ignore parsing exceptions for non-MDM commands (e.g. other WS frames like general broadcasts)
+                }
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         return START_STICKY
-    }
-
-    private fun connect() {
-        val token = SecurePreferences.getDeviceToken(this) ?: return
-        val wsUrl = SecurePreferences.getWebSocketUrl(this)
-
-        val request = Request.Builder()
-            .url(wsUrl)
-            .addHeader("Authorization", "Bearer $token")
-            .build()
-
-        webSocket = okHttpClient.newWebSocket(request, object : WebSocketListener() {
-            override fun onOpen(webSocket: WebSocket, response: Response) {
-                Log.i(TAG, "MDM WebSocket Connected")
-            }
-
-            override fun onMessage(webSocket: WebSocket, text: String) {
-                try {
-                    val command = gson.fromJson(text, MdmCommand::class.java)
-                    commandManager.enqueueCommand(command)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to parse command", e)
-                }
-            }
-
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                Log.e(TAG, "MDM WebSocket Failure: \${t.message}")
-                reconnect()
-            }
-        })
     }
 
     private fun acknowledge(ack: CommandAcknowledgement) {
@@ -91,7 +72,7 @@ class MdmSocketService : Service() {
             }
 
             val json = gson.toJson(ack)
-            val sentViaWs = webSocket?.send(json) == true
+            val sentViaWs = connectionManager.transmitFrame(json)
             
             if (!sentViaWs) {
                 try {
@@ -112,13 +93,6 @@ class MdmSocketService : Service() {
                     Log.e(TAG, "Failed to acknowledge via HTTP", e)
                 }
             }
-        }
-    }
-
-    private fun reconnect() {
-        scope.launch {
-            delay(10000)
-            connect()
         }
     }
 
@@ -143,7 +117,6 @@ class MdmSocketService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        webSocket?.close(1000, "Service Destroyed")
         commandManager.stopProcessor()
         scope.cancel()
     }

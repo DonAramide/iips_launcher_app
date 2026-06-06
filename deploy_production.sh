@@ -7,7 +7,7 @@ set -e
 
 APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
 PACKAGE_NAME="com.iips.launcher"
-RECEIVER_PATH="com.iips.launcher/.device.DeviceAdminReceiver"
+RECEIVER_PATH="com.iips.launcher/.policy.DeviceAdminReceiver"
 SYSTEM_DIR="/system/priv-app"
 APP_DIR_NAME="IIPSLauncher"
 

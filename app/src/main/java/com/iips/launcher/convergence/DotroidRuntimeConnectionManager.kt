@@ -20,6 +20,11 @@ import javax.inject.Singleton
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.random.Random
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationResult
 
 /**
  * PHASE 1 — RUNTIME CONNECTION MANAGER
@@ -171,17 +176,78 @@ class DotroidRuntimeConnectionManager @Inject constructor(
             return
         }
 
+        val batteryInfo = com.iips.launcher.core.HardwareProvider.getBatteryInfo(context)
+        val networkInfo = com.iips.launcher.core.HardwareProvider.getNetworkInfo(context)
+        val uptime = com.iips.launcher.core.HardwareProvider.getUptimeSeconds()
+        val simInfo = com.iips.launcher.core.HardwareProvider.getSimInfo(context)
+
         val pingMap = mapOf(
             "type" to "HEARTBEAT_PING",
             "edgeNodeId" to deviceId,
             "tenantId" to tenantId,
-            "clientEpoch" to (System.currentTimeMillis() / 1000L)
+            "clientEpoch" to (System.currentTimeMillis() / 1000L),
+            "batteryPercentage" to batteryInfo.level,
+            "networkType" to networkInfo.type,
+            "uptime" to uptime,
+            "isSimPresent" to simInfo.isPresent,
+            "simOperator" to simInfo.simOperator,
+            "simNetworkType" to simInfo.simNetworkType
         )
 
         val success = transmitFrame(gson.toJson(pingMap))
         if (success) {
-            Log.d(TAG, "Runtime edge heartbeat ping safely transmitted.")
+            Log.d(TAG, "Runtime edge heartbeat ping safely transmitted: $pingMap")
         }
+
+        // Send current GPS coordinates during heartbeat ping
+        sendLocationReportDuringHeartbeat()
+    }
+
+    private fun sendLocationReportDuringHeartbeat() {
+        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+        try {
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                if (location != null) {
+                    transmitLocationReport(location.latitude, location.longitude, location.accuracy)
+                } else {
+                    val locationRequest = LocationRequest.Builder(
+                        Priority.PRIORITY_HIGH_ACCURACY, 1000L
+                    ).setMaxUpdates(1).build()
+
+                    val callback = object : LocationCallback() {
+                        override fun onLocationResult(result: LocationResult) {
+                            val loc = result.lastLocation
+                            if (loc != null) {
+                                transmitLocationReport(loc.latitude, loc.longitude, loc.accuracy)
+                            }
+                        }
+                    }
+                    fusedLocationClient.requestLocationUpdates(
+                        locationRequest, callback, android.os.Looper.getMainLooper()
+                    )
+                }
+            }.addOnFailureListener { e ->
+                Log.e(TAG, "Failed to get location for heartbeat report", e)
+            }
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Permission missing for heartbeat location request", e)
+        }
+    }
+
+    private fun transmitLocationReport(lat: Double, lng: Double, accuracy: Float) {
+        val reqId = "loc-hb-${System.currentTimeMillis()}"
+        val dataMap = mapOf(
+            "latitude" to lat,
+            "longitude" to lng,
+            "accuracy" to accuracy.toDouble()
+        )
+        val frameMap = mapOf(
+            "type" to "LOCATION_REPORT",
+            "request_id" to reqId,
+            "data" to dataMap
+        )
+        val jsonFrame = gson.toJson(frameMap)
+        transmitFrame(jsonFrame)
     }
 
     private fun handleSocketFault(isRemoteTermination: Boolean) {

@@ -83,7 +83,7 @@ For devices that bypass standard Android QR code provisioning, the launcher supp
 5. **Run** the following ADB command:
 
 ```bash
-adb shell dpm set-device-owner com.iips.launcher/.device.DeviceAdminReceiver
+adb shell dpm set-device-owner com.iips.launcher/.policy.DeviceAdminReceiver
 ```
 
 6. If successful, you should see: `Success: Device owner set to package com.iips.launcher`
@@ -269,7 +269,7 @@ For issues or questions:
 adb shell dpm list-owners
 
 # Remove device owner (requires factory reset afterward)
-adb shell dpm remove-active-admin com.iips.launcher/.device.DeviceAdminReceiver
+adb shell dpm remove-active-admin com.iips.launcher/.policy.DeviceAdminReceiver
 
 # Force stop launcher (if locked)
 adb shell am force-stop com.iips.launcher

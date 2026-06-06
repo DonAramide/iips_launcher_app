@@ -33,6 +33,7 @@ class TelemetryManager @Inject constructor(
         val tenantId = SecurePreferences.getTenantId(context) ?: "default"
         val batteryInfo = HardwareProvider.getBatteryInfo(context)
         val networkInfo = HardwareProvider.getNetworkInfo(context)
+        val simInfo = HardwareProvider.getSimInfo(context)
 
         val heartbeat = HeartbeatRequest(
             deviceId = deviceId,
@@ -43,7 +44,10 @@ class TelemetryManager @Inject constructor(
             networkStatus = if (networkInfo.isConnected) networkInfo.type else "offline",
             uptime = android.os.SystemClock.elapsedRealtime() / 1000,
             location = null,
-            deviceTime = System.currentTimeMillis()
+            deviceTime = System.currentTimeMillis(),
+            isSimPresent = simInfo.isPresent,
+            simOperator = simInfo.simOperator,
+            simNetworkType = simInfo.simNetworkType
         )
         telemetryRepository.saveToOfflineQueue(heartbeat)
     }

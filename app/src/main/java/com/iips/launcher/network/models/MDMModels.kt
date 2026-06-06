@@ -51,7 +51,10 @@ data class HeartbeatRequest(
     @SerializedName("network_status") val networkStatus: String,
     @SerializedName("uptime") val uptime: Long, // seconds
     @SerializedName("location") val location: LocationInfo? = null,
-    @SerializedName("device_time") val deviceTime: Long
+    @SerializedName("device_time") val deviceTime: Long,
+    @SerializedName("is_sim_present") val isSimPresent: Boolean,
+    @SerializedName("sim_operator") val simOperator: String,
+    @SerializedName("sim_network_type") val simNetworkType: String
 )
 
 data class LocationInfo(

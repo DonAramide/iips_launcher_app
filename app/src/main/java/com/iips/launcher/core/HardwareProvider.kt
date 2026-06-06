@@ -57,4 +57,65 @@ object HardwareProvider {
     fun getUptimeSeconds(): Long {
         return SystemClock.elapsedRealtime() / 1000
     }
+
+    /**
+     * Collect SIM and cellular network info.
+     */
+    fun getSimInfo(context: Context): SimInfo {
+        val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+        val isPresent = telephonyManager.simState == TelephonyManager.SIM_STATE_READY
+        val simOperator = if (isPresent) {
+            val op = telephonyManager.simOperatorName
+            if (op.isNullOrBlank()) {
+                val netOp = telephonyManager.networkOperatorName
+                if (netOp.isNullOrBlank()) "Unknown" else netOp
+            } else {
+                op
+            }
+        } else {
+            "No_SIM"
+        }
+        val simNetworkType = if (isPresent) {
+            try {
+                val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    telephonyManager.dataNetworkType
+                } else {
+                    telephonyManager.networkType
+                }
+                when (type) {
+                    TelephonyManager.NETWORK_TYPE_GPRS -> "GPRS"
+                    TelephonyManager.NETWORK_TYPE_EDGE -> "EDGE"
+                    TelephonyManager.NETWORK_TYPE_UMTS -> "UMTS"
+                    TelephonyManager.NETWORK_TYPE_HSDPA -> "HSDPA"
+                    TelephonyManager.NETWORK_TYPE_HSUPA -> "HSUPA"
+                    TelephonyManager.NETWORK_TYPE_HSPA -> "HSPA"
+                    TelephonyManager.NETWORK_TYPE_LTE -> "LTE"
+                    TelephonyManager.NETWORK_TYPE_NR -> "5G"
+                    TelephonyManager.NETWORK_TYPE_HSPAP -> "HSPA+"
+                    TelephonyManager.NETWORK_TYPE_CDMA -> "CDMA"
+                    TelephonyManager.NETWORK_TYPE_EVDO_0 -> "EVDO_0"
+                    TelephonyManager.NETWORK_TYPE_EVDO_A -> "EVDO_A"
+                    TelephonyManager.NETWORK_TYPE_EVDO_B -> "EVDO_B"
+                    TelephonyManager.NETWORK_TYPE_1xRTT -> "1xRTT"
+                    TelephonyManager.NETWORK_TYPE_IDEN -> "iDEN"
+                    TelephonyManager.NETWORK_TYPE_EHRPD -> "eHRPD"
+                    19 -> "LTE_CA"
+                    else -> "Unknown_Cellular"
+                }
+            } catch (e: SecurityException) {
+                "Permission_Denied"
+            } catch (e: Exception) {
+                "Unknown"
+            }
+        } else {
+            "No_SIM"
+        }
+        return SimInfo(isPresent = isPresent, simOperator = simOperator, simNetworkType = simNetworkType)
+    }
 }
+
+data class SimInfo(
+    val isPresent: Boolean,
+    val simOperator: String,
+    val simNetworkType: String
+)

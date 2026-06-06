@@ -134,14 +134,14 @@ After device reboots, the app will be installed as a system app. To set Device O
 If device setup was already completed:
 1. **Factory reset device** (Settings → System → Reset → Factory Reset)
 2. **Do NOT complete setup wizard**
-3. **Run**: `adb shell dpm set-device-owner com.iips.launcher/.device.DeviceAdminReceiver`
+3. **Run**: `adb shell dpm set-device-owner com.iips.launcher/.policy.DeviceAdminReceiver`
 
 #### Option B: Device Not Yet Provisioned
 
 If device is still in setup wizard:
 ```bash
 # Set Device Owner immediately (before completing setup)
-adb shell dpm set-device-owner com.iips.launcher/.device.DeviceAdminReceiver
+adb shell dpm set-device-owner com.iips.launcher/.policy.DeviceAdminReceiver
 ```
 
 **Note**: Device Owner can only be set on unprovisioned devices (before setup completion).
@@ -155,7 +155,7 @@ adb shell pm path com.iips.launcher
 
 # Verify Device Owner
 adb shell dpm list-owners
-# Should show: com.iips.launcher/.device.DeviceAdminReceiver
+# Should show: com.iips.launcher/.policy.DeviceAdminReceiver
 
 # Check app status
 adb shell dumpsys package com.iips.launcher | grep -i "system\|uid"
@@ -259,7 +259,7 @@ adb shell dpm list-owners
 **Solution**: 
 - Factory reset device
 - Set Device Owner before completing setup wizard
-- Run: `adb shell dpm set-device-owner com.iips.launcher/.device.DeviceAdminReceiver`
+- Run: `adb shell dpm set-device-owner com.iips.launcher/.policy.DeviceAdminReceiver`
 
 ### App Crashes on Launch
 

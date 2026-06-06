@@ -100,7 +100,7 @@ After installing as a system app and rebooting:
 Even as a system app, Device Owner status must be set:
 
 ```bash
-adb shell dpm set-device-owner com.iips.launcher/.device.DeviceAdminReceiver
+adb shell dpm set-device-owner com.iips.launcher/.policy.DeviceAdminReceiver
 ```
 
 **Note**: Device Owner can only be set on unprovisioned devices or during setup wizard.

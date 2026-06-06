@@ -33,7 +33,7 @@ echo "✅ Found $DEVICE_COUNT device(s)"
 echo ""
 
 PACKAGE_NAME="com.iips.launcher"
-RECEIVER_PATH="com.iips.launcher/.device.DeviceAdminReceiver"
+RECEIVER_PATH="com.iips.launcher/.policy.DeviceAdminReceiver"
 
 echo "⚠️  IMPORTANT: Device must be unprovisioned (factory reset) or have no existing Device Owner"
 echo ""
