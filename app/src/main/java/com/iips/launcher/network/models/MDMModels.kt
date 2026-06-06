@@ -54,7 +54,8 @@ data class HeartbeatRequest(
     @SerializedName("device_time") val deviceTime: Long,
     @SerializedName("is_sim_present") val isSimPresent: Boolean,
     @SerializedName("sim_operator") val simOperator: String,
-    @SerializedName("sim_network_type") val simNetworkType: String
+    @SerializedName("sim_network_type") val simNetworkType: String,
+    @SerializedName("sim_details") val simDetails: List<com.iips.launcher.core.SimDetail>
 )
 
 data class LocationInfo(

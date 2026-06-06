@@ -34,6 +34,7 @@ class TelemetryManager @Inject constructor(
         val batteryInfo = HardwareProvider.getBatteryInfo(context)
         val networkInfo = HardwareProvider.getNetworkInfo(context)
         val simInfo = HardwareProvider.getSimInfo(context)
+        val simDetailsList = HardwareProvider.getSimDetails(context)
 
         val heartbeat = HeartbeatRequest(
             deviceId = deviceId,
@@ -47,7 +48,8 @@ class TelemetryManager @Inject constructor(
             deviceTime = System.currentTimeMillis(),
             isSimPresent = simInfo.isPresent,
             simOperator = simInfo.simOperator,
-            simNetworkType = simInfo.simNetworkType
+            simNetworkType = simInfo.simNetworkType,
+            simDetails = simDetailsList
         )
         telemetryRepository.saveToOfflineQueue(heartbeat)
     }

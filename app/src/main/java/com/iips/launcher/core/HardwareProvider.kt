@@ -7,9 +7,9 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.*
 import android.telephony.TelephonyManager
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothClass
-import android.bluetooth.BluetoothDevice
+import android.telephony.SubscriptionManager
+import android.telephony.SubscriptionInfo
+import android.util.Log
 import com.iips.launcher.network.models.*
 
 /**
@@ -112,10 +112,108 @@ object HardwareProvider {
         }
         return SimInfo(isPresent = isPresent, simOperator = simOperator, simNetworkType = simNetworkType)
     }
+
+    /**
+     * Collect SubscriptionInfo and device numbers.
+     */
+    fun getSimDetails(context: Context): List<SimDetail> {
+        val details = mutableListOf<SimDetail>()
+        val permissionState = context.checkSelfPermission(android.Manifest.permission.READ_PHONE_STATE)
+        if (permissionState != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            return details
+        }
+        
+        try {
+            val subscriptionManager = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
+            val activeList = subscriptionManager.activeSubscriptionInfoList
+            if (activeList != null) {
+                for (info in activeList) {
+                    val subId = info.subscriptionId
+                    val slotIndex = info.simSlotIndex
+                    val displayName = info.displayName?.toString() ?: "Unknown"
+                    val isOpportunistic = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        info.isOpportunistic
+                    } else {
+                        false
+                    }
+                    
+                    // Attempt to get phone number
+                    var phoneNumber: String? = null
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            phoneNumber = subscriptionManager.getPhoneNumber(subId)
+                        } else {
+                            @Suppress("DEPRECATION")
+                            phoneNumber = info.number
+                        }
+                    } catch (e: Exception) {
+                        // Fallback to TelephonyManager if SubscriptionManager fails/denied
+                        try {
+                            val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+                            val subTelephony = telephonyManager.createForSubscriptionId(subId)
+                            phoneNumber = subTelephony.line1Number
+                        } catch (ex: Exception) {
+                            phoneNumber = "Restricted"
+                        }
+                    }
+                    
+                    // Attempt to get ICCID
+                    var iccid: String? = null
+                    try {
+                        @Suppress("DEPRECATION")
+                        iccid = info.iccId
+                        if (iccid.isNullOrEmpty()) {
+                            iccid = "Restricted"
+                        }
+                    } catch (e: Exception) {
+                        iccid = "Restricted"
+                    }
+                    
+                    // Attempt to get IMSI
+                    var imsi: String? = null
+                    try {
+                        val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+                        val subTelephony = telephonyManager.createForSubscriptionId(subId)
+                        imsi = subTelephony.subscriberId
+                        if (imsi.isNullOrEmpty()) {
+                            imsi = "Restricted"
+                        }
+                    } catch (e: Exception) {
+                        imsi = "Restricted"
+                    }
+                    
+                    details.add(
+                        SimDetail(
+                            slotIndex = slotIndex,
+                            subscriptionId = subId,
+                            displayName = displayName,
+                            isOpportunistic = isOpportunistic,
+                            phoneNumber = phoneNumber ?: "Restricted",
+                            iccid = iccid,
+                            imsi = imsi
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("HardwareProvider", "Error reading SubscriptionInfo", e)
+        }
+        return details
+    }
 }
 
 data class SimInfo(
     val isPresent: Boolean,
     val simOperator: String,
     val simNetworkType: String
+)
+
+data class SimDetail(
+    val slotIndex: Int,
+    val subscriptionId: Int,
+    val displayName: String,
+    val isOpportunistic: Boolean,
+    val phoneNumber: String?,
+    val iccid: String?,
+    val imsi: String?
 )

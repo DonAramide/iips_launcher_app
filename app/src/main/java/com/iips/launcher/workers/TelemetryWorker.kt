@@ -91,6 +91,7 @@ class TelemetryWorker @AssistedInject constructor(
         val batteryInfo = HardwareProvider.getBatteryInfo(context)
         val networkInfo = HardwareProvider.getNetworkInfo(context)
         val simInfo = HardwareProvider.getSimInfo(context)
+        val simDetailsList = HardwareProvider.getSimDetails(context)
 
         return HeartbeatRequest(
             deviceId = SecurePreferences.getDeviceId(context) ?: "unknown",
@@ -104,7 +105,8 @@ class TelemetryWorker @AssistedInject constructor(
             deviceTime = System.currentTimeMillis(),
             isSimPresent = simInfo.isPresent,
             simOperator = simInfo.simOperator,
-            simNetworkType = simInfo.simNetworkType
+            simNetworkType = simInfo.simNetworkType,
+            simDetails = simDetailsList
         )
     }
 

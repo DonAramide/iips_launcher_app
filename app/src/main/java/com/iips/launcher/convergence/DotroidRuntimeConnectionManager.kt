@@ -180,6 +180,7 @@ class DotroidRuntimeConnectionManager @Inject constructor(
         val networkInfo = com.iips.launcher.core.HardwareProvider.getNetworkInfo(context)
         val uptime = com.iips.launcher.core.HardwareProvider.getUptimeSeconds()
         val simInfo = com.iips.launcher.core.HardwareProvider.getSimInfo(context)
+        val simDetailsList = com.iips.launcher.core.HardwareProvider.getSimDetails(context)
 
         val pingMap = mapOf(
             "type" to "HEARTBEAT_PING",
@@ -191,7 +192,8 @@ class DotroidRuntimeConnectionManager @Inject constructor(
             "uptime" to uptime,
             "isSimPresent" to simInfo.isPresent,
             "simOperator" to simInfo.simOperator,
-            "simNetworkType" to simInfo.simNetworkType
+            "simNetworkType" to simInfo.simNetworkType,
+            "simDetails" to simDetailsList
         )
 
         val success = transmitFrame(gson.toJson(pingMap))
