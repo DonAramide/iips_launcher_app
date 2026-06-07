@@ -60,9 +60,33 @@ class DeviceEnrollmentManager @Inject constructor(
                 }
             } else {
                 Log.e(TAG, "Enrollment failed: ${response.code()}")
+                if (response.code() == 401 || response.code() == 403) {
+                    throw Exception("Invalid Enrollment Token. Please check the token and try again.")
+                } else {
+                    throw Exception("Enrollment failed (Server returned status ${response.code()}).")
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Enrollment error", e)
+            when (e) {
+                is NetworkFailureException -> {
+                    throw Exception("No internet connection. Please check your network connection and try again.", e)
+                }
+                is DeviceNotActivatedException -> {
+                    throw Exception("Invalid Enrollment Token. Please check the token and try again.", e)
+                }
+                is RateLimitExceededException -> {
+                    throw Exception("Rate limit exceeded. Please wait and try again.", e)
+                }
+                else -> {
+                    val msg = e.message ?: ""
+                    if (msg.contains("Network failure", ignoreCase = true) || e is java.io.IOException) {
+                        throw Exception("No internet connection. Please check your network connection and try again.", e)
+                    } else {
+                        throw e
+                    }
+                }
+            }
         }
         return@withContext false
     }
