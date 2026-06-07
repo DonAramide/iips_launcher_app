@@ -84,6 +84,13 @@ class LauncherActivity : AppCompatActivity() {
         // Process provisioning extras on cold start
         com.iips.launcher.network.DeviceEnrollmentManager.extractAndPersistProvisioningExtras(this, intent)
 
+        if (!SecurePreferences.isRegistered(this)) {
+            SecurePreferences.setDeviceState(this, SecurePreferences.STATE_ONBOARDING)
+            startActivity(Intent(this, OnboardingActivity::class.java))
+            finish()
+            return
+        }
+
         val state = SecurePreferences.getDeviceState(this)
         when (state) {
             SecurePreferences.STATE_NEW, SecurePreferences.STATE_ONBOARDING -> {

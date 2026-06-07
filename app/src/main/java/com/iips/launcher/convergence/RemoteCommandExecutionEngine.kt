@@ -403,6 +403,9 @@ class RemoteCommandExecutionEngine @Inject constructor(
             val tenantId = SecurePreferences.getTenantId(context) ?: "default"
             val ackFrame = gson.toJson(mapOf(
                 "type" to "REQUEST_ACK",
+                "command_id" to commandId,
+                "commandId" to commandId,
+                "signature" to (signature ?: ""),
                 "edgeNodeId" to deviceId,
                 "tenantId" to tenantId,
                 "clientEpoch" to (System.currentTimeMillis() / 1000L),

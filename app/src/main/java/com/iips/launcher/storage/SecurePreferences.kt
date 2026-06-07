@@ -172,7 +172,9 @@ object SecurePreferences {
     }
 
     fun isRegistered(context: Context): Boolean {
-        return getDeviceId(context) != null && getDeviceToken(context) != null
+        val id = getDeviceId(context)
+        val token = getDeviceToken(context)
+        return !id.isNullOrBlank() && !token.isNullOrBlank()
     }
 
     fun isGeofenceLocked(context: Context): Boolean {
