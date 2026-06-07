@@ -53,7 +53,8 @@ class TelemetryManager @Inject constructor(
             isSimPresent = simInfo.isPresent,
             simOperator = simInfo.simOperator,
             simNetworkType = simInfo.simNetworkType,
-            simDetails = simDetailsList
+            simDetails = simDetailsList,
+            serialNumber = SecurityUtils.getSerialNumber(context)
         )
         telemetryRepository.saveToOfflineQueue(heartbeat)
     }

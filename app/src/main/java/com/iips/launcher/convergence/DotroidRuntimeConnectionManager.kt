@@ -326,7 +326,8 @@ class DotroidRuntimeConnectionManager @Inject constructor(
                 isSimPresent = simInfo.isPresent,
                 simOperator = simInfo.simOperator,
                 simNetworkType = simInfo.simNetworkType,
-                simDetails = simDetailsList
+                simDetails = simDetailsList,
+                serialNumber = com.iips.launcher.security.SecurityUtils.getSerialNumber(context)
             )
 
             val timestamp = (System.currentTimeMillis() / 1000).toString()

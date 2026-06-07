@@ -53,9 +53,10 @@ class DeviceEnrollmentManager @Inject constructor(
             val response = configService.enrollDevice(request)
             if (response.isSuccessful) {
                 response.body()?.let { res ->
-                    SecurePreferences.setDeviceId(context, res.deviceId)
+                    val finalDeviceId = if (!serial.isNullOrBlank()) serial else res.deviceId
+                    SecurePreferences.setDeviceId(context, finalDeviceId)
                     SecurePreferences.setDeviceToken(context, res.accessToken ?: "")
-                    Log.i(TAG, "Enrollment successful: ${res.deviceId}")
+                    Log.i(TAG, "Enrollment successful: $finalDeviceId")
                     return@withContext true
                 }
             } else {

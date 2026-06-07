@@ -171,7 +171,9 @@ class ProvisioningBootstrapService : Service() {
     }
 
     private fun onEnrollmentSuccess(response: EnrollmentResponse, fingerprintHash: String) {
-        SecurePreferences.setDeviceId(this, response.deviceId)
+        val serial = getSerialNumber()
+        val finalDeviceId = if (!serial.isNullOrBlank()) serial else response.deviceId
+        SecurePreferences.setDeviceId(this, finalDeviceId)
         SecurePreferences.setDeviceToken(this, response.accessToken ?: "")
         SecurePreferences.setFingerprintHash(this, fingerprintHash)
         SecurePreferences.setDeviceState(this, SecurePreferences.STATE_ACTIVE)
