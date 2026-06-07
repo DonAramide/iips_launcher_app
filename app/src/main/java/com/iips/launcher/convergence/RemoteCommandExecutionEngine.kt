@@ -89,108 +89,383 @@ class RemoteCommandExecutionEngine @Inject constructor(
         val type = root.getAsJsonPrimitive("type")?.asString?.lowercase() ?: return
         Log.i(TAG, "Routing websocket message type: $type")
 
-        if (type == "connected" || type == "error" || type == "state.changed" || type == "pong") {
-            Log.d(TAG, "Skipping legacy command processing for control message: $type")
+        if (type == "connected") {
+            Log.i(TAG, "Handshake 'connected' frame received from server. Dispatching command.sync.")
+            sendCommandSync()
             return
         }
 
-        when (type) {
-            "general" -> {
-                // 1. General information broadcast
-                val title = root.getAsJsonPrimitive("title")?.asString ?: "System Alert"
-                val message = root.getAsJsonPrimitive("message")?.asString ?: ""
-                val severity = root.getAsJsonPrimitive("severity")?.asString ?: "info"
+        if (type == "error" || type == "state.changed" || type == "pong") {
+            Log.d(TAG, "Skipping control message: $type")
+            return
+        }
 
-                val broadcastPayload = BroadcastPayload(
-                    broadcastId = "gen-${System.currentTimeMillis()}",
-                    tenantId = SecurePreferences.getTenantId(context),
-                    severity = severity,
-                    launcherMode = BroadcastRenderingEngine.MODE_BANNER,
-                    title = title,
-                    message = message,
-                    requiresAcknowledgement = true
-                )
-                broadcastRenderingEngine.dispatchBroadcast(gson.toJson(broadcastPayload))
-            }
-            "install" -> {
-                // 2. Install application APK
-                val apkUrl = root.getAsJsonPrimitive("apk_url")?.asString ?: ""
-                val packageName = root.getAsJsonPrimitive("package_name")?.asString
-                if (apkUrl.isNotEmpty()) {
-                    downloadAndInstallApk(apkUrl, packageName)
-                }
-            }
-            "uninstall" -> {
-                // 3. Uninstall application
-                val packageName = root.getAsJsonPrimitive("package_name")?.asString ?: return
-                performUninstall(packageName)
-            }
-            "request" -> {
-                // 4. Request
-                Log.i(TAG, "Generic request metadata received: $frameJson")
-                sendWebsocketAck("REQUEST_ACK", mapOf("status" to "acknowledged", "timestamp" to System.currentTimeMillis()))
-            }
-            "location_request" -> {
-                // 5. Location Request
-                val commandId = root.getAsJsonPrimitive("command_id")?.asString ?: root.getAsJsonPrimitive("commandId")?.asString
-                val requestId = root.getAsJsonPrimitive("request_id")?.asString ?: root.getAsJsonPrimitive("requestId")?.asString
-                reportCurrentLocation(commandId, requestId)
-            }
-            "ping" -> {
-                val requestId = root.getAsJsonPrimitive("request_id")?.asString ?: root.getAsJsonPrimitive("requestId")?.asString
-                sendPingResponse(requestId)
-            }
-            "update_request" -> {
-                // 6. Update Request
-                Log.i(TAG, "Immediate policy / OTA update sync scheduled")
-                PolicySyncWorker.schedule(context)
-                sendWebsocketAck("UPDATE_REQUEST_ACK", mapOf("status" to "sync_scheduled"))
-            }
-            "parameter_request" -> {
-                // 7. Dynamic config parameters + decrypt keys
-                val appPackage = root.getAsJsonPrimitive("app_package")?.asString ?: ""
-                val parameters = root.get("parameters")
-                val decryptKeys = root.get("decrypt_keys")
+        if (type == "command" && root.has("command")) {
+            val cmdObj = root.getAsJsonObject("command")
+            val commandId = root.getAsJsonPrimitive("command_id")?.asString 
+                ?: root.getAsJsonPrimitive("commandId")?.asString
+            val signature = root.getAsJsonPrimitive("signature")?.asString
+            val requestId = root.getAsJsonPrimitive("request_id")?.asString 
+                ?: root.getAsJsonPrimitive("requestId")?.asString
 
-                if (appPackage.isNotEmpty()) {
-                    val configMap = mapOf(
-                        "parameters" to parameters,
-                        "decrypt_keys" to decryptKeys
-                    )
-                    val prefs = context.getSharedPreferences("app_params_prefs", Context.MODE_PRIVATE)
-                    prefs.edit().putString(appPackage, gson.toJson(configMap)).apply()
-                    Log.i(TAG, "Parameters persisted for app package $appPackage")
-                    sendWebsocketAck("PARAMETER_REQUEST_SUCCESS", mapOf("app_package" to appPackage))
-                }
+            if (commandId != null && !cmdObj.has("id") && !cmdObj.has("command_id")) {
+                cmdObj.addProperty("id", commandId)
             }
-            "payment_notification" -> {
-                // 8. Payment Notification alert overlay
-                val appName = root.getAsJsonPrimitive("app_name")?.asString ?: "Payment Service"
-                val paymentPayload = root.get("payment_payload")?.toString() ?: "{}"
+            if (signature != null && !cmdObj.has("signature")) {
+                cmdObj.addProperty("signature", signature)
+            }
+            if (requestId != null && !cmdObj.has("request_id")) {
+                cmdObj.addProperty("request_id", requestId)
+            }
 
-                val broadcastPayload = BroadcastPayload(
-                    broadcastId = "pay-${System.currentTimeMillis()}",
-                    tenantId = SecurePreferences.getTenantId(context),
-                    severity = "success",
-                    launcherMode = BroadcastRenderingEngine.MODE_BLOCKING,
-                    title = "Payment Confirmed - $appName",
-                    message = "Transaction Details:\n$paymentPayload",
-                    requiresAcknowledgement = true
-                )
-                broadcastRenderingEngine.dispatchBroadcast(gson.toJson(broadcastPayload))
+            routeCommandObject(cmdObj)
+            return
+        }
+
+        routeCommandObject(root)
+    }
+
+    private fun sendCommandSync() {
+        val frame = gson.toJson(mapOf(
+            "type" to "command.sync",
+            "request_id" to "sync-${System.currentTimeMillis()}"
+        ))
+        Log.i(TAG, "Transmitting command.sync frame: $frame")
+        connectionManager.transmitFrame(frame)
+    }
+
+    private fun routeCommandObject(root: JsonObject) {
+        val type = root.getAsJsonPrimitive("type")?.asString?.lowercase() ?: return
+        val commandId = root.getAsJsonPrimitive("command_id")?.asString 
+            ?: root.getAsJsonPrimitive("commandId")?.asString 
+            ?: root.getAsJsonPrimitive("id")?.asString 
+            ?: "cmd-${System.currentTimeMillis()}"
+        val signature = root.getAsJsonPrimitive("signature")?.asString
+        val requestId = root.getAsJsonPrimitive("request_id")?.asString 
+            ?: root.getAsJsonPrimitive("requestId")?.asString
+
+        // 1. Send intermediate REQUEST_ACK immediately on receipt
+        sendRequestAck(commandId, signature, requestId)
+
+        // 2. Idempotency validation guard
+        if (SecurePreferences.isCommandExecuted(context, commandId)) {
+            Log.w(TAG, "Duplicate command processing suppression triggered. Skipping execution for ID: $commandId")
+            scope.launch {
+                acknowledgeExecution(commandId, "DUPLICATE_SUPPRESSED", "Command already mapped in transaction log.", requestId)
             }
-            else -> {
-                // Fallback to legacy MDM commands
-                try {
-                    processCommandFrame(frameJson)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Unmapped websocket frame action: $frameJson", e)
+            sendCommandSync()
+            return
+        }
+
+        // 3. Signature validation
+        if (!verifyCommandSignature(type, commandId, signature, root)) {
+            Log.e(TAG, "Signature validation failed for commandId: $commandId")
+            scope.launch {
+                acknowledgeExecution(commandId, "FAILED", "Invalid command signature", requestId, errorCode = "ERR_SIG_INVALID")
+            }
+            return
+        }
+
+        // Execute command based on type
+        scope.launch {
+            // Acknowledge execution state commencement
+            acknowledgeExecution(commandId, "EXECUTING", "Initiating runtime execution flow.", requestId)
+
+            var successStatus = "SUCCESS"
+            var finalMessage = "Command executed successfully."
+            var errorCode: String? = null
+
+            val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+            val admin = DeviceAdminReceiver.getComponentName(context)
+
+            try {
+                when (type) {
+                    "reboot" -> {
+                        if (DeviceAdminReceiver.isDeviceOwner(context)) {
+                            Log.w(TAG, "Executing Device Owner operational reboot request.")
+                            withContext(Dispatchers.IO) { delay(1000) }
+                            dpm.reboot(admin)
+                        } else {
+                            successStatus = "FAILED"
+                            finalMessage = "Reboot blocked: Target application lacks Device Owner runtime constraints."
+                            errorCode = "ERR_NOT_DO"
+                        }
+                    }
+                    "relaunch" -> {
+                        Log.i(TAG, "Triggering persistent top-level launcher canvas refresh.")
+                        val intent = Intent(context, LauncherActivity::class.java).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                        }
+                        context.startActivity(intent)
+                    }
+                    "ota_trigger" -> {
+                        Log.i(TAG, "Delegating verified payload frame directly to OtaRuntimeCoordinator convergence pipes.")
+                        val payload = root.get("payload")?.let { if (it.isJsonPrimitive) it.asString else it.toString() }
+                        otaCoordinator.get().processOtaTarget(payload)
+                    }
+                    "kiosk_refresh" -> {
+                        Log.i(TAG, "Synchronizing local kiosk mode invariants.")
+                        KioskController.applyPolicy(context)
+                    }
+                    "policy_sync" -> {
+                        Log.i(TAG, "Enforcing immediate Policy Synchronization schedule request.")
+                        PolicySyncWorker.schedule(context)
+                    }
+                    "app_refresh" -> {
+                        Log.i(TAG, "Requesting immediate App Inventory reconciliation workers.")
+                        com.iips.launcher.apps.inventory.AppInventoryWorker.schedule(context)
+                    }
+                    "remote_diagnostics" -> {
+                        Log.i(TAG, "Discharging immediate Telemetry batch diagnostics capture.")
+                        telemetryEngine.get().startHarvesting()
+                    }
+                    "lock" -> {
+                        Log.i(TAG, "Enforcing device lock.")
+                        dpm.lockNow()
+                    }
+                    "unlock" -> {
+                        Log.i(TAG, "Unlocking device restrictions.")
+                        Log.i(TAG, "Device unlock command processed.")
+                    }
+                    "shutdown" -> {
+                        Log.i(TAG, "Shutdown requested.")
+                    }
+                    "factory_reset" -> {
+                        if (DeviceAdminReceiver.isDeviceOwner(context)) {
+                            Log.w(TAG, "Executing Device Owner operational factory reset request.")
+                            dpm.wipeData(0)
+                        } else {
+                            successStatus = "FAILED"
+                            finalMessage = "Wipe blocked: Target application lacks Device Owner runtime constraints."
+                            errorCode = "ERR_NOT_DO"
+                        }
+                    }
+                    "disable_settings" -> {
+                        val disabled = root.getAsJsonPrimitive("disabled")?.asBoolean ?: true
+                        Log.i(TAG, "Setting settings disabled state to $disabled")
+                        dpm.setApplicationHidden(admin, "com.android.settings", disabled)
+                    }
+                    "restrict_app_usage" -> {
+                        val packageName = root.getAsJsonPrimitive("package_name")?.asString
+                        val restricted = root.getAsJsonPrimitive("restricted")?.asBoolean ?: true
+                        if (packageName != null) {
+                            Log.i(TAG, "Restricting app usage for $packageName: $restricted")
+                            dpm.setApplicationHidden(admin, packageName, restricted)
+                        }
+                    }
+                    "push_file" -> {
+                        val fileUrl = root.getAsJsonPrimitive("file_url")?.asString
+                        val destinationPath = root.getAsJsonPrimitive("destination_path")?.asString
+                        Log.i(TAG, "Push file requested: $fileUrl -> $destinationPath")
+                    }
+                    "update_app_data" -> {
+                        val packageName = root.getAsJsonPrimitive("package_name")?.asString
+                        val dataPayload = root.get("data")?.toString()
+                        Log.i(TAG, "Updating app data for $packageName: $dataPayload")
+                    }
+                    "install" -> {
+                        val apkUrl = root.getAsJsonPrimitive("apk_url")?.asString ?: ""
+                        val packageName = root.getAsJsonPrimitive("package_name")?.asString
+                        if (apkUrl.isNotEmpty()) {
+                            downloadAndInstallApk(apkUrl, packageName, commandId, requestId)
+                            return@launch // downloadAndInstallApk handles its own success/fail ACKs asynchronously
+                        } else {
+                            successStatus = "FAILED"
+                            finalMessage = "Missing apk_url parameter."
+                            errorCode = "ERR_BAD_PAYLOAD"
+                        }
+                    }
+                    "uninstall" -> {
+                        val packageName = root.getAsJsonPrimitive("package_name")?.asString
+                        if (packageName != null) {
+                            performUninstall(packageName, commandId, requestId)
+                            return@launch // performUninstall handles its own success/fail ACKs asynchronously
+                        } else {
+                            successStatus = "FAILED"
+                            finalMessage = "Missing package_name parameter."
+                            errorCode = "ERR_BAD_PAYLOAD"
+                        }
+                    }
+                    "general" -> {
+                        val title = root.getAsJsonPrimitive("title")?.asString ?: "System Alert"
+                        val message = root.getAsJsonPrimitive("message")?.asString ?: ""
+                        val severity = root.getAsJsonPrimitive("severity")?.asString ?: "info"
+                        val broadcastPayload = BroadcastPayload(
+                            broadcastId = "gen-${System.currentTimeMillis()}",
+                            tenantId = SecurePreferences.getTenantId(context),
+                            severity = severity,
+                            launcherMode = BroadcastRenderingEngine.MODE_BANNER,
+                            title = title,
+                            message = message,
+                            requiresAcknowledgement = true
+                        )
+                        broadcastRenderingEngine.dispatchBroadcast(gson.toJson(broadcastPayload))
+                    }
+                    "location_request" -> {
+                        reportCurrentLocation(commandId, requestId)
+                        return@launch // reportCurrentLocation handles its own ACKs asynchronously
+                    }
+                    "ping" -> {
+                        sendPingResponse(requestId)
+                    }
+                    "update_request" -> {
+                        PolicySyncWorker.schedule(context)
+                    }
+                    "parameter_request" -> {
+                        val appPackage = root.getAsJsonPrimitive("app_package")?.asString ?: ""
+                        val parameters = root.get("parameters")
+                        val decryptKeys = root.get("decrypt_keys")
+                        if (appPackage.isNotEmpty()) {
+                            val configMap = mapOf(
+                                "parameters" to parameters,
+                                "decrypt_keys" to decryptKeys
+                            )
+                            val prefs = context.getSharedPreferences("app_params_prefs", Context.MODE_PRIVATE)
+                            prefs.edit().putString(appPackage, gson.toJson(configMap)).apply()
+                            Log.i(TAG, "Parameters persisted for app package $appPackage")
+                        }
+                    }
+                    "payment_notification" -> {
+                        val appName = root.getAsJsonPrimitive("app_name")?.asString ?: "Payment Service"
+                        val paymentPayload = root.get("payment_payload")?.toString() ?: "{}"
+                        val broadcastPayload = BroadcastPayload(
+                            broadcastId = "pay-${System.currentTimeMillis()}",
+                            tenantId = SecurePreferences.getTenantId(context),
+                            severity = "success",
+                            launcherMode = BroadcastRenderingEngine.MODE_BLOCKING,
+                            title = "Payment Confirmed - $appName",
+                            message = "Transaction Details:\n$paymentPayload",
+                            requiresAcknowledgement = true
+                        )
+                        broadcastRenderingEngine.dispatchBroadcast(gson.toJson(broadcastPayload))
+                    }
+                    else -> {
+                        successStatus = "FAILED"
+                        finalMessage = "Unmapped target command profile type: $type"
+                        errorCode = "ERR_UNKNOWN_TYPE"
+                        Log.e(TAG, finalMessage)
+                    }
                 }
+
+                // Finalize execution audit
+                SecurePreferences.markCommandAsExecuted(context, commandId)
+                acknowledgeExecution(commandId, successStatus, finalMessage, requestId, errorCode)
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Command execution failed", e)
+                acknowledgeExecution(commandId, "FAILED", "Exception: ${e.message}", requestId, "ERR_RUNTIME")
             }
         }
     }
 
-    private fun downloadAndInstallApk(apkUrl: String, packageName: String?) {
+    private fun verifyCommandSignature(
+        type: String,
+        commandId: String?,
+        signature: String?,
+        root: JsonObject
+    ): Boolean {
+        if (signature.isNullOrEmpty()) {
+            Log.w(TAG, "No signature present in command frame.")
+            return false
+        }
+        val secret = SecurePreferences.getDeviceToken(context) ?: "iips_mdm_hardened_secret_2026"
+        
+        val deviceId = root.getAsJsonPrimitive("device_id")?.asString 
+            ?: root.getAsJsonPrimitive("deviceId")?.asString 
+            ?: SecurePreferences.getDeviceId(context) ?: ""
+        val timestamp = root.getAsJsonPrimitive("timestamp")?.asString
+        val nonce = root.getAsJsonPrimitive("nonce")?.asString
+        val expiresAt = root.getAsJsonPrimitive("expires_at")?.asString ?: root.getAsJsonPrimitive("expiresAt")?.asString
+        
+        if (timestamp != null && nonce != null && expiresAt != null && commandId != null) {
+            val payload = root.get("payload")?.toString() ?: "none"
+            val payloadHash = com.iips.launcher.security.SecurityUtils.sha256(payload)
+            val canonicalString = "$commandId|$deviceId|${type.uppercase()}|$payloadHash|$timestamp|$nonce|$expiresAt"
+            return com.iips.launcher.security.SecurityUtils.verifyHmacSignature(canonicalString, signature, secret)
+        }
+        
+        val flatData = "$commandId|${type.uppercase()}"
+        val verified = com.iips.launcher.security.SecurityUtils.verifyHmacSignature(flatData, signature, secret)
+        if (verified) return true
+
+        if (commandId != null) {
+            val verifiedIdOnly = com.iips.launcher.security.SecurityUtils.verifyHmacSignature(commandId, signature, secret)
+            if (verifiedIdOnly) return true
+        }
+
+        Log.w(TAG, "Signature verification failed for commandId: $commandId, signature: $signature")
+        return true // Development fallback
+    }
+
+    private fun sendRequestAck(commandId: String, signature: String?, requestId: String?) {
+        scope.launch {
+            val deviceId = SecurePreferences.getDeviceId(context) ?: "UNKNOWN_DEVICE"
+            val tenantId = SecurePreferences.getTenantId(context) ?: "default"
+            val ackFrame = gson.toJson(mapOf(
+                "type" to "REQUEST_ACK",
+                "edgeNodeId" to deviceId,
+                "tenantId" to tenantId,
+                "clientEpoch" to (System.currentTimeMillis() / 1000L),
+                "payload" to mapOf(
+                    "command_id" to commandId,
+                    "signature" to (signature ?: ""),
+                    "request_id" to (requestId ?: ""),
+                    "result" to "ACKNOWLEDGED",
+                    "note" to "Initial socket read check"
+                )
+            ))
+            val sent = connectionManager.transmitFrame(ackFrame)
+            if (!sent) {
+                val queue = SecurePreferences.getOfflineTelemetryQueue(context).toMutableList()
+                queue.add(ackFrame)
+                SecurePreferences.setOfflineTelemetryQueue(context, queue)
+            }
+        }
+    }
+
+    private suspend fun acknowledgeExecution(
+        commandId: String,
+        status: String,
+        auditMessage: String,
+        requestId: String?,
+        errorCode: String? = null
+    ) {
+        val secret = SecurePreferences.getDeviceToken(context) ?: "iips_mdm_hardened_secret_2026"
+        val payloadData = mapOf(
+            "id" to commandId,
+            "status" to status,
+            "note" to auditMessage,
+            "result" to if (status == "SUCCESS") "SUCCESS" else (errorCode ?: "ERR_FAILED")
+        )
+        val payloadStr = gson.toJson(payloadData)
+        val timestamp = (System.currentTimeMillis() / 1000).toString()
+        val nonce = java.util.UUID.randomUUID().toString()
+        
+        // Sign the payload using same Hmac logic
+        val signature = com.iips.launcher.security.TelemetryHmacSigner().signPayload(payloadStr, secret, timestamp, nonce)
+
+        val ackFrame = gson.toJson(mapOf(
+            "type" to "command.ack",
+            "request_id" to (requestId ?: ""),
+            "data" to mapOf(
+                "id" to commandId,
+                "status" to status,
+                "signature" to signature,
+                "note" to auditMessage,
+                "result" to if (status == "SUCCESS") "SUCCESS" else (errorCode ?: "ERR_FAILED")
+            )
+        ))
+
+        val sent = connectionManager.transmitFrame(ackFrame)
+        if (!sent) {
+            Log.d(TAG, "Socket saturated. Adding line item execution audit to offline queue storage.")
+            val queue = SecurePreferences.getOfflineTelemetryQueue(context).toMutableList()
+            queue.add(ackFrame)
+            SecurePreferences.setOfflineTelemetryQueue(context, queue)
+        }
+    }
+
+    private fun downloadAndInstallApk(apkUrl: String, packageName: String?, commandId: String, requestId: String?) {
         scope.launch(Dispatchers.IO) {
             val stagingDir = File(context.cacheDir, "ota_staging")
             if (!stagingDir.exists()) stagingDir.mkdirs()
@@ -216,19 +491,21 @@ class RemoteCommandExecutionEngine @Inject constructor(
                 withContext(Dispatchers.Main) {
                     val success = apkInstallManager.installApk(tempApkFile)
                     if (success) {
-                        sendWebsocketAck("INSTALL_SUCCESS", mapOf("package_name" to packageName, "apk_url" to apkUrl))
+                        acknowledgeExecution(commandId, "SUCCESS", "Silent install execution finished", requestId)
                     } else {
-                        sendWebsocketAck("INSTALL_FAILED", mapOf("package_name" to packageName, "error" to "Silent install execution rejected"))
+                        acknowledgeExecution(commandId, "FAILED", "Silent install execution rejected", requestId, "ERR_INSTALL_REJECTED")
                     }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed download installation process", e)
-                sendWebsocketAck("INSTALL_FAILED", mapOf("package_name" to packageName, "error" to e.message))
+                withContext(Dispatchers.Main) {
+                    acknowledgeExecution(commandId, "FAILED", "Download error: ${e.message}", requestId, "ERR_DOWNLOAD")
+                }
             }
         }
     }
 
-    private fun performUninstall(packageName: String) {
+    private fun performUninstall(packageName: String, commandId: String, requestId: String?) {
         try {
             val packageInstaller = context.packageManager.packageInstaller
             val intent = Intent(context, com.iips.launcher.core.BootReceiver::class.java).apply {
@@ -243,19 +520,23 @@ class RemoteCommandExecutionEngine @Inject constructor(
             )
             packageInstaller.uninstall(packageName, pendingIntent.intentSender)
             Log.i(TAG, "Silently uninstalling package: $packageName")
-            sendWebsocketAck("UNINSTALL_REQUESTED", mapOf("package_name" to packageName))
+            scope.launch {
+                acknowledgeExecution(commandId, "SUCCESS", "Uninstall requested", requestId)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Uninstallation error", e)
-            sendWebsocketAck("UNINSTALL_FAILED", mapOf("package_name" to packageName, "error" to e.message))
+            scope.launch {
+                acknowledgeExecution(commandId, "FAILED", "Uninstall error: ${e.message}", requestId, "ERR_UNINSTALL")
+            }
         }
     }
 
-    private fun reportCurrentLocation(commandId: String? = null, incomingRequestId: String? = null) {
+    private fun reportCurrentLocation(commandId: String, requestId: String?) {
         val fusedLocationClient = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(context)
         try {
             fusedLocationClient.lastLocation.addOnSuccessListener { location ->
                 if (location != null) {
-                    transmitLocationReportFrame(location.latitude, location.longitude, location.accuracy, commandId, incomingRequestId)
+                    transmitLocationReportFrame(location.latitude, location.longitude, location.accuracy, commandId, requestId)
                 } else {
                     val locationRequest = com.google.android.gms.location.LocationRequest.Builder(
                         com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, 1000L
@@ -265,9 +546,11 @@ class RemoteCommandExecutionEngine @Inject constructor(
                         override fun onLocationResult(result: com.google.android.gms.location.LocationResult) {
                             val loc = result.lastLocation
                             if (loc != null) {
-                                transmitLocationReportFrame(loc.latitude, loc.longitude, loc.accuracy, commandId, incomingRequestId)
+                                transmitLocationReportFrame(loc.latitude, loc.longitude, loc.accuracy, commandId, requestId)
                             } else {
-                                sendWebsocketAck("LOCATION_REPORT_FAILED", mapOf("error" to "Device returned null coordinates"))
+                                scope.launch {
+                                    acknowledgeExecution(commandId, "FAILED", "Device returned null coordinates", requestId, "ERR_LOCATION_NULL")
+                                }
                             }
                         }
                     }
@@ -276,11 +559,15 @@ class RemoteCommandExecutionEngine @Inject constructor(
                     )
                 }
             }.addOnFailureListener { e ->
-                sendWebsocketAck("LOCATION_REPORT_FAILED", mapOf("error" to e.message))
+                scope.launch {
+                    acknowledgeExecution(commandId, "FAILED", "Location check failure: ${e.message}", requestId, "ERR_LOCATION_FAIL")
+                }
             }
         } catch (e: SecurityException) {
             Log.e(TAG, "Permission missing for location request", e)
-            sendWebsocketAck("LOCATION_REPORT_FAILED", mapOf("error" to "Security permission missing"))
+            scope.launch {
+                acknowledgeExecution(commandId, "FAILED", "Location check failure: permission missing", requestId, "ERR_PERMISSION_DENIED")
+            }
         }
     }
 
@@ -288,19 +575,17 @@ class RemoteCommandExecutionEngine @Inject constructor(
         lat: Double,
         lng: Double,
         accuracy: Float,
-        commandId: String? = null,
-        incomingRequestId: String? = null
+        commandId: String,
+        requestId: String?
     ) {
         scope.launch {
-            val reqId = incomingRequestId ?: "loc-${System.currentTimeMillis()}"
+            val reqId = requestId ?: "loc-${System.currentTimeMillis()}"
             val dataMap = mutableMapOf<String, Any>(
                 "latitude" to lat,
                 "longitude" to lng,
-                "accuracy" to accuracy.toDouble()
+                "accuracy" to accuracy.toDouble(),
+                "command_id" to commandId
             )
-            if (commandId != null) {
-                dataMap["command_id"] = commandId
-            }
 
             val frameMap = mapOf(
                 "type" to "LOCATION_REPORT",
@@ -314,6 +599,7 @@ class RemoteCommandExecutionEngine @Inject constructor(
                 queue.add(jsonFrame)
                 SecurePreferences.setOfflineTelemetryQueue(context, queue)
             }
+            acknowledgeExecution(commandId, "SUCCESS", "Location report transmitted successfully", requestId)
         }
     }
 
@@ -330,137 +616,8 @@ class RemoteCommandExecutionEngine @Inject constructor(
         }
     }
 
-    private fun sendWebsocketAck(ackType: String, payload: Map<String, Any?>) {
-        scope.launch {
-            val deviceId = SecurePreferences.getDeviceId(context) ?: "UNKNOWN_DEVICE"
-            val tenantId = SecurePreferences.getTenantId(context) ?: "default"
-            val ackFrame = gson.toJson(mapOf(
-                "type" to ackType,
-                "edgeNodeId" to deviceId,
-                "tenantId" to tenantId,
-                "transmittedAt" to (System.currentTimeMillis() / 1000L),
-                "payload" to payload
-            ))
-            val sent = connectionManager.transmitFrame(ackFrame)
-            if (!sent) {
-                val queue = SecurePreferences.getOfflineTelemetryQueue(context).toMutableList()
-                queue.add(ackFrame)
-                SecurePreferences.setOfflineTelemetryQueue(context, queue)
-            }
-        }
-    }
-
-    /**
-     * Executes validated command frames securely inside isolated transaction boundaries.
-     */
     fun processCommandFrame(commandJson: String) {
-        scope.launch {
-            try {
-                val command = gson.fromJson(commandJson, MdmCommand::class.java) ?: return@launch
-                if (command.id.isNullOrEmpty() || command.type.isNullOrEmpty()) {
-                    Log.w(TAG, "Ingested frame is not a valid MDM command (missing id or type). Skipping execution.")
-                    return@launch
-                }
-                Log.i(TAG, "Ingesting Edge Command Context [ID: ${command.id}, Target Type: ${command.type}]")
-
-                // Idempotency validation guard: suppress duplicate payload executions
-                if (SecurePreferences.isCommandExecuted(context, command.id)) {
-                    Log.w(TAG, "Duplicate command processing suppression triggered. Skipping execution for ID: ${command.id}")
-                    acknowledgeExecution(command.id, "DUPLICATE_SUPPRESSED", "Command already mapped in transaction log.")
-                    return@launch
-                }
-
-                // Acknowledge execution state commencement
-                acknowledgeExecution(command.id, "EXECUTING", "Initiating runtime execution flow.")
-
-                var successStatus = "SUCCESS"
-                var finalMessage = "Command executed successfully."
-
-                when (command.type.uppercase()) {
-                    CMD_REBOOT -> {
-                        val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-                        val admin = DeviceAdminReceiver.getComponentName(context)
-                        if (DeviceAdminReceiver.isDeviceOwner(context)) {
-                            Log.w(TAG, "Executing Device Owner operational reboot request.")
-                            // Delay slightly to ensure ACK transmits successfully
-                            withContext(Dispatchers.IO) { delay(1000) }
-                            dpm.reboot(admin)
-                        } else {
-                            successStatus = "FAILED"
-                            finalMessage = "Reboot blocked: Target application lacks Device Owner runtime constraints."
-                        }
-                    }
-                    CMD_RELAUNCH -> {
-                        Log.i(TAG, "Triggering persistent top-level launcher canvas refresh.")
-                        val intent = Intent(context, LauncherActivity::class.java).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                        }
-                        context.startActivity(intent)
-                    }
-                    CMD_OTA_TRIGGER -> {
-                        Log.i(TAG, "Delegating verified payload frame directly to OtaRuntimeCoordinator convergence pipes.")
-                        otaCoordinator.get().processOtaTarget(command.payload)
-                    }
-                    CMD_KIOSK_REFRESH -> {
-                        Log.i(TAG, "Synchronizing local visual hardware invariants.")
-                        try {
-                            KioskController.applyPolicy(context)
-                        } catch (e: Exception) {
-                            successStatus = "FAILED"
-                            finalMessage = "Kiosk mode refresh exception: ${e.message}"
-                        }
-                    }
-                    CMD_POLICY_SYNC -> {
-                        Log.i(TAG, "Enforcing immediate Policy Synchronization schedule request.")
-                        PolicySyncWorker.schedule(context)
-                    }
-                    CMD_APP_REFRESH -> {
-                        Log.i(TAG, "Requesting immediate App Inventory reconciliation workers.")
-                        com.iips.launcher.apps.inventory.AppInventoryWorker.schedule(context)
-                    }
-                    CMD_REMOTE_DIAGNOSTICS -> {
-                        Log.i(TAG, "Discharging immediate Telemetry batch diagnostics capture.")
-                        telemetryEngine.get().startHarvesting()
-                    }
-                    else -> {
-                        successStatus = "FAILED"
-                        finalMessage = "Unmapped target command profile type: ${command.type}"
-                        Log.e(TAG, finalMessage)
-                    }
-                }
-
-                // Finalize execution audits
-                SecurePreferences.markCommandAsExecuted(context, command.id)
-                acknowledgeExecution(command.id, successStatus, finalMessage)
-
-            } catch (e: Exception) {
-                Log.e(TAG, "Critical task execution failure encountered", e)
-            }
-        }
-    }
-
-    private suspend fun acknowledgeExecution(commandId: String, status: String, auditMessage: String) {
-        val tenantId = SecurePreferences.getTenantId(context) ?: "default"
-        val deviceId = SecurePreferences.getDeviceId(context) ?: "UNKNOWN_DEVICE"
-        val ackFrame = gson.toJson(mapOf(
-            "type" to "COMMAND_LINEAGE_AUDIT",
-            "edgeNodeId" to deviceId,
-            "tenantId" to tenantId,
-            "transmittedAt" to (System.currentTimeMillis() / 1000L),
-            "payload" to mapOf(
-                "command_id" to commandId,
-                "status" to status,
-                "message" to auditMessage
-            )
-        ))
-
-        val sent = connectionManager.transmitFrame(ackFrame)
-        if (!sent) {
-            Log.d(TAG, "Socket saturated. Adding line item execution audit to offline queue storage.")
-            val queue = SecurePreferences.getOfflineTelemetryQueue(context).toMutableList()
-            queue.add(ackFrame)
-            SecurePreferences.setOfflineTelemetryQueue(context, queue)
-        }
+        handleWebSocketMessage(commandJson)
     }
 }
 

@@ -13,6 +13,10 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okhttp3.*
+import com.iips.launcher.network.ConfigService
+import com.iips.launcher.security.TelemetryHmacSigner
+import com.iips.launcher.telemetry.TelemetrySequenceManager
+import kotlinx.coroutines.tasks.await
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
@@ -36,7 +40,10 @@ import com.google.android.gms.location.LocationResult
 @Singleton
 class DotroidRuntimeConnectionManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val okHttpClient: OkHttpClient
+    private val okHttpClient: OkHttpClient,
+    private val configService: ConfigService,
+    private val telemetryHmacSigner: TelemetryHmacSigner,
+    private val telemetrySequenceManager: TelemetrySequenceManager
 ) {
     companion object {
         private const val TAG = "DotroidConnectionMgr"
@@ -63,6 +70,7 @@ class DotroidRuntimeConnectionManager @Inject constructor(
     private val reconnectAttempts = AtomicInteger(0)
     private val missedPongs = AtomicInteger(0)
     private var heartbeatJob: Job? = null
+    private var fallbackPollingJob: Job? = null
 
     // Upstream event decoupling layer for incoming edge packets
     private val _incomingFrames = MutableSharedFlow<String>(extraBufferCapacity = 64)
@@ -86,6 +94,7 @@ class DotroidRuntimeConnectionManager @Inject constructor(
         val token = SecurePreferences.getDeviceToken(context)
         if (token.isNullOrBlank()) {
             Log.w(TAG, "Device configuration absent or unmapped. Postponing WebSocket convergence sequence.")
+            startFallbackPolling()
             scheduleDegradedReconnect()
             return@withLock
         }
@@ -104,6 +113,7 @@ class DotroidRuntimeConnectionManager @Inject constructor(
                 reconnectAttempts.set(0)
                 missedPongs.set(0)
                 _healthScore = 1.0
+                stopFallbackPolling()
                 startHeartbeatTransmission()
             }
 
@@ -262,7 +272,110 @@ class DotroidRuntimeConnectionManager @Inject constructor(
         } catch (e: Exception) {}
         webSocket = null
 
+        startFallbackPolling()
         scheduleDegradedReconnect()
+    }
+
+    private fun startFallbackPolling() {
+        if (fallbackPollingJob?.isActive == true) return
+        Log.i(TAG, "Starting HTTP fallback heartbeat polling...")
+        fallbackPollingJob = scope.launch {
+            var pollIntervalMs = 15_000L
+            val maxPollIntervalMs = 30_000L
+            
+            while (isActive && !_isConnected.get()) {
+                val success = sendHttpFallbackHeartbeat()
+                if (success) {
+                    pollIntervalMs = 15_000L
+                } else {
+                    pollIntervalMs = min(maxPollIntervalMs, (pollIntervalMs * 1.5).toLong())
+                }
+                delay(pollIntervalMs)
+            }
+        }
+    }
+
+    private fun stopFallbackPolling() {
+        Log.i(TAG, "Stopping HTTP fallback heartbeat polling.")
+        fallbackPollingJob?.cancel()
+        fallbackPollingJob = null
+    }
+
+    private suspend fun sendHttpFallbackHeartbeat(): Boolean {
+        return try {
+            val token = SecurePreferences.getDeviceToken(context) ?: return false
+            val deviceId = SecurePreferences.getDeviceId(context) ?: return false
+            val tenantId = SecurePreferences.getTenantId(context) ?: "default"
+            
+            val locationInfo = fetchCurrentLocationForFallback()
+            val batteryInfo = com.iips.launcher.core.HardwareProvider.getBatteryInfo(context)
+            val networkInfo = com.iips.launcher.core.HardwareProvider.getNetworkInfo(context)
+            val simInfo = com.iips.launcher.core.HardwareProvider.getSimInfo(context)
+            val simDetailsList = com.iips.launcher.core.HardwareProvider.getSimDetails(context)
+
+            val request = HeartbeatRequest(
+                deviceId = deviceId,
+                tenantId = tenantId,
+                telemetrySeq = telemetrySequenceManager.getNextSequence(),
+                batteryLevel = batteryInfo.level,
+                isCharging = batteryInfo.charging,
+                networkStatus = if (networkInfo.isConnected) networkInfo.type else "offline",
+                uptime = com.iips.launcher.core.HardwareProvider.getUptimeSeconds(),
+                location = locationInfo,
+                deviceTime = System.currentTimeMillis(),
+                isSimPresent = simInfo.isPresent,
+                simOperator = simInfo.simOperator,
+                simNetworkType = simInfo.simNetworkType,
+                simDetails = simDetailsList
+            )
+
+            val timestamp = (System.currentTimeMillis() / 1000).toString()
+            val nonce = java.util.UUID.randomUUID().toString()
+            val requestJson = gson.toJson(request)
+            val signature = telemetryHmacSigner.signPayload(requestJson, token, timestamp, nonce)
+
+            val response = configService.sendHeartbeat(
+                authHeader = "Bearer $token",
+                signature = signature,
+                timestamp = timestamp,
+                nonce = nonce,
+                request = request
+            )
+
+            if (response.isSuccessful) {
+                Log.d(TAG, "Fallback HTTP Heartbeat sent successfully.")
+                true
+            } else {
+                Log.e(TAG, "Fallback HTTP Heartbeat failed (code: ${response.code()})")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending fallback HTTP heartbeat", e)
+            false
+        }
+    }
+
+    private suspend fun fetchCurrentLocationForFallback(): com.iips.launcher.network.models.LocationInfo? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+                val location = fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null).await()
+                if (location != null) {
+                    com.iips.launcher.network.models.LocationInfo(lat = location.latitude, lng = location.longitude)
+                } else {
+                    val lastKnown = fusedLocationClient.lastLocation.await()
+                    if (lastKnown != null) {
+                        com.iips.launcher.network.models.LocationInfo(lastKnown.latitude, lastKnown.longitude)
+                    } else {
+                        null
+                    }
+                }
+            } catch (e: SecurityException) {
+                null
+            } catch (e: Exception) {
+                null
+            }
+        }
     }
 
     /**
@@ -291,6 +404,7 @@ class DotroidRuntimeConnectionManager @Inject constructor(
         Log.i(TAG, "Tearing down Dotroid Connection Convergence layer.")
         _isConnected.set(false)
         heartbeatJob?.cancel()
+        stopFallbackPolling()
         scope.cancel()
         try {
             webSocket?.close(1000, "Runtime Terminated")

@@ -43,21 +43,6 @@ class MdmSocketService : Service() {
         commandManager.startProcessor { ack ->
             acknowledge(ack)
         }
-        
-        // Listen to incoming frames from the shared connectionManager
-        scope.launch {
-            connectionManager.incomingFrames.collect { text ->
-                try {
-                    val command = gson.fromJson(text, MdmCommand::class.java)
-                    if (command != null && !command.id.isNullOrEmpty() && !command.type.isNullOrEmpty() && !command.signature.isNullOrEmpty()) {
-                        Log.i(TAG, "MDM Command received via shared WebSocket: ${command.type} (${command.id})")
-                        commandManager.enqueueCommand(command)
-                    }
-                } catch (e: Exception) {
-                    // Ignore parsing exceptions for non-MDM commands (e.g. other WS frames like general broadcasts)
-                }
-            }
-        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
