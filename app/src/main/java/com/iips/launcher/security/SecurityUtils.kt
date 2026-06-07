@@ -154,6 +154,19 @@ object SecurityUtils {
      * Retrieves the hardware serial number of the device, with fallback options.
      */
     fun getSerialNumber(context: Context): String {
+        // Priority 1: ril.serialnumber (physical hardware serial on Samsung/RIL devices)
+        try {
+            val c = Class.forName("android.os.SystemProperties")
+            val get = c.getMethod("get", String::class.java)
+            val serial = get.invoke(c, "ril.serialnumber") as String
+            if (!serial.isNullOrBlank() && !serial.equals("unknown", ignoreCase = true)) {
+                return serial
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
+
+        // Priority 2: android.os.Build.getSerial() or Build.SERIAL
         try {
             val s = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                 try {
@@ -173,6 +186,7 @@ object SecurityUtils {
             // Ignore
         }
 
+        // Priority 3: ro.serialno
         try {
             val c = Class.forName("android.os.SystemProperties")
             val get = c.getMethod("get", String::class.java)
@@ -184,17 +198,7 @@ object SecurityUtils {
             // Ignore
         }
 
-        try {
-            val c = Class.forName("android.os.SystemProperties")
-            val get = c.getMethod("get", String::class.java)
-            val serial = get.invoke(c, "ril.serialnumber") as String
-            if (!serial.isNullOrBlank() && !serial.equals("unknown", ignoreCase = true)) {
-                return serial
-            }
-        } catch (e: Exception) {
-            // Ignore
-        }
-
+        // Priority 4: android_id
         try {
             val androidId = android.provider.Settings.Secure.getString(
                 context.contentResolver,
