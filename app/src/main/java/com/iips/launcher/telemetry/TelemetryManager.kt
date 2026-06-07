@@ -29,6 +29,10 @@ class TelemetryManager @Inject constructor(
     }
 
     suspend fun generateAndQueueHeartbeat() = withContext(Dispatchers.IO) {
+        if (!SecurePreferences.isRegistered(context)) {
+            Log.w(TAG, "Device not registered, skipping telemetry heartbeat generation")
+            return@withContext
+        }
         val deviceId = SecurePreferences.getDeviceId(context) ?: return@withContext
         val tenantId = SecurePreferences.getTenantId(context) ?: "default"
         val batteryInfo = HardwareProvider.getBatteryInfo(context)
@@ -55,6 +59,10 @@ class TelemetryManager @Inject constructor(
     }
 
     suspend fun flushOfflineQueue(): Boolean = withContext(Dispatchers.IO) {
+        if (!SecurePreferences.isRegistered(context)) {
+            Log.w(TAG, "Device not registered, skipping telemetry batch flush")
+            return@withContext false
+        }
         val token = SecurePreferences.getDeviceToken(context) ?: return@withContext false
         val pending = telemetryRepository.getPendingTelemetry()
         if (pending.isEmpty()) return@withContext true

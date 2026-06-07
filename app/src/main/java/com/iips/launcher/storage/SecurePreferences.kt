@@ -113,7 +113,8 @@ object SecurePreferences {
 
     fun getDeviceId(context: Context): String? {
         val prefs = getEncryptedPrefs(context)
-        return prefs.getString("device_id", null)
+        val id = prefs.getString("device_id", null)
+        return if (id.isNullOrBlank()) null else id
     }
 
     fun setDeviceId(context: Context, deviceId: String) {
@@ -153,7 +154,8 @@ object SecurePreferences {
 
     fun getDeviceToken(context: Context): String? {
         val prefs = getEncryptedPrefs(context)
-        return prefs.getString("access_token", null)
+        val token = prefs.getString("access_token", null)
+        return if (token.isNullOrBlank()) null else token
     }
 
     fun setDeviceToken(context: Context, token: String) {
