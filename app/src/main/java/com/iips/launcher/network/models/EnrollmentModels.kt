@@ -29,25 +29,29 @@ data class EnrollmentRequest(
 data class EnrollmentResponse(
     @SerializedName("responseCode")    val responseCode: String?,
     @SerializedName("responseMessage") val responseMessage: String?,
-    @SerializedName("data")            val data: EnrollmentData?
+    @SerializedName("data")            val data: EnrollmentData?,
+    @SerializedName("device")          val rootDevice: EnrollmentDevice? = null,
+    @SerializedName("access_token")    val rootAccessToken: String? = null,
+    @SerializedName("expires_in")      val rootExpiresIn: Long? = null,
+    @SerializedName("token_type")      val rootTokenType: String? = null
 ) {
     val deviceId: String
-        get() = data?.device?.id ?: ""
+        get() = (data?.device?.id ?: rootDevice?.id) ?: ""
 
     val accessToken: String?
-        get() = data?.accessToken
+        get() = data?.accessToken ?: rootAccessToken
 
     val deviceSecret: String?
         get() = null
 
     val expiresIn: Long
-        get() = data?.expiresIn ?: 0L
+        get() = data?.expiresIn ?: rootExpiresIn ?: 0L
 
     val tokenType: String
-        get() = data?.tokenType ?: ""
+        get() = data?.tokenType ?: rootTokenType ?: ""
 
     val status: String?
-        get() = data?.device?.status
+        get() = data?.device?.status ?: rootDevice?.status
 }
 
 data class EnrollmentData(
