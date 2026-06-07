@@ -70,7 +70,7 @@ class GeofenceManager @Inject constructor(
         }
         if (isMock) return true
 
-        if (android.provider.Settings.Global.getInt(context.contentResolver, android.provider.Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) != 0) {
+        if (!com.iips.launcher.BuildConfig.DEBUG && android.provider.Settings.Global.getInt(context.contentResolver, android.provider.Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) != 0) {
             return true
         }
 

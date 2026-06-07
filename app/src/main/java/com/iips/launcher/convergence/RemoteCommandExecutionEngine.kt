@@ -95,7 +95,7 @@ class RemoteCommandExecutionEngine @Inject constructor(
             return
         }
 
-        if (type == "error" || type == "state.changed" || type == "pong") {
+        if (type == "error" || type == "state.changed" || type == "pong" || type.contains(".ack") || type == "command.sync") {
             Log.d(TAG, "Skipping control message: $type")
             return
         }
@@ -138,8 +138,13 @@ class RemoteCommandExecutionEngine @Inject constructor(
         val type = root.getAsJsonPrimitive("type")?.asString?.lowercase() ?: return
         val commandId = root.getAsJsonPrimitive("command_id")?.asString 
             ?: root.getAsJsonPrimitive("commandId")?.asString 
-            ?: root.getAsJsonPrimitive("id")?.asString 
-            ?: "cmd-${System.currentTimeMillis()}"
+            ?: root.getAsJsonPrimitive("id")?.asString
+
+        if (commandId == null) {
+            Log.w(TAG, "Ignoring frame object with no command_id or id: $root")
+            return
+        }
+
         val signature = root.getAsJsonPrimitive("signature")?.asString
         val requestId = root.getAsJsonPrimitive("request_id")?.asString 
             ?: root.getAsJsonPrimitive("requestId")?.asString
