@@ -22,6 +22,7 @@ class GeofenceManager @Inject constructor(
     private var lastLocation: Location? = null
 
     fun shouldLockDevice(context: Context, location: Location): Boolean {
+        if (com.iips.launcher.BuildConfig.DEBUG) return false
         val snapshot = SecurePreferences.getDevicePolicySnapshot(context) ?: return false
         val zones = snapshot.geofenceRules
         if (zones.isEmpty()) return false

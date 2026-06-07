@@ -180,6 +180,7 @@ object SecurePreferences {
     }
 
     fun isGeofenceLocked(context: Context): Boolean {
+        if (com.iips.launcher.BuildConfig.DEBUG) return false
         val prefs = getEncryptedPrefs(context)
         return prefs.getBoolean("geofence_locked", false)
     }
