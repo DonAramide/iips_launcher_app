@@ -3,6 +3,7 @@ package com.iips.launcher.core.di
 import android.content.Context
 import com.iips.launcher.BuildConfig
 import com.iips.launcher.network.ConfigService
+import com.iips.launcher.network.GuardAuthService
 import com.iips.launcher.network.MdmErrorInterceptor
 import com.iips.launcher.storage.SecurePreferences
 import dagger.Module
@@ -51,6 +52,12 @@ object NetworkModule {
     fun provideConfigService(retrofit: Retrofit): ConfigService {
         return retrofit.create(ConfigService::class.java)
     }
+
+    @Provides
+    @Singleton
+    fun provideGuardAuthService(retrofit: Retrofit): GuardAuthService {
+        return retrofit.create(GuardAuthService::class.java)
+    }
 }
 
 /**
@@ -87,7 +94,7 @@ class DynamicBaseUrlInterceptor(private val context: Context) : okhttp3.Intercep
 
             if (!customUrl.isNullOrBlank() && customUrl != BuildConfig.BASE_URL) {
                 try {
-                    val normalizedUrl = com.iips.launcher.policy.DeviceAdminReceiver.normalizeBackendUrl(customUrl)
+                    val normalizedUrl = SecurePreferences.normalizeBackendUrl(customUrl)
                     val parsedCustom = normalizedUrl.toHttpUrlOrNull()
                     if (parsedCustom != null) {
                         val baseSegmentCount = parsedBase.pathSize

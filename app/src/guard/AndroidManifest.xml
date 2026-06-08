@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- FCM Push Notification Service permissions -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" />
+
+    <application
+        android:name=".GuardApplication"
+        android:allowBackup="true"
+        android:theme="@style/Theme.Dotroid"
+        tools:replace="android:name">
+
+        <!-- Login Screen -->
+        <activity
+            android:name=".ui.GuardLoginActivity"
+            android:exported="true"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Dotroid.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Manager Dashboard Screen -->
+        <activity
+            android:name=".ui.GuardMainActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Dotroid.NoActionBar" />
+
+        <!-- Guard QR Scanner Screen -->
+        <activity
+            android:name=".ui.GuardScannerActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Dotroid.NoActionBar" />
+
+        <!-- Guard Device Detail Screen -->
+        <activity
+            android:name=".ui.GuardDeviceDetailActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Dotroid.NoActionBar" />
+
+        <!-- FCM Service for Manager App notifications -->
+        <service
+            android:name=".fcm.PushNotificationService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+    </application>
+
+</manifest>

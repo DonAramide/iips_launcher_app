@@ -56,5 +56,16 @@ interface ConfigService {
         @Header("X-IIPS-Signature") signature: String,
         @Body inventory: Map<String, Any>
     ): Response<okhttp3.ResponseBody>
+
+    @GET("device/app-pocket/catalog")
+    suspend fun fetchAppCatalog(
+        @Header("Authorization") authHeader: String
+    ): Response<List<AppCatalogResponse>>
+
+    @POST("device/app-pocket/audit")
+    suspend fun reportAppPocketAudits(
+        @Header("Authorization") authHeader: String,
+        @Body audits: List<AppPocketAuditRequest>
+    ): Response<okhttp3.ResponseBody>
 }
 

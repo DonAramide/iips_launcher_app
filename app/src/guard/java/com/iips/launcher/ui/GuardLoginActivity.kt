@@ -1,0 +1,108 @@
+package com.iips.launcher.ui
+
+import android.content.Intent
+import android.os.Bundle
+import android.view.View
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
+import com.iips.launcher.databinding.ActivityGuardLoginBinding
+import com.iips.launcher.network.GuardAuthService
+import com.iips.launcher.network.models.GuardLoginRequest
+import com.iips.launcher.storage.SecurePreferences
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@AndroidEntryPoint
+class GuardLoginActivity : AppCompatActivity() {
+
+    @Inject
+    lateinit var authService: GuardAuthService
+
+    private lateinit var binding: ActivityGuardLoginBinding
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // Check if user is already logged in
+        val token = SecurePreferences.getGuardAuthToken(this)
+        if (!token.isNullOrBlank()) {
+            navigateToDashboard()
+            return
+        }
+
+        binding = ActivityGuardLoginBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        setupUI()
+    }
+
+    private fun setupUI() {
+        binding.btnLogin.setOnClickListener {
+            performLogin()
+        }
+    }
+
+    private fun performLogin() {
+        val identifier = binding.edtIdentifier.text.toString().trim()
+        val password = binding.edtPassword.text.toString().trim()
+
+        if (identifier.isEmpty() || password.isEmpty()) {
+            showError("Please enter your email/phone and password.")
+            return
+        }
+
+        hideError()
+        setLoading(true)
+
+        val request = if (identifier.contains("@")) {
+            GuardLoginRequest(email = identifier, password = password)
+        } else {
+            GuardLoginRequest(phone = identifier, password = password)
+        }
+
+        lifecycleScope.launch {
+            try {
+                val response = authService.login(request)
+                setLoading(false)
+
+                if (response.isSuccessful && response.body() != null) {
+                    val loginResponse = response.body()!!
+                    SecurePreferences.setGuardAuthToken(this@GuardLoginActivity, loginResponse.token)
+                    SecurePreferences.setGuardRefreshToken(this@GuardLoginActivity, loginResponse.refreshToken)
+                    
+                    Toast.makeText(this@GuardLoginActivity, "Login Successful: Welcome ${loginResponse.manager.name}", Toast.LENGTH_SHORT).show()
+                    navigateToDashboard()
+                } else {
+                    val errorMsg = response.errorBody()?.string() ?: "Invalid login credentials."
+                    showError(errorMsg)
+                }
+            } catch (e: Exception) {
+                setLoading(false)
+                showError("Network error: ${e.localizedMessage ?: "Unknown error"}")
+            }
+        }
+    }
+
+    private fun navigateToDashboard() {
+        startActivity(Intent(this, GuardMainActivity::class.java))
+        finish()
+    }
+
+    private fun setLoading(isLoading: Boolean) {
+        binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
+        binding.btnLogin.isEnabled = !isLoading
+        binding.edtIdentifier.isEnabled = !isLoading
+        binding.edtPassword.isEnabled = !isLoading
+    }
+
+    private fun showError(message: String) {
+        binding.txtErrorMessage.text = message
+        binding.txtErrorMessage.visibility = View.VISIBLE
+    }
+
+    private fun hideError() {
+        binding.txtErrorMessage.visibility = View.GONE
+    }
+}

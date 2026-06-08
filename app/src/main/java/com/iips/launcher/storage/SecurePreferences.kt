@@ -422,6 +422,16 @@ object SecurePreferences {
         prefs.edit().putInt("crash_count", count).apply()
     }
 
+    fun getGuardState(context: Context): String {
+        val prefs = getEncryptedPrefs(context)
+        return prefs.getString("guard_state", "NORMAL") ?: "NORMAL"
+    }
+
+    fun setGuardState(context: Context, state: String) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit().putString("guard_state", state).apply()
+    }
+
     fun getLastCrashTime(context: Context): Long {
         val prefs = getEncryptedPrefs(context)
         return prefs.getLong("last_crash_time", 0L)
@@ -463,13 +473,25 @@ object SecurePreferences {
         prefs.edit().putStringSet("offline_telemetry_queue", queue.toSet()).apply()
     }
 
+    fun normalizeBackendUrl(url: String): String {
+        var trimmed = url.trim()
+        if (trimmed.isEmpty()) return ""
+        if (!trimmed.endsWith("/")) {
+            trimmed += "/"
+        }
+        if (!trimmed.endsWith("api/v1/")) {
+            trimmed += "api/v1/"
+        }
+        return trimmed
+    }
+
     fun getWebSocketUrl(context: Context): String {
         val customUrl = getProvisioningBackendUrl(context)
             ?: getBackendUrl(context)
             ?: getConfigUrl(context)
         
         val normalized = try {
-            com.iips.launcher.policy.DeviceAdminReceiver.normalizeBackendUrl(customUrl)
+            normalizeBackendUrl(customUrl)
         } catch (e: Exception) {
             customUrl
         }
@@ -494,5 +516,43 @@ object SecurePreferences {
         }
         
         return "${cleanBase}do-mdm/devices/ws"
+    }
+
+    fun getGuardAuthToken(context: Context): String? {
+        val prefs = getEncryptedPrefs(context)
+        return prefs.getString("guard_auth_token", null)
+    }
+
+    fun setGuardAuthToken(context: Context, token: String) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit().putString("guard_auth_token", token).apply()
+    }
+
+    fun getGuardRefreshToken(context: Context): String? {
+        val prefs = getEncryptedPrefs(context)
+        return prefs.getString("guard_refresh_token", null)
+    }
+
+    fun setGuardRefreshToken(context: Context, token: String) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit().putString("guard_refresh_token", token).apply()
+    }
+
+    fun clearGuardTokens(context: Context) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit()
+            .remove("guard_auth_token")
+            .remove("guard_refresh_token")
+            .apply()
+    }
+
+    fun isBiometricsEnabled(context: Context): Boolean {
+        val prefs = getEncryptedPrefs(context)
+        return prefs.getBoolean("biometrics_enabled", false)
+    }
+
+    fun setBiometricsEnabled(context: Context, enabled: Boolean) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit().putBoolean("biometrics_enabled", enabled).apply()
     }
 }
