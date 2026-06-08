@@ -190,6 +190,16 @@ object SecurePreferences {
         prefs.edit().putBoolean("geofence_locked", locked).apply()
     }
 
+    fun isRemoteLocked(context: Context): Boolean {
+        val prefs = getEncryptedPrefs(context)
+        return prefs.getBoolean("remote_locked", false)
+    }
+
+    fun setRemoteLocked(context: Context, locked: Boolean) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit().putBoolean("remote_locked", locked).apply()
+    }
+
     fun getProposedZones(context: Context): List<GeofenceRule> {
         val prefs = getEncryptedPrefs(context)
         val json = prefs.getString("proposed_zones", null) ?: return emptyList()

@@ -226,10 +226,14 @@ class RemoteCommandExecutionEngine @Inject constructor(
                     }
                     "lock" -> {
                         Log.i(TAG, "Enforcing device lock.")
+                        SecurePreferences.setRemoteLocked(context, true)
+                        context.sendBroadcast(Intent("com.iips.launcher.ACTION_REMOTE_LOCK"))
                         dpm.lockNow()
                     }
                     "unlock" -> {
                         Log.i(TAG, "Unlocking device restrictions.")
+                        SecurePreferences.setRemoteLocked(context, false)
+                        context.sendBroadcast(Intent("com.iips.launcher.ACTION_REMOTE_UNLOCK"))
                         Log.i(TAG, "Device unlock command processed.")
                     }
                     "shutdown" -> {

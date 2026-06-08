@@ -403,6 +403,10 @@ class LauncherActivity : AppCompatActivity() {
                 binding.geofencePendingBanner.visibility = View.GONE
             }
         }
+
+        // Check remote lock state
+        val isRemoteLocked = SecurePreferences.isRemoteLocked(this)
+        showRemoteLock(isRemoteLocked)
     }
     
     override fun onPause() {
@@ -680,6 +684,9 @@ class LauncherActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
+        if (SecurePreferences.isGeofenceLocked(this) || SecurePreferences.isRemoteLocked(this)) {
+            return
+        }
         // Prevent back button from exiting launcher in lockdown mode
         if (SecurePreferences.isLockdownEnabled(this)) {
             return
@@ -791,7 +798,11 @@ class LauncherActivity : AppCompatActivity() {
             showAdminPasswordDialog()
         }
 
-        // Register receiver for geofence events
+        binding.btnRemoteAdminUnlock.setOnClickListener {
+            showAdminPasswordDialog()
+        }
+
+        // Register receiver for geofence and remote lock events
         geofenceReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 when (intent?.action) {
@@ -802,6 +813,12 @@ class LauncherActivity : AppCompatActivity() {
                     com.iips.launcher.policy.GeofenceService.ACTION_GEOFENCE_UNLOCK -> {
                         showGeofenceLock(false)
                     }
+                    "com.iips.launcher.ACTION_REMOTE_LOCK" -> {
+                        showRemoteLock(true)
+                    }
+                    "com.iips.launcher.ACTION_REMOTE_UNLOCK" -> {
+                        showRemoteLock(false)
+                    }
                 }
             }
         }
@@ -809,6 +826,8 @@ class LauncherActivity : AppCompatActivity() {
         val filter = IntentFilter().apply {
             addAction(com.iips.launcher.policy.GeofenceService.ACTION_GEOFENCE_LOCK)
             addAction(com.iips.launcher.policy.GeofenceService.ACTION_GEOFENCE_UNLOCK)
+            addAction("com.iips.launcher.ACTION_REMOTE_LOCK")
+            addAction("com.iips.launcher.ACTION_REMOTE_UNLOCK")
         }
         registerReceiver(geofenceReceiver, filter)
     }
@@ -824,6 +843,17 @@ class LauncherActivity : AppCompatActivity() {
             }
         } else {
             binding.geofenceLockOverlay.visibility = View.GONE
+        }
+    }
+
+    private fun showRemoteLock(locked: Boolean) {
+        if (locked) {
+            binding.remoteLockOverlay.visibility = View.VISIBLE
+            if (DeviceAdminReceiver.isDeviceOwner(this)) {
+                com.iips.launcher.policy.KioskController.resumeLockTask(this)
+            }
+        } else {
+            binding.remoteLockOverlay.visibility = View.GONE
         }
     }
 
@@ -1128,6 +1158,10 @@ class LauncherActivity : AppCompatActivity() {
 
         binding.timeText.text = sdfTime.format(now)
         binding.dateText.text = sdfDate.format(now)
+
+        // Business Owner Name
+        val businessName = SecurePreferences.getBusinessName(this)
+        binding.businessNameText.text = businessName ?: ""
 
         // Battery
         val batteryInfo = com.iips.launcher.core.HardwareProvider.getBatteryInfo(this)
