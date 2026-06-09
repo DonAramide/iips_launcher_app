@@ -15,8 +15,8 @@ class PackageSignatureValidator @Inject constructor(
 ) {
     companion object {
         private const val TAG = "PackageSignatureValidator"
-        // The trusted developer certificate hash for IIPS/Dotoid
-        private const val TRUSTED_DEVELOPER_HASH = "8F:A1:75:5D:84:84:80:9A:8B:2F:9D:6A:9C:2C:1C:1E:1A:1D:1F:1B:1C:1D:1E:1F:20:21:22:23:24:25:26" 
+        // The trusted developer certificate hash for IIPS/Dotoid (from test_release.keystore)
+        private const val TRUSTED_DEVELOPER_HASH = "7A:9F:F2:0E:BD:28:39:A2:5F:65:FF:A4:BF:EF:A7:08:1E:BA:10:76:61:7E:D4:DD:78:CA:C2:B7:68:F1:D3:2D" 
     }
 
     /**
@@ -24,22 +24,20 @@ class PackageSignatureValidator @Inject constructor(
      */
     fun isApkTrusted(apkFile: File): Boolean {
         try {
-            val packageInfo = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-                context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, PackageManager.GET_SIGNING_CERTIFICATES)
-            } else {
-                @Suppress("DEPRECATION")
-                context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, PackageManager.GET_SIGNATURES)
-            }
+            @Suppress("DEPRECATION")
+            val flags = PackageManager.GET_SIGNATURES
+            val packageInfo = context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, flags)
+            
+            @Suppress("DEPRECATION")
+            var signatures = packageInfo?.signatures
 
-            val signatures = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-                packageInfo?.signingInfo?.apkContentsSigners
-            } else {
-                @Suppress("DEPRECATION")
-                packageInfo?.signatures
+            if (signatures.isNullOrEmpty() && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                val modernInfo = context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, PackageManager.GET_SIGNING_CERTIFICATES)
+                signatures = modernInfo?.signingInfo?.apkContentsSigners
             }
 
             if (signatures.isNullOrEmpty()) {
-                Log.e(TAG, "No signatures found in APK")
+                Log.e(TAG, "No signatures found in APK: ${apkFile.absolutePath}")
                 return false
             }
 

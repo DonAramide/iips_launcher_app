@@ -38,35 +38,61 @@ class AppPocketAdapter(
             val context = binding.root.context
             binding.txtAppName.text = app.appName
             binding.txtPackageName.text = app.packageName
-            binding.txtVersion.text = "Version: ${app.versionName} (${app.versionCode})"
-
-            binding.txtStatusBadge.text = app.status
-            when (app.status) {
-                "INSTALLED" -> {
-                    binding.txtStatusBadge.setBackgroundColor(context.getColor(R.color.success))
-                }
-                "PENDING" -> {
-                    binding.txtStatusBadge.setBackgroundColor(context.getColor(R.color.info))
-                }
-                "AWAITING_APPROVAL" -> {
-                    binding.txtStatusBadge.setBackgroundColor(context.getColor(R.color.warning))
-                }
-                "APPROVED" -> {
-                    binding.txtStatusBadge.setBackgroundColor(context.getColor(R.color.success))
-                }
-                "REJECTED" -> {
-                    binding.txtStatusBadge.setBackgroundColor(context.getColor(R.color.error))
-                }
-                "REMOVED" -> {
-                    binding.txtStatusBadge.setBackgroundColor(context.getColor(R.color.text_secondary))
-                }
-                else -> {
-                    binding.txtStatusBadge.setBackgroundColor(context.getColor(R.color.text_secondary))
-                }
+            if (app.status == "INSTALLED") {
+                binding.txtVersion.text = "Version: ${app.versionName} (${app.versionCode})"
+                val mb = app.storageUsageBytes / (1024 * 1024)
+                binding.txtStorage.text = "Storage: ${mb} MB"
+            } else {
+                binding.txtVersion.text = "Version: ${app.versionName}"
+                binding.txtStorage.text = "Storage: Pending"
             }
 
-            val mb = app.storageUsageBytes / (1024 * 1024)
-            binding.txtStorage.text = "Storage: ${mb} MB"
+            if (app.status == "INSTALLED") {
+                binding.downloadProgressContainer.visibility = View.GONE
+                binding.txtStatusBadge.text = "INSTALLED"
+                binding.txtStatusBadge.setBackgroundColor(context.getColor(R.color.success))
+            } else if (app.downloadStatus == "DOWNLOADING") {
+                binding.txtStatusBadge.text = "DOWNLOADING"
+                binding.txtStatusBadge.setBackgroundColor(context.getColor(R.color.info))
+                binding.downloadProgressContainer.visibility = View.VISIBLE
+                binding.downloadProgressBar.progress = app.downloadProgress
+                binding.txtDownloadProgress.text = "Downloading: ${app.downloadProgress}%"
+            } else if (app.downloadStatus == "COMPLETED") {
+                binding.txtStatusBadge.text = "INSTALLING"
+                binding.txtStatusBadge.setBackgroundColor(context.getColor(R.color.warning))
+                binding.downloadProgressContainer.visibility = View.VISIBLE
+                binding.downloadProgressBar.progress = 100
+                binding.txtDownloadProgress.text = "Installing package..."
+            } else if (app.downloadStatus == "FAILED") {
+                binding.txtStatusBadge.text = "DOWNLOAD FAILED"
+                binding.txtStatusBadge.setBackgroundColor(context.getColor(R.color.error))
+                binding.downloadProgressContainer.visibility = View.VISIBLE
+                binding.downloadProgressBar.progress = app.downloadProgress
+                binding.txtDownloadProgress.text = "Failed at ${app.downloadProgress}%"
+            } else {
+                binding.downloadProgressContainer.visibility = View.GONE
+                binding.txtStatusBadge.text = app.status
+                when (app.status) {
+                    "PENDING" -> {
+                        binding.txtStatusBadge.setBackgroundColor(context.getColor(R.color.info))
+                    }
+                    "AWAITING_APPROVAL" -> {
+                        binding.txtStatusBadge.setBackgroundColor(context.getColor(R.color.warning))
+                    }
+                    "APPROVED" -> {
+                        binding.txtStatusBadge.setBackgroundColor(context.getColor(R.color.success))
+                    }
+                    "REJECTED" -> {
+                        binding.txtStatusBadge.setBackgroundColor(context.getColor(R.color.error))
+                    }
+                    "REMOVED" -> {
+                        binding.txtStatusBadge.setBackgroundColor(context.getColor(R.color.text_secondary))
+                    }
+                    else -> {
+                        binding.txtStatusBadge.setBackgroundColor(context.getColor(R.color.text_secondary))
+                    }
+                }
+            }
 
             val lastUsed = app.lastUsedTimestamp
             if (lastUsed != null && lastUsed > 0) {
@@ -87,42 +113,49 @@ class AppPocketAdapter(
             binding.btnActionPrimary.visibility = View.GONE
             binding.btnActionSecondary.visibility = View.GONE
 
-            when (app.status) {
-                "PENDING" -> {
-                    binding.btnActionPrimary.text = "Submit Approval"
-                    binding.btnActionPrimary.visibility = View.VISIBLE
-                    binding.btnActionPrimary.setOnClickListener { onPrimaryAction(app) }
-                }
-                "AWAITING_APPROVAL" -> {
-                    binding.btnActionPrimary.text = "Approve"
-                    binding.btnActionPrimary.visibility = View.VISIBLE
-                    binding.btnActionPrimary.setOnClickListener { onPrimaryAction(app) }
-
-                    binding.btnActionSecondary.text = "Reject"
+            if (app.status == "INSTALLED") {
+                if (!app.isRequired) {
+                    binding.btnActionSecondary.text = "Uninstall"
                     binding.btnActionSecondary.visibility = View.VISIBLE
                     binding.btnActionSecondary.setOnClickListener { onSecondaryAction(app) }
                 }
-                "APPROVED" -> {
-                    binding.btnActionPrimary.text = "Install Now"
-                    binding.btnActionPrimary.visibility = View.VISIBLE
-                    binding.btnActionPrimary.setOnClickListener { onPrimaryAction(app) }
-                }
-                "INSTALLED" -> {
-                    if (!app.isRequired) {
-                        binding.btnActionSecondary.text = "Uninstall"
+            } else if (app.downloadStatus == "DOWNLOADING") {
+                // No action button during active download
+            } else if (app.downloadStatus == "FAILED") {
+                binding.btnActionPrimary.text = "Resume Download"
+                binding.btnActionPrimary.visibility = View.VISIBLE
+                binding.btnActionPrimary.setOnClickListener { onPrimaryAction(app) }
+            } else {
+                when (app.status) {
+                    "PENDING" -> {
+                        binding.btnActionPrimary.text = "Submit Approval"
+                        binding.btnActionPrimary.visibility = View.VISIBLE
+                        binding.btnActionPrimary.setOnClickListener { onPrimaryAction(app) }
+                    }
+                    "AWAITING_APPROVAL" -> {
+                        binding.btnActionPrimary.text = "Approve"
+                        binding.btnActionPrimary.visibility = View.VISIBLE
+                        binding.btnActionPrimary.setOnClickListener { onPrimaryAction(app) }
+
+                        binding.btnActionSecondary.text = "Reject"
                         binding.btnActionSecondary.visibility = View.VISIBLE
                         binding.btnActionSecondary.setOnClickListener { onSecondaryAction(app) }
                     }
-                }
-                "REJECTED" -> {
-                    binding.btnActionPrimary.text = "Retry Approval"
-                    binding.btnActionPrimary.visibility = View.VISIBLE
-                    binding.btnActionPrimary.setOnClickListener { onPrimaryAction(app) }
-                }
-                "REMOVED" -> {
-                    binding.btnActionPrimary.text = "Reinstall"
-                    binding.btnActionPrimary.visibility = View.VISIBLE
-                    binding.btnActionPrimary.setOnClickListener { onPrimaryAction(app) }
+                    "APPROVED" -> {
+                        binding.btnActionPrimary.text = "Install Now"
+                        binding.btnActionPrimary.visibility = View.VISIBLE
+                        binding.btnActionPrimary.setOnClickListener { onPrimaryAction(app) }
+                    }
+                    "REJECTED" -> {
+                        binding.btnActionPrimary.text = "Retry Approval"
+                        binding.btnActionPrimary.visibility = View.VISIBLE
+                        binding.btnActionPrimary.setOnClickListener { onPrimaryAction(app) }
+                    }
+                    "REMOVED" -> {
+                        binding.btnActionPrimary.text = "Reinstall"
+                        binding.btnActionPrimary.visibility = View.VISIBLE
+                        binding.btnActionPrimary.setOnClickListener { onPrimaryAction(app) }
+                    }
                 }
             }
         }

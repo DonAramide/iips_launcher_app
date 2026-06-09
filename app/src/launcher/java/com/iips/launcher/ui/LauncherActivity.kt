@@ -62,6 +62,7 @@ class LauncherActivity : AppCompatActivity() {
 
     private var debugWipeReceiver: BroadcastReceiver? = null
     private var screenOffReceiver: BroadcastReceiver? = null
+    private var packageChangeReceiver: BroadcastReceiver? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
@@ -142,6 +143,22 @@ class LauncherActivity : AppCompatActivity() {
         setupDebugWipeReceiver()
         setupBroadcastObserver()
         setupScreenLock()
+        setupPackageChangeReceiver()
+    }
+
+    private fun setupPackageChangeReceiver() {
+        packageChangeReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                android.util.Log.d("LauncherActivity", "Package changed broadcast received: ${intent?.action}. Reloading apps.")
+                loadApps()
+            }
+        }
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_ADDED)
+            addAction(Intent.ACTION_PACKAGE_REMOVED)
+            addDataScheme("package")
+        }
+        registerReceiver(packageChangeReceiver, filter)
     }
 
     private fun setupDebugWipeReceiver() {
@@ -211,18 +228,22 @@ class LauncherActivity : AppCompatActivity() {
     private var tapCount = 0
     private var lastTapTime = 0L
     private fun setupHiddenGesture() {
-        binding.root.setOnClickListener {
+        val hiddenGestureListener = View.OnClickListener {
             val currentTime = System.currentTimeMillis()
             if (currentTime - lastTapTime > 500) { // Reset if more than 500ms between taps
                 tapCount = 0
             }
             lastTapTime = currentTime
             tapCount++
-            if (tapCount >= 5) {
+            android.util.Log.d("LauncherActivity", "Hidden gesture tap count: $tapCount")
+            if (tapCount >= 6) {
                 tapCount = 0
                 showAdminPasswordDialog()
             }
         }
+        binding.root.setOnClickListener(hiddenGestureListener)
+        binding.statusBar.setOnClickListener(hiddenGestureListener)
+        binding.businessNameText.setOnClickListener(hiddenGestureListener)
     }
 
     private fun initializeMdm() {
@@ -543,6 +564,7 @@ class LauncherActivity : AppCompatActivity() {
         geofenceReceiver?.let { unregisterReceiver(it) }
         debugWipeReceiver?.let { unregisterReceiver(it) }
         screenOffReceiver?.let { unregisterReceiver(it) }
+        packageChangeReceiver?.let { unregisterReceiver(it) }
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -731,12 +753,16 @@ class LauncherActivity : AppCompatActivity() {
     private fun setupQuickSettings() {
         val density = resources.displayMetrics.density
         val qsMaxTranslation = 0f
-        val qsMinTranslation = -500 * density
+        val qsMinTranslation = -600 * density
+        var qsStartX = 0f
+        var qsDownTime = 0L
 
         binding.qsDragHandle.setOnTouchListener { _, event ->
             when (event.action) {
                 android.view.MotionEvent.ACTION_DOWN -> {
                     qsStartY = event.rawY
+                    qsStartX = event.rawX
+                    qsDownTime = System.currentTimeMillis()
                     true
                 }
                 android.view.MotionEvent.ACTION_MOVE -> {
@@ -748,12 +774,31 @@ class LauncherActivity : AppCompatActivity() {
                     true
                 }
                 android.view.MotionEvent.ACTION_UP -> {
-                    val currentTranslation = binding.quickSettingsPanel.translationY
-                    val threshold = (qsMinTranslation + qsMaxTranslation) / 2
-                    if (currentTranslation > threshold) {
-                        animateQuickSettings(true)
+                    val deltaY = event.rawY - qsStartY
+                    val deltaX = event.rawX - qsStartX
+                    val duration = System.currentTimeMillis() - qsDownTime
+                    
+                    // Check if it's a tap gesture (short duration, small movement)
+                    if (duration < 250 && Math.abs(deltaY) < 15 && Math.abs(deltaX) < 15) {
+                        val currentTime = System.currentTimeMillis()
+                        if (currentTime - lastTapTime > 500) {
+                            tapCount = 0
+                        }
+                        lastTapTime = currentTime
+                        tapCount++
+                        android.util.Log.d("LauncherActivity", "Drag handle tap count: $tapCount")
+                        if (tapCount >= 6) {
+                            tapCount = 0
+                            showAdminPasswordDialog()
+                        }
                     } else {
-                        animateQuickSettings(false)
+                        val currentTranslation = binding.quickSettingsPanel.translationY
+                        val threshold = (qsMinTranslation + qsMaxTranslation) / 2
+                        if (currentTranslation > threshold) {
+                            animateQuickSettings(true)
+                        } else {
+                            animateQuickSettings(false)
+                        }
                     }
                     true
                 }
@@ -778,7 +823,7 @@ class LauncherActivity : AppCompatActivity() {
 
     private fun animateQuickSettings(open: Boolean) {
         val density = resources.displayMetrics.density
-        val targetY = if (open) 0f else -500 * density
+        val targetY = if (open) 0f else -600 * density
         
         binding.quickSettingsPanel.animate()
             .translationY(targetY)
@@ -992,48 +1037,77 @@ class LauncherActivity : AppCompatActivity() {
             val allowedApps = withContext(Dispatchers.IO) {
                 database.appPolicyDao().getAllPolicies()
             }
-
-            if (allowedApps.isEmpty()) {
-                binding.emptyState.visibility = View.VISIBLE
-                binding.appGrid.visibility = View.GONE
-                allApps = emptyList()
-                appAdapter.submitList(emptyList())
-            } else {
-                binding.emptyState.visibility = View.GONE
-                binding.appGrid.visibility = View.VISIBLE
-
-                val packageManager = packageManager
-                val intent = Intent(Intent.ACTION_MAIN, null).apply {
-                    addCategory(Intent.CATEGORY_LAUNCHER)
-                }
-
-                val resolvedApps = packageManager.queryIntentActivities(intent, 0)
-                
-                // Filter rule: Only display apps where mode == "REQUIRED" OR (mode == "ALLOWED" && pinned == true)
-                val allowedPackageNames = allowedApps
-                    .filter { it.mode.uppercase() == "REQUIRED" || (it.mode.uppercase() == "ALLOWED" && it.pinned) }
-                    .map { it.packageName.trim().lowercase() }
-                    .toSet()
-                
-                allApps = resolvedApps.mapNotNull { resolveInfo ->
-                    val packageName = resolveInfo.activityInfo.packageName.trim().lowercase()
-                    if (allowedPackageNames.contains(packageName)) {
-                        // Use original package name (not lowercased) for creating AppInfo
-                        AppInfo.fromApplicationInfo(
-                            resolveInfo.activityInfo.applicationInfo,
-                            packageManager
-                        )
-                    } else {
-                        null
-                    }
-                }.sortedBy { it.name }
-
-                appAdapter.submitList(allApps)
+            val localAllowedApps = withContext(Dispatchers.IO) {
+                database.allowedAppDao().getAll()
             }
+            val pocketApps = withContext(Dispatchers.IO) {
+                database.appPocketDao().getAllApps()
+            }
+            val pocketInstalledApps = pocketApps.filter { it.status == "INSTALLED" }
+
+            binding.emptyState.visibility = View.GONE
+            binding.appGrid.visibility = View.VISIBLE
+
+            val packageManager = packageManager
+            val intent = Intent(Intent.ACTION_MAIN, null).apply {
+                addCategory(Intent.CATEGORY_LAUNCHER)
+            }
+
+            val resolvedApps = packageManager.queryIntentActivities(intent, 0)
+            
+            // Filter rule: Only display apps where:
+            // 1. Policy mode is REQUIRED or (ALLOWED and pinned)
+            // 2. Locally allowed in allowed_apps DB
+            // 3. Installed from App Pocket
+            val allowedPackageNames = mutableSetOf<String>()
+            allowedApps
+                .filter { it.mode.uppercase() == "REQUIRED" || (it.mode.uppercase() == "ALLOWED" && it.pinned) }
+                .forEach { allowedPackageNames.add(it.packageName.trim().lowercase()) }
+            localAllowedApps
+                .forEach { allowedPackageNames.add(it.packageName.trim().lowercase()) }
+            pocketInstalledApps
+                .forEach { allowedPackageNames.add(it.packageName.trim().lowercase()) }
+            
+            val sortedApps = resolvedApps.mapNotNull { resolveInfo ->
+                val packageName = resolveInfo.activityInfo.packageName.trim().lowercase()
+                if (allowedPackageNames.contains(packageName)) {
+                    // Use original package name (not lowercased) for creating AppInfo
+                    AppInfo.fromApplicationInfo(
+                        resolveInfo.activityInfo.applicationInfo,
+                        packageManager
+                    )
+                } else {
+                    null
+                }
+            }.sortedBy { it.name }
+
+            val appPocketInfo = AppInfo(
+                packageName = "com.iips.launcher.pocket",
+                name = "App Pocket",
+                icon = androidx.core.content.ContextCompat.getDrawable(this@LauncherActivity, R.drawable.ic_app_pocket),
+                isSystemApp = true
+            )
+
+            val finalAppsList = mutableListOf<AppInfo>()
+            finalAppsList.add(appPocketInfo)
+            finalAppsList.addAll(sortedApps)
+
+            allApps = finalAppsList
+            appAdapter.submitList(finalAppsList)
         }
     }
 
     private fun launchApp(appInfo: AppInfo) {
+        if (appInfo.packageName == "com.iips.launcher.pocket") {
+            try {
+                val intent = Intent(this, com.iips.launcher.pocket.ui.AppPocketActivity::class.java)
+                startActivity(intent)
+            } catch (e: Exception) {
+                android.util.Log.e("LauncherActivity", "Error launching AppPocket: ${e.message}", e)
+                Toast.makeText(this, "Error launching App Pocket", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
         try {
             android.util.Log.d("LauncherActivity", "Attempting to launch app: ${appInfo.packageName}")
             

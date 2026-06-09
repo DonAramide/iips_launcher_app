@@ -36,7 +36,7 @@ import com.iips.launcher.pocket.data.AppPocketDao
         AppPocketEntity::class,
         AppPocketAuditEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -100,6 +100,14 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `app_pocket` ADD COLUMN `downloadProgress` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `app_pocket` ADD COLUMN `downloadUrl` TEXT")
+                db.execSQL("ALTER TABLE `app_pocket` ADD COLUMN `downloadStatus` TEXT DEFAULT 'IDLE'")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -107,7 +115,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "launcher_database"
                 )
-                .addMigrations(MIGRATION_8_9)
+                .addMigrations(MIGRATION_8_9, MIGRATION_9_10)
                 .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance

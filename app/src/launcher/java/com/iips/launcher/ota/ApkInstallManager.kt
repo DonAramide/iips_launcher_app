@@ -20,13 +20,13 @@ class ApkInstallManager @Inject constructor(
 ) {
     companion object {
         private const val TAG = "ApkInstallManager"
-        const val ACTION_INSTALL_COMPLETE = "com.iips.launcher.ACTION_INSTALL_COMPLETE"
+        const val ACTION_INSTALL_COMPLETE = "com.iips.launcher.INSTALL_COMPLETE"
     }
 
     /**
      * Installs an APK silently if it passes signature validation.
      */
-    fun installApk(apkFile: File): Boolean {
+    fun installApk(apkFile: File, appId: String? = null, version: String? = null): Boolean {
         if (!apkFile.exists()) {
             Log.e(TAG, "APK file does not exist: ${apkFile.absolutePath}")
             return false
@@ -43,6 +43,21 @@ class ApkInstallManager @Inject constructor(
             val packageInstaller = context.packageManager.packageInstaller
             val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
             
+            // Set App Package Name if parsable
+            try {
+                val packageInfo = context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, 0)
+                packageInfo?.packageName?.let {
+                    params.setAppPackageName(it)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to resolve package name from APK archive", e)
+            }
+
+            // Request silent install (no user action) on Android 12+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+            }
+
             val sessionId = packageInstaller.createSession(params)
             val session = packageInstaller.openSession(sessionId)
 
@@ -56,6 +71,8 @@ class ApkInstallManager @Inject constructor(
             val intent = Intent(context, com.iips.launcher.core.BootReceiver::class.java).apply {
                 action = ACTION_INSTALL_COMPLETE
                 putExtra("package_path", apkFile.absolutePath)
+                if (appId != null) putExtra("app_id", appId)
+                if (version != null) putExtra("version", version)
             }
 
             val pendingIntent = PendingIntent.getBroadcast(

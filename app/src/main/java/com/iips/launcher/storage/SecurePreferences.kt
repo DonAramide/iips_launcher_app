@@ -555,4 +555,17 @@ object SecurePreferences {
         val prefs = getEncryptedPrefs(context)
         prefs.edit().putBoolean("biometrics_enabled", enabled).apply()
     }
+
+    fun saveMdmPackageMapping(context: Context, mdmPkg: String, realPkg: String) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit().putString("mdm_mapping_$mdmPkg", realPkg).apply()
+    }
+
+    fun resolveMdmPackage(context: Context, mdmPkg: String): String {
+        if (mdmPkg.isBlank()) return mdmPkg
+        if (mdmPkg == "invifi") return "com.invify.invoice_app"
+        if (mdmPkg == "prodAnl") return "com.accelerexnetworkv2.rexagentv2"
+        val prefs = getEncryptedPrefs(context)
+        return prefs.getString("mdm_mapping_$mdmPkg", mdmPkg) ?: mdmPkg
+    }
 }

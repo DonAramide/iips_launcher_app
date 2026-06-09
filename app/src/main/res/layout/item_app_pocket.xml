@@ -123,6 +123,34 @@
 
         </LinearLayout>
 
+        <!-- Progress Bar for Downloading -->
+        <LinearLayout
+            android:id="@+id/download_progress_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="8dp"
+            android:visibility="gone">
+
+            <ProgressBar
+                android:id="@+id/download_progress_bar"
+                style="@android:style/Widget.ProgressBar.Horizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="100"
+                android:progress="0" />
+
+            <TextView
+                android:id="@+id/txt_download_progress"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Downloading: 0%"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp"
+                android:layout_gravity="end"
+                android:layout_marginTop="2dp" />
+        </LinearLayout>
+
         <!-- Divider line -->
         <View
             android:layout_width="match_parent"

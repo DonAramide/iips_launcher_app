@@ -23,5 +23,8 @@ data class AppPocketEntity(
     val crashCount: Int = 0,
     val healthStatus: String = "HEALTHY",// HEALTHY, DEGRADED, CRITICAL
     val updateAvailableVersion: String? = null,
-    val addedAt: Long = System.currentTimeMillis()
+    val addedAt: Long = System.currentTimeMillis(),
+    val downloadProgress: Int = 0,
+    val downloadUrl: String? = null,
+    val downloadStatus: String? = "IDLE"
 )

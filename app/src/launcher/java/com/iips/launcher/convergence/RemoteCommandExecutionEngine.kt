@@ -54,9 +54,85 @@ class RemoteCommandExecutionEngine @Inject constructor(
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val gson = Gson()
+    private val activeDownloads = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
     init {
         startListening()
+        autoResumeDownloads()
+    }
+
+    private fun autoResumeDownloads() {
+        scope.launch(Dispatchers.IO) {
+            val db = com.iips.launcher.data.AppDatabase.getDatabase(context)
+            val apps = db.appPocketDao().getAllApps()
+            apps.forEach { app ->
+                val resolvedPkg = com.iips.launcher.storage.SecurePreferences.resolveMdmPackage(context, app.packageName)
+                var isInstalled = false
+                try {
+                    context.packageManager.getPackageInfo(resolvedPkg, 0)
+                    isInstalled = true
+                } catch (e: android.content.pm.PackageManager.NameNotFoundException) {
+                    // Not installed
+                }
+
+                if (isInstalled) {
+                    if (resolvedPkg != app.packageName) {
+                        db.appPocketDao().deleteApp(app.packageName)
+                        Log.i(TAG, "AutoResume: Cleaned up legacy/duplicate entry for ${app.packageName}")
+                    }
+
+                    val realApp = db.appPocketDao().getApp(resolvedPkg) ?: app.copy(packageName = resolvedPkg)
+                    if (realApp.status != "INSTALLED" || realApp.downloadStatus != "COMPLETED") {
+                        val pm = context.packageManager
+                        var appName = realApp.appName
+                        var appType = realApp.appType
+                        var verName = realApp.versionName
+                        var verCode = realApp.versionCode
+                        try {
+                            val info = pm.getPackageInfo(resolvedPkg, 0)
+                            appName = info.applicationInfo.loadLabel(pm).toString()
+                            appType = if (info.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM != 0) "SYSTEM" else "USER"
+                            verName = info.versionName ?: verName
+                            verCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                                info.longVersionCode
+                            } else {
+                                @Suppress("DEPRECATION")
+                                info.versionCode.toLong()
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to retrieve package info in autoResumeDownloads", e)
+                        }
+
+                        val updated = realApp.copy(
+                            status = "INSTALLED",
+                            downloadStatus = "COMPLETED",
+                            appName = appName,
+                            appType = appType,
+                            versionName = verName,
+                            versionCode = verCode,
+                            installDate = if (realApp.installDate != null && realApp.installDate > 0L) realApp.installDate else System.currentTimeMillis(),
+                            isMissing = false,
+                            healthStatus = "HEALTHY"
+                        )
+                        db.appPocketDao().insertApp(updated)
+                        Log.i(TAG, "AutoResume: Synced status: $resolvedPkg is already installed, marking as INSTALLED.")
+                    }
+                } else if (app.status == "DOWNLOADING" && app.downloadUrl != null) {
+                    Log.i(TAG, "Auto-resuming interrupted download/install for package: ${app.packageName} from: ${app.downloadUrl}")
+                    downloadAndInstallApk(app.downloadUrl, app.packageName, "autoresume_${System.currentTimeMillis()}", null)
+                }
+            }
+        }
+    }
+
+    fun resumeDownload(packageName: String) {
+        scope.launch(Dispatchers.IO) {
+            val db = com.iips.launcher.data.AppDatabase.getDatabase(context)
+            val app = db.appPocketDao().getApp(packageName)
+            if (app != null && app.downloadUrl != null) {
+                downloadAndInstallApk(app.downloadUrl, app.packageName, "manual_resume_${System.currentTimeMillis()}", null)
+            }
+        }
     }
 
     /**
@@ -275,8 +351,25 @@ class RemoteCommandExecutionEngine @Inject constructor(
                     "install" -> {
                         val apkUrl = root.getAsJsonPrimitive("apk_url")?.asString ?: ""
                         val packageName = root.getAsJsonPrimitive("package_name")?.asString
+                        val appId = root.getAsJsonPrimitive("app_id")?.asString
+                        val version = root.getAsJsonPrimitive("version")?.asString
                         if (apkUrl.isNotEmpty()) {
-                            downloadAndInstallApk(apkUrl, packageName, commandId, requestId)
+                            val resolvedPkg = com.iips.launcher.storage.SecurePreferences.resolveMdmPackage(context, packageName ?: "")
+                            var alreadyInstalled = false
+                            try {
+                                val pi = context.packageManager.getPackageInfo(resolvedPkg, 0)
+                                if (version == null || pi.versionName == version) {
+                                    alreadyInstalled = true
+                                }
+                            } catch (e: Exception) {}
+
+                            if (alreadyInstalled) {
+                                Log.i(TAG, "Install command ignored: $resolvedPkg is already installed at requested version.")
+                                acknowledgeExecution(commandId, "SUCCESS", "App already installed.", requestId)
+                                return@launch
+                            }
+
+                            downloadAndInstallApk(apkUrl, packageName, commandId, requestId, appId, version)
                             return@launch // downloadAndInstallApk handles its own success/fail ACKs asynchronously
                         } else {
                             successStatus = "FAILED"
@@ -477,85 +570,210 @@ class RemoteCommandExecutionEngine @Inject constructor(
         }
     }
 
-    private fun downloadAndInstallApk(apkUrl: String, packageName: String?, commandId: String, requestId: String?) {
+    private fun downloadAndInstallApk(
+        apkUrl: String,
+        packageName: String?,
+        commandId: String,
+        requestId: String?,
+        appId: String? = null,
+        version: String? = null
+    ) {
         scope.launch(Dispatchers.IO) {
-            val stagingDir = File(context.cacheDir, "ota_staging")
-            if (!stagingDir.exists()) stagingDir.mkdirs()
-
-            val tempApkFile = File(stagingDir, "ws_install_${System.currentTimeMillis()}.apk")
-            val okHttpClient = okhttp3.OkHttpClient.Builder()
-                .connectTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-                .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-                .build()
-
-            var downloadedBytes = 0L
-            var attempt = 0
-            val maxAttempts = 5
-            var success = false
-
-            while (attempt < maxAttempts && !success) {
-                attempt++
-                try {
-                    val requestBuilder = okhttp3.Request.Builder().url(apkUrl)
-                    if (downloadedBytes > 0) {
-                        requestBuilder.header("Range", "bytes=$downloadedBytes-")
-                        Log.d(TAG, "Resuming APK download from byte: $downloadedBytes (Attempt $attempt/$maxAttempts)")
-                    } else {
-                        Log.d(TAG, "Starting new APK download (Attempt $attempt/$maxAttempts) from: $apkUrl")
-                    }
-
-                    val response = okHttpClient.newCall(requestBuilder.build()).execute()
-                    val code = response.code
-                    if (code != 200 && code != 206) {
-                        response.close()
-                        throw IOException("HTTP Error response code: $code")
-                    }
-
-                    val body = response.body ?: throw IOException("Empty response body")
-                    val isRange = code == 206
-                    
-                    val append = if (isRange) {
-                        true
-                    } else {
-                        downloadedBytes = 0L
-                        false
-                    }
-
-                    FileOutputStream(tempApkFile, append).use { output ->
-                        body.byteStream().use { input ->
-                            val buffer = ByteArray(16 * 1024)
-                            var bytesRead: Int
-                            while (input.read(buffer).also { bytesRead = it } != -1) {
-                                output.write(buffer, 0, bytesRead)
-                                downloadedBytes += bytesRead
-                            }
-                        }
-                    }
-                    response.close()
-                    success = true
-                } catch (e: Exception) {
-                    Log.w(TAG, "Download attempt $attempt failed: ${e.message}. Retrying...", e)
-                    if (attempt >= maxAttempts) {
-                        Log.e(TAG, "Max download attempts reached. Failing command.")
-                        if (tempApkFile.exists()) tempApkFile.delete()
-                        withContext(Dispatchers.Main) {
-                            acknowledgeExecution(commandId, "FAILED", "Download error: ${e.message}", requestId, "ERR_DOWNLOAD")
-                        }
-                        return@launch
-                    }
-                    kotlinx.coroutines.delay(2000L * attempt)
-                }
+            val resolvedPkg = packageName ?: "com.iips.download_" + apkUrl.hashCode().toString()
+            if (!activeDownloads.add(resolvedPkg)) {
+                Log.d(TAG, "Download already in progress for $resolvedPkg. Skipping duplicate trigger.")
+                return@launch
             }
 
-            Log.d(TAG, "Download finished. Triggering native apk install sequence...")
-            withContext(Dispatchers.Main) {
-                val installSuccess = apkInstallManager.installApk(tempApkFile)
-                if (installSuccess) {
-                    acknowledgeExecution(commandId, "SUCCESS", "Silent install execution finished", requestId)
-                } else {
-                    acknowledgeExecution(commandId, "FAILED", "Silent install execution rejected", requestId, "ERR_INSTALL_REJECTED")
+            val db = com.iips.launcher.data.AppDatabase.getDatabase(context)
+            val dao = db.appPocketDao()
+
+            try {
+                // Register/Update AppPocketEntity immediately
+                val existing = dao.getApp(resolvedPkg)
+                val initialAppName = existing?.appName ?: apkUrl.substringAfterLast("/").substringBefore(".apk")
+                val appEntity = com.iips.launcher.pocket.data.AppPocketEntity(
+                    packageName = resolvedPkg,
+                    appName = initialAppName,
+                    versionName = existing?.versionName ?: "Pending",
+                    versionCode = existing?.versionCode ?: 0L,
+                    apkPath = existing?.apkPath,
+                    iconCachePath = existing?.iconCachePath,
+                    installDate = existing?.installDate,
+                    uninstallDate = existing?.uninstallDate,
+                    source = "REMOTE_DEPLOY",
+                    status = "DOWNLOADING",
+                    appType = "MANAGED",
+                    isRequired = existing?.isRequired ?: false,
+                    isMissing = existing?.isMissing ?: false,
+                    lastUsedTimestamp = existing?.lastUsedTimestamp,
+                    storageUsageBytes = existing?.storageUsageBytes ?: 0L,
+                    crashCount = existing?.crashCount ?: 0,
+                    healthStatus = existing?.healthStatus ?: "HEALTHY",
+                    updateAvailableVersion = existing?.updateAvailableVersion,
+                    addedAt = existing?.addedAt ?: System.currentTimeMillis(),
+                    downloadProgress = existing?.downloadProgress ?: 0,
+                    downloadUrl = apkUrl,
+                    downloadStatus = "DOWNLOADING"
+                )
+                dao.insertApp(appEntity)
+
+                val stagingDir = File(context.cacheDir, "ota_staging")
+                if (!stagingDir.exists()) stagingDir.mkdirs()
+
+                // Stable file name for resume support
+                val tempApkFile = File(stagingDir, "download_${resolvedPkg}.apk")
+                var downloadedBytes = 0L
+                if (tempApkFile.exists()) {
+                    downloadedBytes = tempApkFile.length()
                 }
+
+                val okHttpClient = okhttp3.OkHttpClient.Builder()
+                    .connectTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                    .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                    .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                    .build()
+
+                var attempt = 0
+                val maxAttempts = 5
+                var success = false
+                var lastProgressUpdateTimestamp = 0L
+
+                while (attempt < maxAttempts && !success) {
+                    attempt++
+                    try {
+                        val requestBuilder = okhttp3.Request.Builder().url(apkUrl)
+                        if (downloadedBytes > 0) {
+                            requestBuilder.header("Range", "bytes=$downloadedBytes-")
+                            Log.d(TAG, "Resuming APK download from byte: $downloadedBytes (Attempt $attempt/$maxAttempts)")
+                        } else {
+                            Log.d(TAG, "Starting new APK download (Attempt $attempt/$maxAttempts) from: $apkUrl")
+                        }
+
+                        val response = okHttpClient.newCall(requestBuilder.build()).execute()
+                        val code = response.code
+
+                        // If server returns 416 (Range Not Satisfiable), range is invalid. Reset and redownload.
+                        if (code == 416) {
+                            response.close()
+                            downloadedBytes = 0L
+                            if (tempApkFile.exists()) tempApkFile.delete()
+                            continue
+                        }
+
+                        if (code != 200 && code != 206) {
+                            response.close()
+                            throw IOException("HTTP Error response code: $code")
+                        }
+
+                        val body = response.body ?: throw IOException("Empty response body")
+                        val isRange = code == 206
+                        
+                        val append = if (isRange) {
+                            true
+                        } else {
+                            downloadedBytes = 0L
+                            false
+                        }
+
+                        val contentLength = body.contentLength()
+                        val totalBytes = if (contentLength != -1L) contentLength + downloadedBytes else -1L
+
+                        FileOutputStream(tempApkFile, append).use { output ->
+                            body.byteStream().use { input ->
+                                val buffer = ByteArray(16 * 1024)
+                                var bytesRead: Int
+                                var lastProgressPercent = -1
+                                while (input.read(buffer).also { bytesRead = it } != -1) {
+                                    output.write(buffer, 0, bytesRead)
+                                    downloadedBytes += bytesRead
+                                    
+                                    val progress = if (totalBytes > 0) {
+                                        ((downloadedBytes * 100) / totalBytes).toInt()
+                                    } else {
+                                        0
+                                    }
+                                    
+                                    val now = System.currentTimeMillis()
+                                    // Throttle DB updates: update at least every 5% progress or if 1 second has elapsed
+                                    if (progress != lastProgressPercent && (progress % 5 == 0 || now - lastProgressUpdateTimestamp > 1000L)) {
+                                        lastProgressPercent = progress
+                                        lastProgressUpdateTimestamp = now
+                                        val currentApp = dao.getApp(resolvedPkg)
+                                        if (currentApp != null) {
+                                            dao.insertApp(currentApp.copy(
+                                                downloadProgress = progress,
+                                                downloadStatus = "DOWNLOADING",
+                                                status = "DOWNLOADING"
+                                            ))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        response.close()
+                        success = true
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Download attempt $attempt failed: ${e.message}. Retrying...", e)
+                        if (attempt >= maxAttempts) {
+                            Log.e(TAG, "Max download attempts reached. Failing download.")
+                            val currentApp = dao.getApp(resolvedPkg)
+                            if (currentApp != null) {
+                                dao.insertApp(currentApp.copy(
+                                    downloadStatus = "FAILED",
+                                    status = "DOWNLOADING"
+                                ))
+                            }
+                            withContext(Dispatchers.Main) {
+                                acknowledgeExecution(commandId, "FAILED", "Download error: ${e.message}", requestId, "ERR_DOWNLOAD")
+                            }
+                            return@launch
+                        }
+                        kotlinx.coroutines.delay(2000L * attempt)
+                    }
+                }
+
+                Log.d(TAG, "Download finished. Triggering native apk install sequence...")
+                
+                // Update status to COMPLETED before starting install
+                val finalApp = dao.getApp(resolvedPkg)
+                if (finalApp != null) {
+                    dao.insertApp(finalApp.copy(
+                        downloadProgress = 100,
+                        downloadStatus = "COMPLETED",
+                        status = "DOWNLOADING"
+                    ))
+                }
+
+                var resolvedVersion = version
+                if (resolvedVersion.isNullOrEmpty() || resolvedVersion == "unknown") {
+                    try {
+                        val packageInfo = context.packageManager.getPackageArchiveInfo(tempApkFile.absolutePath, 0)
+                        resolvedVersion = packageInfo?.versionName
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to resolve version name from APK archive", e)
+                    }
+                }
+
+                withContext(Dispatchers.Main) {
+                    val installSuccess = apkInstallManager.installApk(tempApkFile, appId, resolvedVersion)
+                    if (installSuccess) {
+                        acknowledgeExecution(commandId, "SUCCESS", "Silent install execution finished", requestId)
+                    } else {
+                        scope.launch(Dispatchers.IO) {
+                            val currentApp = dao.getApp(resolvedPkg)
+                            if (currentApp != null) {
+                                dao.insertApp(currentApp.copy(
+                                    downloadStatus = "FAILED",
+                                    status = "DOWNLOADING"
+                                ))
+                            }
+                        }
+                        acknowledgeExecution(commandId, "FAILED", "Silent install execution rejected", requestId, "ERR_INSTALL_REJECTED")
+                    }
+                }
+            } finally {
+                activeDownloads.remove(resolvedPkg)
             }
         }
     }

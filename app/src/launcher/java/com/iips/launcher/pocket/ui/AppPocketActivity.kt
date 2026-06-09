@@ -42,6 +42,9 @@ class AppPocketActivity : AppCompatActivity() {
     @Inject
     lateinit var packageInstallManager: PackageInstallManager
 
+    @Inject
+    lateinit var remoteCommandEngine: com.iips.launcher.convergence.RemoteCommandExecutionEngine
+
     private lateinit var adapter: AppPocketAdapter
     private var allApps = emptyList<AppPocketEntity>()
     private var currentTab = 0
@@ -129,6 +132,13 @@ class AppPocketActivity : AppCompatActivity() {
 
     private fun handlePrimaryAction(app: AppPocketEntity) {
         lifecycleScope.launch(Dispatchers.IO) {
+            if (app.downloadStatus == "FAILED") {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@AppPocketActivity, "Resuming download...", Toast.LENGTH_SHORT).show()
+                }
+                remoteCommandEngine.resumeDownload(app.packageName)
+                return@launch
+            }
             when (app.status) {
                 "PENDING" -> {
                     approvalManager.requestApproval(app.packageName, "operator_user_1")

@@ -103,13 +103,14 @@ class AppPocketSyncWorker @AssistedInject constructor(
                 val pm = context.packageManager
 
                 for (catalogApp in catalog) {
-                    val localApp = pocketDao.getApp(catalogApp.packageName)
+                    val resolvedPackageName = com.iips.launcher.storage.SecurePreferences.resolveMdmPackage(context, catalogApp.packageName)
+                    val localApp = pocketDao.getApp(resolvedPackageName)
                     var isInstalled = false
                     var installedVersionCode = 0L
                     var installedVersionName = ""
 
                     try {
-                        val pi = pm.getPackageInfo(catalogApp.packageName, 0)
+                        val pi = pm.getPackageInfo(resolvedPackageName, 0)
                         isInstalled = true
                         installedVersionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
                             pi.longVersionCode
@@ -130,7 +131,7 @@ class AppPocketSyncWorker @AssistedInject constructor(
                     }
 
                     val updatedApp = AppPocketEntity(
-                        packageName = catalogApp.packageName,
+                        packageName = resolvedPackageName,
                         appName = catalogApp.appName,
                         versionName = if (isInstalled && !hasUpdate) installedVersionName else catalogApp.versionName,
                         versionCode = if (isInstalled && !hasUpdate) installedVersionCode else catalogApp.versionCode,
@@ -151,6 +152,9 @@ class AppPocketSyncWorker @AssistedInject constructor(
                         addedAt = localApp?.addedAt ?: System.currentTimeMillis()
                     )
 
+                    if (resolvedPackageName != catalogApp.packageName) {
+                        pocketDao.deleteApp(catalogApp.packageName)
+                    }
                     pocketDao.insertApp(updatedApp)
                 }
                 Log.i(TAG, "Successfully synced app catalog: ${catalog.size} items.")
