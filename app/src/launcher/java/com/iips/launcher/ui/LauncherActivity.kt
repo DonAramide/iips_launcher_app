@@ -125,11 +125,7 @@ class LauncherActivity : AppCompatActivity() {
         setupStatusBar()
         startStatusBarUpdates()
 
-        // Handle admin access - long press on logo or settings icon
-        binding.adminButton.setOnLongClickListener {
-            showAdminPasswordDialog()
-            true
-        }
+        // Admin button is now hidden from status bar — no listener needed
         
         // Monitor for Settings launches and intercept
         registerSettingsInterceptor()
@@ -748,9 +744,7 @@ class LauncherActivity : AppCompatActivity() {
             adapter = appAdapter
         }
 
-        binding.adminButton.setOnClickListener {
-            showAdminPasswordDialog()
-        }
+        // Admin button is now in the side menu — no click listener needed here
         
         binding.qsAdminButton.setOnClickListener {
             toggleQuickSettings(false)

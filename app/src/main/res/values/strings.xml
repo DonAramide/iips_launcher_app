@@ -72,6 +72,11 @@
     <string name="geofencing_disabled">Geofencing Disabled</string>
     <string name="authorized_zones">Authorized Zones:</string>
 
+    <!-- Side Menu -->
+    <string name="pair_manager_device">Pair Manager Device</string>
+    <string name="app_pocket">App Pocket</string>
+    <string name="dotroid_menu">Dotroid Menu</string>
+
     <!-- Enterprise provisioning status -->
     <string name="provisioning_enrolling">Enrolling device into Dotroid MDM…</string>
     <string name="provisioning_failed">Enrollment Failed</string>

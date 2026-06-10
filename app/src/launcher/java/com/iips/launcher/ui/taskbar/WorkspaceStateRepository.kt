@@ -8,6 +8,7 @@ class WorkspaceStateRepository(private val context: Context) {
     companion object {
         private const val KEY_PINNED_APPS = "taskbar_pinned_apps"
         private const val KEY_RECENT_APPS = "taskbar_recent_apps"
+        private const val KEY_REMOVED_APPS = "taskbar_removed_apps"
         private const val MAX_RECENT_APPS = 10
     }
 
@@ -64,6 +65,29 @@ class WorkspaceStateRepository(private val context: Context) {
         if (recents.remove(packageName)) {
             val prefs = SecurePreferences.getEncryptedPrefs(context)
             prefs.edit().putString(KEY_RECENT_APPS, recents.joinToString(",")).apply()
+        }
+    }
+
+    fun removeApp(packageName: String) {
+        // Remove from recent apps
+        removeRecentApp(packageName)
+        // Add to removed set so it stays hidden until re-launched
+        val prefs = SecurePreferences.getEncryptedPrefs(context)
+        val removed = getRemovedApps().toMutableSet()
+        removed.add(packageName)
+        prefs.edit().putStringSet(KEY_REMOVED_APPS, removed).apply()
+    }
+
+    fun getRemovedApps(): Set<String> {
+        val prefs = SecurePreferences.getEncryptedPrefs(context)
+        return prefs.getStringSet(KEY_REMOVED_APPS, emptySet()) ?: emptySet()
+    }
+
+    fun clearRemovedApp(packageName: String) {
+        val prefs = SecurePreferences.getEncryptedPrefs(context)
+        val removed = getRemovedApps().toMutableSet()
+        if (removed.remove(packageName)) {
+            prefs.edit().putStringSet(KEY_REMOVED_APPS, removed).apply()
         }
     }
 }

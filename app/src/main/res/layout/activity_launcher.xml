@@ -82,20 +82,12 @@
             android:textSize="12sp"
             android:textStyle="bold" />
 
-        <!-- Admin Icon -->
+        <!-- Admin Icon (hidden, kept for binding compatibility) -->
         <ImageView
             android:id="@+id/admin_button"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:layout_marginStart="10dp"
-            android:padding="10dp"
-            android:src="@android:drawable/ic_menu_manage"
-            android:tint="@color/white"
-            android:alpha="0.8"
-            android:elevation="102dp"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="?attr/selectableItemBackgroundBorderless" />
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone" />
 
     </LinearLayout>
 
@@ -463,4 +455,3 @@
     <include layout="@layout/broadcast_rendering_overlay" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
-
