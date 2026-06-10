@@ -13,6 +13,7 @@
     <color name="primary">#1E3A8A</color>
     <color name="primary_dark">#1E40AF</color>
     <color name="primary_light">#3B82F6</color>
+    <color name="dotroid_shell_blue">#1E3A8A</color>
     <color name="accent">#F59E0B</color>
     <color name="accent_dark">#D97706</color>
     <color name="background">#F8FAFC</color>

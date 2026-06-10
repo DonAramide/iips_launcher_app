@@ -160,6 +160,7 @@ class LocationSyncWorker @AssistedInject constructor(
                     if (response.isSuccessful) {
                         val ids = chunk.map { it.id }
                         locationReportDao.markLocationsSynced(ids)
+                        SecurePreferences.getEncryptedPrefs(context).edit().putLong("last_telemetry_sync_time", System.currentTimeMillis()).apply()
                     } else {
                         Log.e(TAG, "Failed to upload location chunk: code=${response.code()}")
                         // Return retry if a batch sync fails

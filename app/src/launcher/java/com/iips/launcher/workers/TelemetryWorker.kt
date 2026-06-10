@@ -74,6 +74,7 @@ class TelemetryWorker @AssistedInject constructor(
             
             if (response.isSuccessful) {
                 Log.d(TAG, "Heartbeat sent successfully")
+                SecurePreferences.getEncryptedPrefs(context).edit().putLong("last_telemetry_sync_time", System.currentTimeMillis()).apply()
             } else {
                 Log.e(TAG, "Heartbeat failed: ${response.code()}")
             }

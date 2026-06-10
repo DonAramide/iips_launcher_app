@@ -63,6 +63,7 @@ class LauncherActivity : AppCompatActivity() {
     private var debugWipeReceiver: BroadcastReceiver? = null
     private var screenOffReceiver: BroadcastReceiver? = null
     private var packageChangeReceiver: BroadcastReceiver? = null
+    private var taskbarController: com.iips.launcher.ui.taskbar.TaskbarController? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
@@ -144,6 +145,19 @@ class LauncherActivity : AppCompatActivity() {
         setupBroadcastObserver()
         setupScreenLock()
         setupPackageChangeReceiver()
+
+        val taskbarView = binding.root.findViewById<View>(R.id.taskbar_layout)
+        if (taskbarView != null) {
+            taskbarController = com.iips.launcher.ui.taskbar.TaskbarController(
+                activity = this,
+                taskbarLayout = taskbarView,
+                database = database,
+                broadcastEngine = broadcastEngine,
+                onShowAdminSettings = {
+                    showAdminPasswordDialog()
+                }
+            )
+        }
     }
 
     private fun setupPackageChangeReceiver() {
@@ -292,6 +306,7 @@ class LauncherActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        taskbarController?.onResume()
         
         // Process provisioning extras on resume
         com.iips.launcher.network.DeviceEnrollmentManager.extractAndPersistProvisioningExtras(this, intent)
@@ -436,6 +451,7 @@ class LauncherActivity : AppCompatActivity() {
     }
     
     override fun onPause() {
+        taskbarController?.onPause()
         super.onPause()
         
         // Check if we recently launched an allowed app (within last 3 seconds)
@@ -557,6 +573,7 @@ class LauncherActivity : AppCompatActivity() {
     }
     
     override fun onDestroy() {
+        taskbarController?.onDestroy()
         super.onDestroy()
         timeHandler.removeCallbacks(timeRunnable)
         batteryReceiver?.let { unregisterReceiver(it) }
@@ -1143,6 +1160,7 @@ class LauncherActivity : AppCompatActivity() {
                 // Small delay to ensure lock task is fully stopped
                 Handler(Looper.getMainLooper()).postDelayed({
                     try {
+                        taskbarController?.addRecentApp(appInfo.packageName)
                         startActivity(launchIntent)
                         android.util.Log.d("LauncherActivity", "Successfully launched app: ${appInfo.packageName}")
                         

@@ -17,7 +17,7 @@
         android:paddingTop="8dp"
         android:paddingBottom="8dp"
         android:gravity="center_vertical"
-        android:background="@color/primary"
+        android:background="@color/dotroid_shell_blue"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -150,7 +150,7 @@
         android:padding="16dp"
         android:clipToPadding="false"
         app:layout_constraintTop_toBottomOf="@id/geofence_pending_banner"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/taskbar_layout"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
@@ -163,7 +163,7 @@
         android:padding="32dp"
         android:visibility="gone"
         app:layout_constraintTop_toBottomOf="@id/status_bar"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/taskbar_layout"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
@@ -436,6 +436,27 @@
         app:backgroundTint="@color/primary"
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Subtle Top Divider for Taskbar -->
+    <View
+        android:id="@+id/taskbar_top_divider"
+        android:layout_width="match_parent"
+        android:layout_height="1.5dp"
+        android:background="#20FFFFFF"
+        android:elevation="101dp"
+        app:layout_constraintBottom_toTopOf="@id/taskbar_layout"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Persistent Taskbar Layout -->
+    <include
+        android:id="@+id/taskbar_layout"
+        layout="@layout/activity_taskbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
     <!-- Core Fleet Broadcast Overlay Surfaces -->
