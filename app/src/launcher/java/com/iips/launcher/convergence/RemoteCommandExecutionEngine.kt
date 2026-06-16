@@ -4,6 +4,7 @@ import android.app.PendingIntent
 import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.JsonObject
@@ -226,7 +227,7 @@ class RemoteCommandExecutionEngine @Inject constructor(
             ?: root.getAsJsonPrimitive("requestId")?.asString
 
         // 1. Send intermediate REQUEST_ACK immediately on receipt
-        sendRequestAck(commandId, signature, requestId)
+        sendRequestAck(commandId, signature, requestId, type)
 
         // 2. Idempotency validation guard
         if (SecurePreferences.isCommandExecuted(context, commandId)) {
@@ -255,6 +256,7 @@ class RemoteCommandExecutionEngine @Inject constructor(
             var successStatus = "SUCCESS"
             var finalMessage = "Command executed successfully."
             var errorCode: String? = null
+            var resultPayload: Any? = null
 
             val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
             val admin = DeviceAdminReceiver.getComponentName(context)
@@ -292,9 +294,10 @@ class RemoteCommandExecutionEngine @Inject constructor(
                         Log.i(TAG, "Enforcing immediate Policy Synchronization schedule request.")
                         PolicySyncWorker.schedule(context)
                     }
-                    "app_refresh" -> {
+                    "app_refresh", "list_apps" -> {
                         Log.i(TAG, "Requesting immediate App Inventory reconciliation workers.")
                         com.iips.launcher.apps.inventory.AppInventoryWorker.schedule(context)
+                        resultPayload = mapOf("apps" to getInstalledPackageNames())
                     }
                     "remote_diagnostics" -> {
                         Log.i(TAG, "Discharging immediate Telemetry batch diagnostics capture.")
@@ -451,7 +454,7 @@ class RemoteCommandExecutionEngine @Inject constructor(
 
                 // Finalize execution audit
                 SecurePreferences.markCommandAsExecuted(context, commandId)
-                acknowledgeExecution(commandId, successStatus, finalMessage, requestId, errorCode)
+                acknowledgeExecution(commandId, successStatus, finalMessage, requestId, errorCode, resultPayload)
 
             } catch (e: Exception) {
                 Log.e(TAG, "Command execution failed", e)
@@ -499,11 +502,31 @@ class RemoteCommandExecutionEngine @Inject constructor(
         return true // Development fallback
     }
 
-    private fun sendRequestAck(commandId: String, signature: String?, requestId: String?) {
+    private fun sendRequestAck(commandId: String, signature: String?, requestId: String?, type: String) {
         scope.launch {
             val deviceId = SecurePreferences.getDeviceId(context) ?: "UNKNOWN_DEVICE"
             val tenantId = SecurePreferences.getTenantId(context) ?: "default"
-            val ackFrame = gson.toJson(mapOf(
+            val appsList = if (type == "list_apps" || type == "app_refresh") {
+                getInstalledPackageNames()
+            } else {
+                null
+            }
+            val resultValue = if (appsList != null) {
+                mapOf("apps" to appsList)
+            } else {
+                "ACKNOWLEDGED"
+            }
+            
+            val payloadMap = mutableMapOf<String, Any>(
+                "command_id" to commandId,
+                "signature" to (signature ?: ""),
+                "request_id" to (requestId ?: ""),
+                "result" to resultValue,
+                "execution_result" to resultValue,
+                "note" to "Initial socket read check"
+            )
+            
+            val frameMap = mutableMapOf<String, Any>(
                 "type" to "REQUEST_ACK",
                 "command_id" to commandId,
                 "commandId" to commandId,
@@ -511,14 +534,15 @@ class RemoteCommandExecutionEngine @Inject constructor(
                 "edgeNodeId" to deviceId,
                 "tenantId" to tenantId,
                 "clientEpoch" to (System.currentTimeMillis() / 1000L),
-                "payload" to mapOf(
-                    "command_id" to commandId,
-                    "signature" to (signature ?: ""),
-                    "request_id" to (requestId ?: ""),
-                    "result" to "ACKNOWLEDGED",
-                    "note" to "Initial socket read check"
-                )
-            ))
+                "payload" to payloadMap
+            )
+            
+            if (appsList != null) {
+                frameMap["result"] = resultValue
+                frameMap["execution_result"] = resultValue
+            }
+            
+            val ackFrame = gson.toJson(frameMap)
             val sent = connectionManager.transmitFrame(ackFrame)
             if (!sent) {
                 val queue = SecurePreferences.getOfflineTelemetryQueue(context).toMutableList()
@@ -528,19 +552,33 @@ class RemoteCommandExecutionEngine @Inject constructor(
         }
     }
 
+    private fun getInstalledPackageNames(): List<String> {
+        return try {
+            val pm = context.packageManager
+            val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
+            apps.map { it.packageName }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to retrieve installed packages", e)
+            emptyList()
+        }
+    }
+
     private suspend fun acknowledgeExecution(
         commandId: String,
         status: String,
         auditMessage: String,
         requestId: String?,
-        errorCode: String? = null
+        errorCode: String? = null,
+        resultPayload: Any? = null
     ) {
         val secret = SecurePreferences.getDeviceToken(context) ?: "iips_mdm_hardened_secret_2026"
+        val resultData = resultPayload ?: if (status == "SUCCESS") "SUCCESS" else (errorCode ?: "ERR_FAILED")
         val payloadData = mapOf(
             "id" to commandId,
             "status" to status,
             "note" to auditMessage,
-            "result" to if (status == "SUCCESS") "SUCCESS" else (errorCode ?: "ERR_FAILED")
+            "result" to resultData,
+            "execution_result" to resultData
         )
         val payloadStr = gson.toJson(payloadData)
         val timestamp = (System.currentTimeMillis() / 1000).toString()
@@ -557,7 +595,8 @@ class RemoteCommandExecutionEngine @Inject constructor(
                 "status" to status,
                 "signature" to signature,
                 "note" to auditMessage,
-                "result" to if (status == "SUCCESS") "SUCCESS" else (errorCode ?: "ERR_FAILED")
+                "result" to resultData,
+                "execution_result" to resultData
             )
         ))
 

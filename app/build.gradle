@@ -40,14 +40,20 @@ android {
         }
     }
 
+    def localIp = project.hasProperty('LOCAL_IP') ? project.property('LOCAL_IP') : '192.168.1.134'
+    def localPort = project.hasProperty('LOCAL_PORT') ? project.property('LOCAL_PORT') : '4000'
+    def localBaseUrl = "http://${localIp}:${localPort}/"
+
     buildTypes {
         debug {
-            buildConfigField "String", "BASE_URL", "\"https://bertie-archegoniate-causelessly.ngrok-free.dev/api/v1/\""
+            buildConfigField "String", "BASE_URL", "\"${localBaseUrl}api/v1/\""
+            buildConfigField "String", "DEFAULT_SERVER_URL", "\"${localBaseUrl}\""
         }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            buildConfigField "String", "BASE_URL", "\"https://bertie-archegoniate-causelessly.ngrok-free.dev/api/v1/\""
+            buildConfigField "String", "BASE_URL", "\"${localBaseUrl}api/v1/\""
+            buildConfigField "String", "DEFAULT_SERVER_URL", "\"${localBaseUrl}\""
             signingConfig signingConfigs.release
         }
     }

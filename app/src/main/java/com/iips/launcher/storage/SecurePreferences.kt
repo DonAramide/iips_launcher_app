@@ -124,7 +124,11 @@ object SecurePreferences {
 
     fun getConfigUrl(context: Context): String {
         val prefs = getEncryptedPrefs(context)
-        return prefs.getString("config_url", com.iips.launcher.BuildConfig.BASE_URL) ?: com.iips.launcher.BuildConfig.BASE_URL
+        val stored = prefs.getString("config_url", null)
+        return when {
+            !stored.isNullOrBlank() && !stored.contains("ngrok") -> stored
+            else -> com.iips.launcher.BuildConfig.DEFAULT_SERVER_URL
+        }
     }
 
     fun setConfigUrl(context: Context, url: String) {
@@ -486,35 +490,30 @@ object SecurePreferences {
     }
 
     fun getWebSocketUrl(context: Context): String {
-        val customUrl = getProvisioningBackendUrl(context)
-            ?: getBackendUrl(context)
-            ?: getConfigUrl(context)
-        
+        // Use the config URL (which falls back to the local IP) as the base for the WebSocket.
+        val baseUrl = getConfigUrl(context)
         val normalized = try {
-            normalizeBackendUrl(customUrl)
+            normalizeBackendUrl(baseUrl)
         } catch (e: Exception) {
-            customUrl
+            baseUrl
         }
-        
         val wsBase = when {
             normalized.startsWith("https://") -> normalized.replace("https://", "wss://")
             normalized.startsWith("http://") -> normalized.replace("http://", "ws://")
             else -> "wss://$normalized"
         }
-        
         val cleanBase = if (wsBase.endsWith("/api/v1/")) {
             wsBase
         } else if (wsBase.endsWith("/api/v1")) {
-            "$wsBase/"
+            "${wsBase}/"
         } else {
             val trimmed = wsBase.trimEnd('/')
             if (trimmed.endsWith("/api/v1")) {
-                "$trimmed/"
+                "${trimmed}/"
             } else {
-                "$trimmed/api/v1/"
+                "${trimmed}/api/v1/"
             }
         }
-        
         return "${cleanBase}do-mdm/devices/ws"
     }
 

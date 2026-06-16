@@ -6,6 +6,7 @@ import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.iips.launcher.BuildConfig
 import com.iips.launcher.databinding.ActivityGuardLoginBinding
 import com.iips.launcher.network.GuardAuthService
 import com.iips.launcher.network.models.GuardLoginRequest
@@ -22,6 +23,12 @@ class GuardLoginActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityGuardLoginBinding
 
+    companion object {
+        // Test credentials — visible in DEBUG builds only
+        private const val TEST_EMAIL    = "test@dotroid.com"
+        private const val TEST_PASSWORD = "Test@1234"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -36,6 +43,19 @@ class GuardLoginActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setupUI()
+        setupTestCredentials()
+    }
+
+    private fun setupTestCredentials() {
+        // Show test banner only in debug / development builds
+        if (BuildConfig.DEBUG) {
+            binding.testCredentialsBanner.visibility = View.VISIBLE
+            binding.btnUseTestCredentials.setOnClickListener {
+                binding.edtIdentifier.setText(TEST_EMAIL)
+                binding.edtPassword.setText(TEST_PASSWORD)
+                Toast.makeText(this, "Test credentials auto-filled — tap Sign In", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun setupUI() {
