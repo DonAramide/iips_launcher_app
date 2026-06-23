@@ -2,8 +2,8 @@ package com.iips.launcher.network.models
 
 data class PairingTokenResponse(
     val pairingToken: String,
-    val userCode: String,
-    val expiresAt: Long
+    val userCode: String?,
+    val expiresAt: String
 )
 
 data class GuardPairingRequest(
@@ -42,7 +42,7 @@ data class PairingStatusResponse(
 
 data class PairingQrPayload(
     val pairingToken: String,
-    val userCode: String,
+    val userCode: String?,
     val expiresAt: Long,
     val deviceId: String,
     val deviceName: String,

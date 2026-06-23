@@ -84,10 +84,16 @@ class LauncherPairingActivity : AppCompatActivity() {
                         ?: SecurePreferences.getConfigUrl(this@LauncherPairingActivity)
                     val backendUrl = SecurePreferences.normalizeBackendUrl(rawUrl)
 
+                    val expiresAtMs = try {
+                        java.time.Instant.parse(tokenResponse.expiresAt).toEpochMilli()
+                    } catch (e: Exception) {
+                        tokenResponse.expiresAt.toLongOrNull() ?: (System.currentTimeMillis() + 900_000)
+                    }
+
                     val payload = PairingQrPayload(
                         pairingToken = tokenResponse.pairingToken,
                         userCode = tokenResponse.userCode,
-                        expiresAt = tokenResponse.expiresAt,
+                        expiresAt = expiresAtMs,
                         deviceId = deviceId,
                         deviceName = android.os.Build.MODEL,
                         backendUrl = backendUrl
@@ -101,12 +107,16 @@ class LauncherPairingActivity : AppCompatActivity() {
                         binding.qrImageView.visibility = View.VISIBLE
                         binding.qrImageView.setImageBitmap(qrBitmap)
                         
-                        binding.userCodeText.text = "Pairing Code: ${tokenResponse.userCode}"
-                        binding.userCodeText.visibility = View.VISIBLE
+                        if (!tokenResponse.userCode.isNullOrEmpty()) {
+                            binding.userCodeText.text = "Pairing Code: ${tokenResponse.userCode}"
+                            binding.userCodeText.visibility = View.VISIBLE
+                        } else {
+                            binding.userCodeText.visibility = View.GONE
+                        }
                         
                         binding.pairingSubtitle.text = "Scan this QR code using the Dotroid Guard Manager app to link this device."
                         
-                        startCountdown(tokenResponse.expiresAt)
+                        startCountdown(expiresAtMs)
                         startPollingForStatus(deviceId, "Bearer $deviceToken")
                     } else {
                         showError("Failed to generate QR code bitmap.")
@@ -160,7 +170,7 @@ class LauncherPairingActivity : AppCompatActivity() {
                     }
                     if (response.isSuccessful && response.body() != null) {
                         val status = response.body()!!.status
-                        if (status == "ACTIVE" || status == "PENDING") {
+                        if (status == "ACTIVE" || status == "NORMAL") {
                             isPairingSuccessful = true
                             onPairingSuccess(status)
                             break
@@ -181,7 +191,7 @@ class LauncherPairingActivity : AppCompatActivity() {
         binding.expiredOverlay.visibility = View.GONE
         binding.loadingProgress.visibility = View.GONE
         
-        if (status == "ACTIVE") {
+        if (status == "ACTIVE" || status == "NORMAL") {
             binding.pairingSubtitle.text = "Pairing Successful! Manager linked."
         } else {
             binding.pairingSubtitle.text = "Pairing Requested! Awaiting approval."
