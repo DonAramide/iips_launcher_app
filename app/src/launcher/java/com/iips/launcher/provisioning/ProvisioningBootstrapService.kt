@@ -107,8 +107,8 @@ class ProvisioningBootstrapService : Service() {
             val policyGroupId = SecurePreferences.getPolicyGroupId(this)
 
             updateNotification("Enrolling into Quasar MDM…")
-            val fingerprintHash = SecurityUtils.calculateFingerprintHash(this)
             val serial = getSerialNumber()
+            val fingerprintHash = SecurityUtils.calculateFingerprintHash(this, serial)
 
             val agentCode = SecurePreferences.getAgentCode(this)
             val locInfo = fetchCurrentLocation(this)
@@ -128,7 +128,7 @@ class ProvisioningBootstrapService : Service() {
             val response = enrollWithRetry(request)
 
             if (response != null && response.isSuccessful) {
-                onEnrollmentSuccess(response.body()!!, fingerprintHash)
+                onEnrollmentSuccess(response.body()!!, fingerprintHash, serial)
             } else {
                 val code = response?.code() ?: -1
                 val isTerminal = code in 400..499
@@ -170,8 +170,7 @@ class ProvisioningBootstrapService : Service() {
         return capped + (capped * 0.2 * Math.random()).toLong()
     }
 
-    private fun onEnrollmentSuccess(response: EnrollmentResponse, fingerprintHash: String) {
-        val serial = getSerialNumber()
+    private fun onEnrollmentSuccess(response: EnrollmentResponse, fingerprintHash: String, serial: String) {
         val finalDeviceId = if (!serial.isNullOrBlank()) serial else response.deviceId
         SecurePreferences.setDeviceId(this, finalDeviceId)
         SecurePreferences.setDeviceToken(this, response.accessToken ?: "")
@@ -216,8 +215,8 @@ class ProvisioningBootstrapService : Service() {
         return false
     }
 
-    private fun getSerialNumber(): String? {
-        return com.iips.launcher.security.SecurityUtils.getSerialNumber(this)
+    private suspend fun getSerialNumber(): String {
+        return com.iips.launcher.security.SecurityUtils.getHardwareSerialNumberWithRetry(this)
     }
 
     private fun launchLauncher() {

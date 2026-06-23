@@ -215,13 +215,83 @@ object SecurityUtils {
     }
 
     /**
+     * Retrieves only the hardware serial number of the device, returning null if it's not available.
+     */
+    fun getHardwareSerialNumber(context: Context): String? {
+        // Priority 1: ril.serialnumber (physical hardware serial on Samsung/RIL devices)
+        try {
+            val c = Class.forName("android.os.SystemProperties")
+            val get = c.getMethod("get", String::class.java)
+            val serial = get.invoke(c, "ril.serialnumber") as String
+            if (!serial.isNullOrBlank() && !serial.equals("unknown", ignoreCase = true)) {
+                return serial
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
+
+        // Priority 2: android.os.Build.getSerial()
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                val s = android.os.Build.getSerial()
+                if (!s.isNullOrBlank() && !s.equals("unknown", ignoreCase = true)) {
+                    return s
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
+
+        // Priority 3: android.os.Build.SERIAL
+        try {
+            @Suppress("DEPRECATION")
+            val s = android.os.Build.SERIAL
+            if (!s.isNullOrBlank() && !s.equals("unknown", ignoreCase = true)) {
+                return s
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
+
+        // Priority 4: ro.serialno
+        try {
+            val c = Class.forName("android.os.SystemProperties")
+            val get = c.getMethod("get", String::class.java)
+            val serial = get.invoke(c, "ro.serialno") as String
+            if (!serial.isNullOrBlank() && !serial.equals("unknown", ignoreCase = true)) {
+                return serial
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
+
+        return null
+    }
+
+    /**
+     * Retrieves the hardware serial number of the device, retrying indefinitely with a delay
+     * if it is not currently available (e.g. before Device Owner status is fully initialized).
+     */
+    suspend fun getHardwareSerialNumberWithRetry(context: Context): String {
+        var serial: String? = null
+        while (serial == null) {
+            serial = getHardwareSerialNumber(context)
+            if (serial == null) {
+                android.util.Log.w("SecurityUtils", "Device hardware serial number not available. Retrying...")
+                kotlinx.coroutines.delay(1000)
+            }
+        }
+        return serial
+    }
+
+    /**
      * Calculates the Dotoid fingerprint_hash (§4).
      * Format: SHA256Hex(manufacturer | model | (serial ?: "no_serial"))
      */
-    fun calculateFingerprintHash(context: Context): String {
+    fun calculateFingerprintHash(context: Context, serialNumber: String? = null): String {
         val manufacturer = android.os.Build.MANUFACTURER
         val model = android.os.Build.MODEL
-        val serial = getSerialNumber(context)
+        val serial = serialNumber ?: getSerialNumber(context)
         val raw = "$manufacturer|$model|$serial"
         return sha256(raw)
     }

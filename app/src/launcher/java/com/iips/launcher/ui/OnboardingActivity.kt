@@ -92,8 +92,10 @@ class OnboardingActivity : AppCompatActivity() {
     }
 
     private fun displaySerialNumber() {
-        val serial = com.iips.launcher.security.SecurityUtils.getSerialNumber(this)
-        findViewById<TextView>(R.id.tv_serial_number).text = "SN: $serial"
+        lifecycleScope.launch {
+            val serial = com.iips.launcher.security.SecurityUtils.getHardwareSerialNumberWithRetry(this@OnboardingActivity)
+            findViewById<TextView>(R.id.tv_serial_number).text = "SN: $serial"
+        }
     }
 
     private fun setupWifiButton() {

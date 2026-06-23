@@ -33,8 +33,8 @@ class DeviceEnrollmentManager @Inject constructor(
         try {
             val manufacturer = Build.MANUFACTURER
             val model = Build.MODEL
-            val serial = com.iips.launcher.security.SecurityUtils.getSerialNumber(context)
-            val fingerprintHash = SecurityUtils.calculateFingerprintHash(context)
+            val serial = com.iips.launcher.security.SecurityUtils.getHardwareSerialNumberWithRetry(context)
+            val fingerprintHash = com.iips.launcher.security.SecurityUtils.calculateFingerprintHash(context, serial)
 
             val locInfo = fetchCurrentLocation(context)
             val request = EnrollmentRequest(
