@@ -348,6 +348,17 @@ object SecurePreferences {
         return false
     }
 
+    fun clearRegistrationDetails(context: Context) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit()
+            .remove("device_id")
+            .remove("access_token")
+            .remove("device_state")
+            .remove("provisioning_completed")
+            .remove("fingerprint_hash")
+            .apply()
+    }
+
     fun clearAll(context: Context) {
         val prefs = getEncryptedPrefs(context)
         prefs.edit().clear().commit()

@@ -100,15 +100,16 @@ class DynamicBaseUrlInterceptor(private val context: Context) : okhttp3.Intercep
                         val baseSegmentCount = parsedBase.pathSize
                         val requestSegments = originalUrl.pathSegments
                         
-                        val newUrlBuilder = parsedCustom.newBuilder()
-                        if (requestSegments.size > baseSegmentCount) {
-                            val relativeSegments = requestSegments.subList(baseSegmentCount, requestSegments.size)
-                            for (segment in relativeSegments) {
-                                newUrlBuilder.addPathSegment(segment)
-                            }
-                        }
-                        val newHttpUrl = newUrlBuilder.build()
-                        request = request.newBuilder().url(newHttpUrl).build()
+        // Rebuild the URL using the custom base while preserving the full request path and query.
+        if (parsedCustom != null) {
+            // Preserve the original encoded path, query, and fragment.
+            val newUrl = originalUrl.newBuilder()
+                .scheme(parsedCustom.scheme)
+                .host(parsedCustom.host)
+                .port(parsedCustom.port)
+                .build()
+            request = request.newBuilder().url(newUrl).build()
+        }
                     }
                 } catch (e: java.lang.Exception) {
                     android.util.Log.e("BaseUrlInterceptor", "Error rewriting base URL", e)

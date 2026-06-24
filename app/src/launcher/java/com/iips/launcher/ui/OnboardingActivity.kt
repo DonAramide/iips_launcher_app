@@ -178,6 +178,7 @@ class OnboardingActivity : AppCompatActivity() {
             }
 
             val hashedPassword = com.iips.launcher.security.SecurityUtils.sha256(password)
+            SecurePreferences.clearRegistrationDetails(this)
             SecurePreferences.setBusinessName(this, businessName)
             SecurePreferences.setAdminPassword(this, hashedPassword)
             SecurePreferences.setEnrollmentToken(this, enrollmentToken)
