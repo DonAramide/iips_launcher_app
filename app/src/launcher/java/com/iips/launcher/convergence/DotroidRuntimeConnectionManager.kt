@@ -384,11 +384,18 @@ class DotroidRuntimeConnectionManager @Inject constructor(
      */
     private fun scheduleDegradedReconnect() {
         val attempt = reconnectAttempts.incrementAndGet()
+        val safeAttempt = min(attempt, 10) // Cap attempt to prevent Double-to-Long overflow
         // Exponential calculation: base * 2^(attempt - 1)
-        val exponentialDelay = BASE_RECONNECT_DELAY_MS * (2.0.pow(attempt - 1)).toLong()
+        val exponentialDelay = (BASE_RECONNECT_DELAY_MS * (2.0.pow(safeAttempt - 1))).toLong()
         // Full jitter calculation: uniform random between 0 and exponentialDelay
         val boundedDelay = min(MAX_RECONNECT_DELAY_MS, exponentialDelay)
-        val jitteredDelay = Random.nextLong(BASE_RECONNECT_DELAY_MS, boundedDelay + 1)
+        
+        val maxBound = kotlin.math.max(BASE_RECONNECT_DELAY_MS, boundedDelay)
+        val jitteredDelay = if (maxBound > BASE_RECONNECT_DELAY_MS) {
+            Random.nextLong(BASE_RECONNECT_DELAY_MS, maxBound + 1)
+        } else {
+            BASE_RECONNECT_DELAY_MS
+        }
 
         Log.w(TAG, "Connection offline. Reconnect attempt #$attempt bounded to execution in ${jitteredDelay}ms.")
 
