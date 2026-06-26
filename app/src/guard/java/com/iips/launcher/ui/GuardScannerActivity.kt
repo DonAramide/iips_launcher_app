@@ -47,9 +47,12 @@ class GuardScannerActivity : AppCompatActivity() {
 
     private lateinit var previewView: PreviewView
     private lateinit var tvStatus: TextView
+    private lateinit var loadingProgress: android.widget.ProgressBar
     private val cameraExecutor = Executors.newSingleThreadExecutor()
     private var resultDelivered = false
     private var isPairingInProgress = false
+    private var imageAnalysis: ImageAnalysis? = null
+    private var frameCount = 0
 
     private val scannerOptions = BarcodeScannerOptions.Builder()
         .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
@@ -61,6 +64,7 @@ class GuardScannerActivity : AppCompatActivity() {
 
         previewView = findViewById(R.id.preview_view)
         tvStatus    = findViewById(R.id.tv_scan_hint)
+        loadingProgress = findViewById(R.id.loading_progress)
 
         findViewById<Button>(R.id.btn_cancel).setOnClickListener {
             setResult(RESULT_CANCELED)
@@ -108,37 +112,20 @@ class GuardScannerActivity : AppCompatActivity() {
                         it.setSurfaceProvider(previewView.surfaceProvider)
                     }
 
-                val imageAnalysis = ImageAnalysis.Builder()
+                imageAnalysis = ImageAnalysis.Builder()
                     .setTargetResolution(Size(1280, 720))
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
 
-                var frameCount = 0
-                val scanner = BarcodeScanning.getClient(scannerOptions)
-                imageAnalysis.setAnalyzer(cameraExecutor, BarcodeAnalyzer(scanner) { rawValue ->
-                    if (!resultDelivered && !isPairingInProgress) {
-                        resultDelivered = true
-                        handleScannedValue(rawValue)
-                    }
-                }.apply {
-                    onFrameAnalyzed = {
-                        frameCount++
-                        if (frameCount % 10 == 0) {
-                            runOnUiThread {
-                                if (!isPairingInProgress) {
-                                    tvStatus.text = "Scanning... ($frameCount)"
-                                }
-                            }
-                        }
-                    }
-                })
+                frameCount = 0
+                bindAnalyzer()
 
                 cameraProvider.unbindAll()
                 val camera = cameraProvider.bindToLifecycle(
                     this,
                     CameraSelector.DEFAULT_BACK_CAMERA,
                     preview,
-                    imageAnalysis
+                    imageAnalysis!!
                 )
 
                 previewView.setOnTouchListener { _, event ->
@@ -162,6 +149,39 @@ class GuardScannerActivity : AppCompatActivity() {
                 showStatus("Camera failed: ${e.message}", error = true)
             }
         }, ContextCompat.getMainExecutor(this))
+    }
+
+    private fun bindAnalyzer() {
+        val scanner = BarcodeScanning.getClient(scannerOptions)
+        val analyzer = BarcodeAnalyzer(scanner) { rawValue ->
+            if (!resultDelivered && !isPairingInProgress) {
+                resultDelivered = true
+                runOnUiThread {
+                    stopScanning()
+                }
+                handleScannedValue(rawValue)
+            }
+        }.apply {
+            onFrameAnalyzed = {
+                frameCount++
+                if (frameCount % 10 == 0) {
+                    runOnUiThread {
+                        if (!isPairingInProgress && !resultDelivered) {
+                            tvStatus.text = "Scanning... ($frameCount)"
+                        }
+                    }
+                }
+            }
+        }
+        imageAnalysis?.setAnalyzer(cameraExecutor, analyzer)
+    }
+
+    private fun stopScanning() {
+        try {
+            imageAnalysis?.clearAnalyzer()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to clear analyzer", e)
+        }
     }
 
     private fun handleScannedValue(rawValue: String) {
@@ -194,6 +214,7 @@ class GuardScannerActivity : AppCompatActivity() {
             .setNegativeButton("Cancel") { dialog, _ ->
                 dialog.dismiss()
                 resultDelivered = false
+                bindAnalyzer()
             }
             .setCancelable(false)
             .show()
@@ -201,6 +222,8 @@ class GuardScannerActivity : AppCompatActivity() {
 
     private fun executePairing(token: String) {
         isPairingInProgress = true
+        loadingProgress.visibility = View.VISIBLE
+        findViewById<Button>(R.id.btn_cancel).isEnabled = false
         showStatus("Pairing device...", error = false)
         
         lifecycleScope.launch {
@@ -216,6 +239,8 @@ class GuardScannerActivity : AppCompatActivity() {
                 finish()
             } else {
                 isPairingInProgress = false
+                loadingProgress.visibility = View.GONE
+                findViewById<Button>(R.id.btn_cancel).isEnabled = true
                 val errorMsg = result.exceptionOrNull()?.localizedMessage ?: "Unknown error"
                 showRescanState("Pairing failed: $errorMsg")
             }
@@ -229,6 +254,7 @@ class GuardScannerActivity : AppCompatActivity() {
             lifecycleScope.launch {
                 kotlinx.coroutines.delay(2000)
                 resultDelivered = false
+                bindAnalyzer()
                 showStatus("Scan Dotroid Launcher pairing QR", error = false)
             }
         }

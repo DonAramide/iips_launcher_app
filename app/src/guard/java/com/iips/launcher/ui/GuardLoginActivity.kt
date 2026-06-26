@@ -95,7 +95,16 @@ class GuardLoginActivity : AppCompatActivity() {
                     Toast.makeText(this@GuardLoginActivity, "Login Successful: Welcome ${loginResponse.manager.name}", Toast.LENGTH_SHORT).show()
                     navigateToDashboard()
                 } else {
-                    val errorMsg = response.errorBody()?.string() ?: "Invalid login credentials."
+                    val errorString = response.errorBody()?.string()
+                    val errorMsg = try {
+                        if (!errorString.isNullOrBlank()) {
+                            org.json.JSONObject(errorString).optString("responseMessage", "Invalid login credentials.")
+                        } else {
+                            "Invalid login credentials."
+                        }
+                    } catch (e: Exception) {
+                        "Invalid login credentials."
+                    }
                     showError(errorMsg)
                 }
             } catch (e: Exception) {

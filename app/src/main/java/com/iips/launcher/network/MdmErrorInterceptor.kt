@@ -23,7 +23,11 @@ class MdmErrorInterceptor : Interceptor {
         }
 
         when (response.code) {
-            401 -> throw DeviceNotActivatedException("Device is not activated or token is invalid. (401)")
+            401 -> {
+                if (!request.url.encodedPath.contains("manager/login")) {
+                    throw DeviceNotActivatedException("Device is not activated or token is invalid. (401)")
+                }
+            }
             429 -> {
                 val retryAfter = response.header("Retry-After")
                 throw RateLimitExceededException("Rate limit exceeded. (429)", retryAfter)

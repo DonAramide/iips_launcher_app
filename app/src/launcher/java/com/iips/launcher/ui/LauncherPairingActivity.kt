@@ -39,6 +39,9 @@ class LauncherPairingActivity : AppCompatActivity() {
         binding = ActivityLauncherPairingBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Hide root view initially until password is confirmed
+        binding.root.visibility = View.INVISIBLE
+
         binding.btnClose.setOnClickListener {
             finish()
         }
@@ -47,10 +50,24 @@ class LauncherPairingActivity : AppCompatActivity() {
             startPairingFlow()
         }
 
-        startPairingFlow()
+        showAdminPasswordSecurityDialog()
+    }
+
+    private fun showAdminPasswordSecurityDialog() {
+        val dialog = AdminPasswordDialogFragment { success ->
+            if (success) {
+                startPairingFlow()
+            } else {
+                finish()
+            }
+        }.apply {
+            isCancelable = false
+        }
+        dialog.show(supportFragmentManager, "launcher_pairing_admin_auth")
     }
 
     private fun startPairingFlow() {
+        binding.root.visibility = View.VISIBLE
         binding.loadingProgress.visibility = View.VISIBLE
         binding.qrImageView.visibility = View.GONE
         binding.expiredOverlay.visibility = View.GONE

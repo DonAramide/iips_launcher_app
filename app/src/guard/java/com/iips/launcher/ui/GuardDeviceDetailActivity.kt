@@ -54,6 +54,37 @@ class GuardDeviceDetailActivity : AppCompatActivity() {
 
         // Sync fresh data from backend
         syncDetails()
+
+        // Setup Actions
+        setupActions()
+    }
+
+    private fun setupActions() {
+        binding.btnLockDevice.setOnClickListener {
+            updateDeviceStatus("LOCKED")
+        }
+        binding.btnUnlockDevice.setOnClickListener {
+            updateDeviceStatus("NORMAL")
+        }
+    }
+
+    private fun updateDeviceStatus(status: String) {
+        if (deviceId.isNullOrEmpty()) return
+        lifecycleScope.launch {
+            binding.btnLockDevice.isEnabled = false
+            binding.btnUnlockDevice.isEnabled = false
+            
+            val result = syncRepository.updateDeviceStatus(deviceId!!, status)
+            if (result.isSuccess) {
+                Toast.makeText(this@GuardDeviceDetailActivity, "Device status updated successfully", Toast.LENGTH_SHORT).show()
+                syncDetails()
+            } else {
+                Toast.makeText(this@GuardDeviceDetailActivity, "Failed to update status", Toast.LENGTH_SHORT).show()
+            }
+            
+            binding.btnLockDevice.isEnabled = true
+            binding.btnUnlockDevice.isEnabled = true
+        }
     }
 
     private fun loadCachedDetails() {

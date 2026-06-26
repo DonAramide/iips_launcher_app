@@ -111,4 +111,21 @@ class GuardDeviceSyncRepository @Inject constructor(
             Result.failure(e)
         }
     }
+
+    suspend fun updateDeviceStatus(deviceId: String, status: String): Result<com.iips.launcher.network.models.PairingStatusResponse> = withContext(Dispatchers.IO) {
+        try {
+            val token = SecurePreferences.getGuardAuthToken(context)
+                ?: return@withContext Result.failure(Exception("No authorization token"))
+
+            val request = com.iips.launcher.network.models.PairingStatusRequest(status = status)
+            val response = pairingService.updatePairingStatus("Bearer $token", deviceId, request)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Failed to update status: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

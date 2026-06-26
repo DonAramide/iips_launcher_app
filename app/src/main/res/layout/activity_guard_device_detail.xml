@@ -292,7 +292,6 @@
                         android:layout_height="wrap_content"
                         android:text="Lock Device"
                         android:textColor="@color/error"
-                        android:enabled="false"
                         android:layout_marginBottom="8dp" />
 
                     <com.google.android.material.button.MaterialButton
@@ -301,8 +300,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Unlock Device"
-                        android:textColor="@color/success"
-                        android:enabled="false" />
+                        android:textColor="@color/success" />
 
                 </LinearLayout>
 
