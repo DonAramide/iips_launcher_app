@@ -88,12 +88,18 @@ class GuardLoginActivity : AppCompatActivity() {
                 setLoading(false)
 
                 if (response.isSuccessful && response.body() != null) {
-                    val loginResponse = response.body()!!
-                    SecurePreferences.setGuardAuthToken(this@GuardLoginActivity, loginResponse.token)
-                    SecurePreferences.setGuardRefreshToken(this@GuardLoginActivity, loginResponse.refreshToken)
+                    val apiResponse = response.body()!!
+                    val loginResponse = apiResponse.data
                     
-                    Toast.makeText(this@GuardLoginActivity, "Login Successful: Welcome ${loginResponse.manager.name}", Toast.LENGTH_SHORT).show()
-                    navigateToDashboard()
+                    if (apiResponse.responseCode == "SY00" && loginResponse != null) {
+                        SecurePreferences.setGuardAuthToken(this@GuardLoginActivity, loginResponse.token)
+                        SecurePreferences.setGuardRefreshToken(this@GuardLoginActivity, loginResponse.refreshToken)
+                        
+                        Toast.makeText(this@GuardLoginActivity, apiResponse.responseMessage ?: "Login Successful", Toast.LENGTH_SHORT).show()
+                        navigateToDashboard()
+                    } else {
+                        showError(apiResponse.responseMessage ?: "Login failed. Invalid response data.")
+                    }
                 } else {
                     val errorString = response.errorBody()?.string()
                     val errorMsg = try {

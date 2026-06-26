@@ -8,10 +8,10 @@ import retrofit2.http.POST
 
 interface GuardAuthService {
     @POST("manager/login")
-    suspend fun login(@Body request: GuardLoginRequest): Response<GuardLoginResponse>
+    suspend fun login(@Body request: GuardLoginRequest): Response<GuardLoginApiResponse>
 
     @POST("manager/refresh")
-    suspend fun refreshToken(@Body request: TokenRefreshRequest): Response<GuardLoginResponse>
+    suspend fun refreshToken(@Body request: TokenRefreshRequest): Response<GuardLoginApiResponse>
 
     @POST("manager/device/register")
     suspend fun registerManagerDevice(

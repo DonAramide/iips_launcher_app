@@ -24,8 +24,9 @@ class GuardAuthRepository @Inject constructor(
         try {
             val response = authService.login(request)
             if (response.isSuccessful) {
-                val body = response.body()
-                if (body != null) {
+                val apiResponse = response.body()
+                val body = apiResponse?.data
+                if (apiResponse?.responseCode == "SY00" && body != null) {
                     // Store tokens in SecurePreferences (Encrypted)
                     SecurePreferences.setGuardAuthToken(context, body.token)
                     SecurePreferences.setGuardRefreshToken(context, body.refreshToken)
@@ -41,7 +42,7 @@ class GuardAuthRepository @Inject constructor(
                     profileDao.insertProfile(profile)
                     Result.success(profile)
                 } else {
-                    Result.failure(Exception("Response body is empty"))
+                    Result.failure(Exception(apiResponse?.responseMessage ?: "Response body or data is empty"))
                 }
             } else {
                 Result.failure(Exception("Login failed: ${response.code()} ${response.message()}"))
@@ -58,13 +59,14 @@ class GuardAuthRepository @Inject constructor(
 
             val response = authService.refreshToken(TokenRefreshRequest(refreshToken))
             if (response.isSuccessful) {
-                val body = response.body()
-                if (body != null) {
+                val apiResponse = response.body()
+                val body = apiResponse?.data
+                if (apiResponse?.responseCode == "SY00" && body != null) {
                     SecurePreferences.setGuardAuthToken(context, body.token)
                     SecurePreferences.setGuardRefreshToken(context, body.refreshToken)
                     Result.success(Unit)
                 } else {
-                    Result.failure(Exception("Refresh failed: ${response.code()}"))
+                    Result.failure(Exception(apiResponse?.responseMessage ?: "Refresh failed: ${response.code()}"))
                 }
             } else {
                 Result.failure(Exception("Refresh failed: ${response.code()}"))

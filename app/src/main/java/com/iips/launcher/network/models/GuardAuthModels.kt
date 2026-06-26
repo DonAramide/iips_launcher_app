@@ -6,6 +6,12 @@ data class GuardLoginRequest(
     val password: String
 )
 
+data class GuardLoginApiResponse(
+    val responseCode: String?,
+    val responseMessage: String?,
+    val data: GuardLoginResponse?
+)
+
 data class GuardLoginResponse(
     val token: String,
     val refreshToken: String,
