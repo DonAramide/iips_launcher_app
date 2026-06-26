@@ -113,9 +113,12 @@ class GuardLoginActivity : AppCompatActivity() {
                     }
                     showError(errorMsg)
                 }
+            } catch (e: com.iips.launcher.network.NetworkFailureException) {
+                setLoading(false)
+                showError("Unable to connect to the server. Please check your internet connection.")
             } catch (e: Exception) {
                 setLoading(false)
-                showError("Network error: ${e.localizedMessage ?: "Unknown error"}")
+                showError("An unexpected error occurred: ${e.javaClass.simpleName}")
             }
         }
     }
