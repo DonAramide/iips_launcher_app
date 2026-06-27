@@ -40,6 +40,18 @@ class PolicySyncWorker @AssistedInject constructor(
                 request
             )
         }
+
+        fun syncNow(context: Context) {
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build()
+
+            val request = OneTimeWorkRequestBuilder<PolicySyncWorker>()
+                .setConstraints(constraints)
+                .build()
+
+            WorkManager.getInstance(context).enqueue(request)
+        }
     }
 
     override suspend fun doWork(): Result {

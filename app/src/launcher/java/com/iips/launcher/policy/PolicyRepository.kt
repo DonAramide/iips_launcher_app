@@ -27,6 +27,10 @@ class PolicyRepository @Inject constructor(
      */
     fun updateLocalPolicy(snapshot: DevicePolicySnapshot) {
         SecurePreferences.setDevicePolicySnapshot(context, snapshot)
+        if (snapshot.geofenceRules.isNotEmpty()) {
+            SecurePreferences.setGeofenceMode(context, "active")
+            SecurePreferences.setProposedZones(context, emptyList())
+        }
         _currentPolicy.value = snapshot
     }
 
@@ -35,11 +39,19 @@ class PolicyRepository @Inject constructor(
      */
     suspend fun fetchLatestPolicy(): Result<DevicePolicySnapshot> {
         return try {
+            val token = SecurePreferences.getDeviceToken(context)
             val deviceId = SecurePreferences.getDeviceId(context) ?: return Result.failure(Exception("Device not enrolled"))
-            val response = configService.getDevicePolicy(deviceId)
+            
+            val response = if (!token.isNullOrEmpty()) {
+                val res = configService.fetchPolicy("Bearer $token")
+                if (res.isSuccessful) res else configService.getDevicePolicy(deviceId)
+            } else {
+                configService.getDevicePolicy(deviceId)
+            }
             
             if (response.isSuccessful) {
-                val policyResponse = response.body() ?: return Result.failure(Exception("Empty policy response"))
+                val envelope = response.body() ?: return Result.failure(Exception("Empty policy response"))
+                val policyResponse = envelope.data ?: return Result.failure(Exception("Empty policy data"))
                 
                 // Map PolicyResponse to DevicePolicySnapshot
                 // For now, we create a snapshot from the response. 
@@ -48,18 +60,18 @@ class PolicyRepository @Inject constructor(
                     version = "1.0",
                     maxPolicyAge = 3600000L, // 1 hour
                     lastUpdatedAt = System.currentTimeMillis(),
-                    allowedApps = policyResponse.allowed_apps,
-                    blockedApps = policyResponse.blocked_apps,
+                    allowedApps = policyResponse.allowed_apps ?: emptyList(),
+                    blockedApps = policyResponse.blocked_apps ?: emptyList(),
                     kioskMode = policyResponse.kiosk_mode,
                     settingsLock = policyResponse.settings_lock,
-                    geofenceRules = policyResponse.geofence_rules,
-                    installQueue = policyResponse.install_queue
+                    geofenceRules = policyResponse.geofence_rules ?: emptyList(),
+                    installQueue = policyResponse.install_queue ?: emptyList()
                 )
                 
                 updateLocalPolicy(snapshot)
                 Result.success(snapshot)
             } else {
-                Result.failure(Exception("Failed to fetch policy: \${response.code()}"))
+                Result.failure(Exception("Failed to fetch policy: ${response.code()}"))
             }
         } catch (e: Exception) {
             Result.failure(e)

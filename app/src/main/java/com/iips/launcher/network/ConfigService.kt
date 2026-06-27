@@ -19,12 +19,12 @@ interface ConfigService {
     @GET("device/policy")
     suspend fun fetchPolicy(
         @Header("Authorization") authHeader: String
-    ): Response<PolicyResponse>
+    ): Response<PolicyEnvelope>
 
     @GET("device-fleet/device/{deviceId}/policy")
     suspend fun getDevicePolicy(
         @Path("deviceId") deviceId: String
-    ): Response<PolicyResponse>
+    ): Response<PolicyEnvelope>
 
     @POST("device/heartbeat")
     suspend fun sendHeartbeat(

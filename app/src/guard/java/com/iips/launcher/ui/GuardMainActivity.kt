@@ -13,6 +13,7 @@ import com.iips.launcher.auth.GuardDeviceSyncRepository
 import com.iips.launcher.data.PairedDeviceDao
 import com.iips.launcher.data.PairedDeviceEntity
 import com.iips.launcher.databinding.ActivityGuardMainBinding
+import com.iips.launcher.storage.SecurePreferences
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -170,5 +171,28 @@ class GuardMainActivity : AppCompatActivity() {
         binding.tvCountLocked.text = list.count { it.securityStatus == "LOCKED" }.toString()
         binding.tvCountPending.text = list.count { it.securityStatus == "PENDING" }.toString()
         binding.tvCountAlerts.text = list.sumOf { it.unreadAlertCount }.toString()
+    }
+
+    override fun onCreateOptionsMenu(menu: android.view.Menu?): Boolean {
+        menuInflater.inflate(com.iips.launcher.R.menu.menu_guard_main, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: android.view.MenuItem): Boolean {
+        return when (item.itemId) {
+            com.iips.launcher.R.id.action_logout -> {
+                performLogout()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    private fun performLogout() {
+        SecurePreferences.setGuardAuthToken(this, "")
+        SecurePreferences.setGuardRefreshToken(this, "")
+        Toast.makeText(this, "Logged out successfully", Toast.LENGTH_SHORT).show()
+        startActivity(Intent(this, GuardLoginActivity::class.java))
+        finish()
     }
 }

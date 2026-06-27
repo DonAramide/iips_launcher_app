@@ -37,3 +37,25 @@ data class ManagerDeviceRegistrationRequest(
     val osVersion: String,
     val fcmToken: String
 )
+
+data class GuardSignupRequest(
+    val name: String,
+    val email: String,
+    val phone: String,
+    val password: String
+)
+
+data class GuardForgotPasswordRequest(
+    val email: String
+)
+
+data class GuardCommonApiResponse(
+    val responseCode: String?,
+    val responseMessage: String?
+)
+
+data class GuardGoogleLoginRequest(
+    val idToken: String,
+    val email: String,
+    val name: String? = null
+)

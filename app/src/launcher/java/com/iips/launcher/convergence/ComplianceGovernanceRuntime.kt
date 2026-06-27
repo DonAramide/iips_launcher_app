@@ -111,8 +111,10 @@ class ComplianceGovernanceRuntime @Inject constructor(
             "edgeNodeId" to deviceId,
             "tenantId" to tenantId,
             "transmittedAt" to (System.currentTimeMillis() / 1000L),
+            "deviations" to violations,
             "payload" to mapOf(
-                "violations" to violations
+                "violations" to violations,
+                "deviations" to violations
             )
         ))
 

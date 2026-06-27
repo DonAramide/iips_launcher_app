@@ -18,4 +18,13 @@ interface GuardAuthService {
         @Header("Authorization") authHeader: String,
         @Body request: ManagerDeviceRegistrationRequest
     ): Response<Unit>
+
+    @POST("manager/register")
+    suspend fun register(@Body request: GuardSignupRequest): Response<GuardCommonApiResponse>
+
+    @POST("manager/forgot-password")
+    suspend fun forgotPassword(@Body request: GuardForgotPasswordRequest): Response<GuardCommonApiResponse>
+
+    @POST("manager/google-login")
+    suspend fun googleLogin(@Body request: GuardGoogleLoginRequest): Response<GuardLoginApiResponse>
 }

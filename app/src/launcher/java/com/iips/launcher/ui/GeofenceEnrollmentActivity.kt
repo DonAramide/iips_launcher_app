@@ -114,8 +114,8 @@ class GeofenceEnrollmentActivity : AppCompatActivity() {
             return
         }
 
-        if (proposedZones.size >= 3) {
-            Toast.makeText(this, "Maximum 3 zones allowed", Toast.LENGTH_SHORT).show()
+        if (proposedZones.size >= 6) {
+            Toast.makeText(this, "Maximum 6 zones allowed", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -183,7 +183,7 @@ class GeofenceEnrollmentActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val zone = zones[position]
             holder.binding.zoneName.text = zone.name
-            holder.binding.zoneDetails.text = "Lat: \${String.format(\"%.4f\", zone.lat)}, Lng: \${String.format(\"%.4f\", zone.lng)} (\${zone.radius_m.toInt()}m)"
+            holder.binding.zoneDetails.text = String.format(java.util.Locale.US, "Lat: %.4f, Lng: %.4f (%dm)", zone.lat, zone.lng, zone.radius_m.toInt())
             holder.binding.btnDelete.setOnClickListener { onDelete(position) }
         }
 

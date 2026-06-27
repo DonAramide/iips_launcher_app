@@ -292,7 +292,7 @@ class RemoteCommandExecutionEngine @Inject constructor(
                     }
                     "policy_sync" -> {
                         Log.i(TAG, "Enforcing immediate Policy Synchronization schedule request.")
-                        PolicySyncWorker.schedule(context)
+                        PolicySyncWorker.syncNow(context)
                     }
                     "app_refresh", "list_apps" -> {
                         Log.i(TAG, "Requesting immediate App Inventory reconciliation workers.")
@@ -414,7 +414,7 @@ class RemoteCommandExecutionEngine @Inject constructor(
                         sendPingResponse(requestId)
                     }
                     "update_request" -> {
-                        PolicySyncWorker.schedule(context)
+                        PolicySyncWorker.syncNow(context)
                     }
                     "parameter_request" -> {
                         val appPackage = root.getAsJsonPrimitive("app_package")?.asString ?: ""

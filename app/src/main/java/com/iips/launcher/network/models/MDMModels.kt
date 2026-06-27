@@ -101,12 +101,18 @@ data class CommandAcknowledgement(
  * Policy Response as per stub (§3.2).
  */
 data class PolicyResponse(
-    @SerializedName("allowed_apps") val allowed_apps: List<String>,
-    @SerializedName("blocked_apps") val blocked_apps: List<String>,
+    @SerializedName("allowed_apps") val allowed_apps: List<String>?,
+    @SerializedName("blocked_apps") val blocked_apps: List<String>?,
     @SerializedName("kiosk_mode") val kiosk_mode: Boolean,
-    @SerializedName("geofence_rules") val geofence_rules: List<GeofenceRule>,
+    @SerializedName("geofence_rules") val geofence_rules: List<GeofenceRule>?,
     @SerializedName("settings_lock") val settings_lock: Boolean,
-    @SerializedName("install_queue") val install_queue: List<InstallQueueItem>
+    @SerializedName("install_queue") val install_queue: List<InstallQueueItem>?
+)
+
+data class PolicyEnvelope(
+    @SerializedName("responseCode") val responseCode: String?,
+    @SerializedName("responseMessage") val responseMessage: String?,
+    @SerializedName("data") val data: PolicyResponse?
 )
 
 data class GeofenceRule(
