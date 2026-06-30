@@ -88,10 +88,10 @@ class GeofenceService : Service() {
             if (isSpoofed || shouldLock) {
                 if (!isCurrentlyLocked) {
                     SecurePreferences.setGeofenceLocked(this@GeofenceService, true)
-                    
-                    val closest = geofenceManager.getClosestZone(this@GeofenceService, location)
-                    broadcastLockStatus(true, if (isSpoofed) "Mock location detected" else "Outside authorized area", location, closest)
                 }
+                val closest = geofenceManager.getClosestZone(this@GeofenceService, location)
+                broadcastLockStatus(true, if (isSpoofed) "Mock location detected" else "Outside authorized area", location, closest)
+                
                 geofenceManager.reportStatus(this@GeofenceService, location, false)
             } else {
                 if (isCurrentlyLocked) {
