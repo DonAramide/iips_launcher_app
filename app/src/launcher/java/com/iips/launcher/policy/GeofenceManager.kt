@@ -17,20 +17,17 @@ class GeofenceManager @Inject constructor(
     private val configService: ConfigService
 ) {
     private val TAG = "GeofenceManager"
-    private val TOLERANCE_BUFFER = 1.2f
     private val MAX_SPEED_MPS = 200.0 
     private var lastLocation: Location? = null
 
     fun shouldLockDevice(context: Context, location: Location): Boolean {
-        if (com.iips.launcher.BuildConfig.DEBUG) return false
         val snapshot = SecurePreferences.getDevicePolicySnapshot(context) ?: return false
         val zones = snapshot.geofenceRules
         if (zones.isEmpty()) return false
 
         for (zone in zones) {
             val distance = calculateDistance(location.latitude, location.longitude, zone.lat, zone.lng)
-            val effectiveRadius = zone.radius_m * TOLERANCE_BUFFER
-            if (distance <= effectiveRadius) return false 
+            if (distance <= zone.radius_m) return false 
         }
         return true
     }
@@ -70,10 +67,6 @@ class GeofenceManager @Inject constructor(
             location.isFromMockProvider
         }
         if (isMock) return true
-
-        if (!com.iips.launcher.BuildConfig.DEBUG && android.provider.Settings.Global.getInt(context.contentResolver, android.provider.Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) != 0) {
-            return true
-        }
 
         lastLocation?.let { last ->
             val distance = calculateDistance(last.latitude, last.longitude, location.latitude, location.longitude)
