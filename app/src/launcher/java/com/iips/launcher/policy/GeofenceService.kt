@@ -114,6 +114,7 @@ class GeofenceService : Service() {
             intent.putExtra("EXTRA_CLOSEST_LAT", closestZone.lat)
             intent.putExtra("EXTRA_CLOSEST_LNG", closestZone.lng)
             intent.putExtra("EXTRA_RADIUS", closestZone.radius_m)
+            intent.putExtra("EXTRA_ZONE_NAME", closestZone.name)
         }
         sendBroadcast(intent)
     }
