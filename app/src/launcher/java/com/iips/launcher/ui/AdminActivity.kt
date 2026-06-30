@@ -289,6 +289,18 @@ class AdminActivity : AppCompatActivity() {
             }
         }
 
+        // Immersive Mode
+        binding.immersiveToggle.isChecked = SecurePreferences.isImmersiveModeEnabled(this)
+        binding.immersiveToggle.setOnCheckedChangeListener { _, isChecked ->
+            SecurePreferences.setImmersiveModeEnabled(this, isChecked)
+        }
+
+        // Geofence Alarm Vibration
+        binding.vibrationToggle.isChecked = SecurePreferences.isGeofenceVibrationEnabled(this)
+        binding.vibrationToggle.setOnCheckedChangeListener { _, isChecked ->
+            SecurePreferences.setGeofenceVibrationEnabled(this, isChecked)
+        }
+
         binding.geofenceAlarmToggle.isChecked = SecurePreferences.isGeofenceAlarmEnabled(this)
         binding.geofenceAlarmToggle.setOnCheckedChangeListener { _, isChecked ->
             SecurePreferences.setGeofenceAlarmEnabled(this, isChecked)

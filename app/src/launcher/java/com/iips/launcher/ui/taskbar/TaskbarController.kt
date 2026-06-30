@@ -32,6 +32,7 @@ class TaskbarController(
     private val taskbarLayout: View,
     private val database: AppDatabase,
     private val broadcastEngine: BroadcastRenderingEngine,
+    private val pairingService: com.iips.launcher.network.LauncherPairingService,
     private val onShowAdminSettings: () -> Unit,
     private val drawerLayout: androidx.drawerlayout.widget.DrawerLayout? = null // kept for compat, unused
 ) {
@@ -154,6 +155,17 @@ class TaskbarController(
             onShowAdminSettings()
         }
 
+        val sendMsgItem = popupView.findViewById<View>(R.id.popup_send_message)
+        if (com.iips.launcher.storage.SecurePreferences.isRegistered(activity)) {
+            sendMsgItem.visibility = View.VISIBLE
+            sendMsgItem.setOnClickListener {
+                popup.dismiss()
+                showSendManagerMessageDialog()
+            }
+        } else {
+            sendMsgItem.visibility = View.GONE
+        }
+
         popupView.findViewById<View>(R.id.popup_app_pocket).setOnClickListener {
             popup.dismiss()
             try {
@@ -180,6 +192,49 @@ class TaskbarController(
             anchorLoc[0] + offsetX,
             anchorLoc[1] + offsetY
         )
+    }
+
+    private fun showSendManagerMessageDialog() {
+        val view = LayoutInflater.from(activity).inflate(R.layout.dialog_send_manager_msg, null)
+        val titleInput = view.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.et_manager_msg_title)
+        val bodyInput = view.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.et_manager_msg_body)
+
+        MaterialAlertDialogBuilder(activity)
+            .setView(view)
+            .setCancelable(false)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Send") { _, _ ->
+                val title = titleInput.text.toString().trim()
+                val body = bodyInput.text.toString().trim()
+                if (title.isNotEmpty() && body.isNotEmpty()) {
+                    sendMessageToManager(title, body)
+                } else {
+                    Toast.makeText(activity, "Message title and body cannot be empty", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .show()
+    }
+
+    private fun sendMessageToManager(title: String, message: String) {
+        scope.launch {
+            try {
+                val deviceId = com.iips.launcher.storage.SecurePreferences.getDeviceId(activity) ?: ""
+                val authHeader = "Bearer ${com.iips.launcher.storage.SecurePreferences.getAuthToken(activity)}"
+                
+                val request = com.iips.launcher.network.models.ManagerNotifyRequest(title, message)
+                val response = pairingService.notifyManager(deviceId, authHeader, request)
+                
+                if (response.isSuccessful && response.body()?.success == true) {
+                    Toast.makeText(activity, "Message sent to manager", Toast.LENGTH_SHORT).show()
+                } else {
+                    Log.e(TAG, "Failed to send message: ${response.errorBody()?.string()}")
+                    Toast.makeText(activity, "Failed to send message", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send message to manager", e)
+                Toast.makeText(activity, "Failed to send message", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     // ─────────────────────────────────────────────────────────────

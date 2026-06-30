@@ -20,4 +20,11 @@ interface LauncherPairingService {
         @Path("deviceId") deviceId: String,
         @Header("Authorization") authHeader: String
     ): Response<PairingStatusResponse>
+
+    @POST("devices/{deviceId}/manager-notify")
+    suspend fun notifyManager(
+        @Path("deviceId") deviceId: String,
+        @Header("Authorization") authHeader: String,
+        @retrofit2.http.Body request: com.iips.launcher.network.models.ManagerNotifyRequest
+    ): Response<com.iips.launcher.network.models.ManagerNotifyResponse>
 }

@@ -39,6 +39,7 @@ class LauncherActivity : AppCompatActivity() {
 
     @javax.inject.Inject lateinit var broadcastEngine: com.iips.launcher.convergence.BroadcastRenderingEngine
     @javax.inject.Inject lateinit var configService: com.iips.launcher.network.ConfigService
+    @javax.inject.Inject lateinit var pairingService: com.iips.launcher.network.LauncherPairingService
 
     private lateinit var binding: ActivityLauncherBinding
     private lateinit var database: AppDatabase
@@ -54,6 +55,14 @@ class LauncherActivity : AppCompatActivity() {
     private var batteryReceiver: BroadcastReceiver? = null
     private var settingsReceiver: BroadcastReceiver? = null
     private var geofenceReceiver: BroadcastReceiver? = null
+    
+    private lateinit var fusedLocationClient: com.google.android.gms.location.FusedLocationProviderClient
+    private var liveLocationCallback: com.google.android.gms.location.LocationCallback? = null
+    private var isLiveLocationActive = false
+    private var currentExpectedLat: Double? = null
+    private var currentExpectedLng: Double? = null
+    private var currentExpectedRadius: Double? = null
+    private var currentExpectedZoneName: String? = null
     
     // Track when we launch an allowed app to prevent lock task from being re-enabled
     private var lastLaunchedAllowedApp: String? = null
@@ -112,7 +121,8 @@ class LauncherActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         database = AppDatabase.getDatabase(this)
-
+        fusedLocationClient = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(this)
+        
         setupUI()
         loadApps()
         
@@ -149,6 +159,7 @@ class LauncherActivity : AppCompatActivity() {
                 taskbarLayout = taskbarView,
                 database = database,
                 broadcastEngine = broadcastEngine,
+                pairingService = pairingService,
                 onShowAdminSettings = {
                     showAdminPasswordDialog()
                 }
@@ -928,6 +939,11 @@ class LauncherActivity : AppCompatActivity() {
             }
             
             if (expLat != null && expLng != null) {
+                currentExpectedLat = expLat
+                currentExpectedLng = expLng
+                currentExpectedRadius = radius
+                currentExpectedZoneName = zoneName
+                
                 var expectedText = if (zoneName != null) {
                     String.format("Expected (%s): %.4f, %.4f", zoneName, expLat, expLng)
                 } else {
@@ -953,9 +969,65 @@ class LauncherActivity : AppCompatActivity() {
             if (DeviceAdminReceiver.isDeviceOwner(this)) {
                 com.iips.launcher.policy.KioskController.resumeLockTask(this)
             }
+            
+            startLiveLocationUpdates()
         } else {
             com.iips.launcher.security.SecurityAlarmManager.stopAlarm(this)
             binding.geofenceLockOverlay.visibility = View.GONE
+            stopLiveLocationUpdates()
+        }
+    }
+
+    private fun startLiveLocationUpdates() {
+        if (isLiveLocationActive) return
+        
+        val permission = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
+        if (permission != PackageManager.PERMISSION_GRANTED) return
+        
+        isLiveLocationActive = true
+        
+        val request = com.google.android.gms.location.LocationRequest.Builder(
+            com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, 1000L
+        ).setMinUpdateIntervalMillis(500L).build()
+        
+        liveLocationCallback = object : com.google.android.gms.location.LocationCallback() {
+            override fun onLocationResult(result: com.google.android.gms.location.LocationResult) {
+                result.lastLocation?.let { loc ->
+                    binding.tvCurrentLocation.text = String.format("Current: %.4f, %.4f", loc.latitude, loc.longitude)
+                    
+                    val expLat = currentExpectedLat
+                    val expLng = currentExpectedLng
+                    val radius = currentExpectedRadius
+                    
+                    if (expLat != null && expLng != null) {
+                        var expectedText = if (currentExpectedZoneName != null) {
+                            String.format("Expected (%s): %.4f, %.4f", currentExpectedZoneName, expLat, expLng)
+                        } else {
+                            String.format("Expected: %.4f, %.4f", expLat, expLng)
+                        }
+                        
+                        val results = FloatArray(1)
+                        android.location.Location.distanceBetween(loc.latitude, loc.longitude, expLat, expLng, results)
+                        val distanceMeters = results[0]
+                        if (radius != null) {
+                            expectedText += String.format("\nRadius: %.0fm (Dist: %.0fm)", radius, distanceMeters)
+                        } else {
+                            expectedText += String.format("\n(Dist: %.0fm)", distanceMeters)
+                        }
+                        binding.tvClosestLocation.text = expectedText
+                    }
+                }
+            }
+        }
+        
+        fusedLocationClient.requestLocationUpdates(request, liveLocationCallback!!, Looper.getMainLooper())
+    }
+
+    private fun stopLiveLocationUpdates() {
+        if (!isLiveLocationActive) return
+        isLiveLocationActive = false
+        liveLocationCallback?.let {
+            fusedLocationClient.removeLocationUpdates(it)
         }
     }
 

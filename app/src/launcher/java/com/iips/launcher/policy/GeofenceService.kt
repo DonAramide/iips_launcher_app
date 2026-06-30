@@ -25,6 +25,9 @@ class GeofenceService : Service() {
     private lateinit var locationCallback: LocationCallback
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     
+    private var vibrator: Vibrator? = null
+    private var isVibrating = false
+    
     companion object {
         private const val TAG = "GeofenceService"
         private const val NOTIFICATION_ID = 1002
@@ -51,6 +54,13 @@ class GeofenceService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            vibratorManager.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, createNotification())
@@ -89,6 +99,13 @@ class GeofenceService : Service() {
                 if (!isCurrentlyLocked) {
                     SecurePreferences.setGeofenceLocked(this@GeofenceService, true)
                 }
+                
+                if (SecurePreferences.isGeofenceVibrationEnabled(this@GeofenceService)) {
+                    startVibrationAlarm()
+                } else {
+                    stopVibrationAlarm()
+                }
+
                 val closest = geofenceManager.getClosestZone(this@GeofenceService, location)
                 broadcastLockStatus(true, if (isSpoofed) "Mock location detected" else "Outside authorized area", location, closest)
                 
@@ -98,8 +115,30 @@ class GeofenceService : Service() {
                     SecurePreferences.setGeofenceLocked(this@GeofenceService, false)
                     broadcastLockStatus(false)
                 }
+                stopVibrationAlarm()
                 geofenceManager.reportStatus(this@GeofenceService, location, true)
             }
+        }
+    }
+
+    private fun startVibrationAlarm() {
+        if (!isVibrating && vibrator?.hasVibrator() == true) {
+            isVibrating = true
+            // 30 seconds sleep, then 500ms vibration
+            val pattern = longArrayOf(0, 500, 29500) // wait 0ms, vibrate 500ms, sleep 29500ms
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator?.vibrate(VibrationEffect.createWaveform(pattern, 0)) // 0 = repeat at index 0
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator?.vibrate(pattern, 0)
+            }
+        }
+    }
+
+    private fun stopVibrationAlarm() {
+        if (isVibrating) {
+            vibrator?.cancel()
+            isVibrating = false
         }
     }
 
@@ -157,6 +196,7 @@ class GeofenceService : Service() {
     
     override fun onDestroy() {
         super.onDestroy()
+        stopVibrationAlarm()
         fusedLocationClient.removeLocationUpdates(locationCallback)
         serviceScope.cancel()
     }

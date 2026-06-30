@@ -43,6 +43,15 @@ data class GuardNotifyRequest(
     val message: String
 )
 
+data class ManagerNotifyRequest(
+    val title: String,
+    val message: String
+)
+
+data class ManagerNotifyResponse(
+    val success: Boolean
+)
+
 data class PairingStatusRequest(
     val status: String // ACTIVE, SUSPENDED, REVOKED
 )

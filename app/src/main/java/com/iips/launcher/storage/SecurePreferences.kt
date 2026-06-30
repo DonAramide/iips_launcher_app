@@ -204,6 +204,16 @@ object SecurePreferences {
         prefs.edit().putBoolean("geofence_locked", locked).apply()
     }
 
+    fun isGeofenceVibrationEnabled(context: Context): Boolean {
+        val prefs = getEncryptedPrefs(context)
+        return prefs.getBoolean("geofence_vibration_enabled", true)
+    }
+
+    fun setGeofenceVibrationEnabled(context: Context, enabled: Boolean) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit().putBoolean("geofence_vibration_enabled", enabled).apply()
+    }
+
     fun isRemoteLocked(context: Context): Boolean {
         val prefs = getEncryptedPrefs(context)
         return prefs.getBoolean("remote_locked", false)

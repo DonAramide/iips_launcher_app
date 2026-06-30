@@ -101,6 +101,13 @@
                         android:textSize="16sp" />
 
                     <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/vibration_toggle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Enable Geofence Alarm Vibration"
+                        android:textSize="16sp" />
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
                         android:id="@+id/immersive_toggle"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
