@@ -315,6 +315,10 @@ class RemoteCommandExecutionEngine @Inject constructor(
                         context.sendBroadcast(Intent("com.iips.launcher.ACTION_REMOTE_UNLOCK"))
                         Log.i(TAG, "Device unlock command processed.")
                     }
+                    "ring" -> {
+                        Log.i(TAG, "Ringing device remotely.")
+                        com.iips.launcher.security.SecurityAlarmManager.startAlarm(context)
+                    }
                     "shutdown" -> {
                         Log.i(TAG, "Shutdown requested.")
                     }

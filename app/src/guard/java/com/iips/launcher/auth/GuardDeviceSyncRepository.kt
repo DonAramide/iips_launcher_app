@@ -140,4 +140,19 @@ class GuardDeviceSyncRepository @Inject constructor(
             Result.failure(e)
         }
     }
+    suspend fun ringDevice(deviceId: String): Result<com.iips.launcher.network.models.GuardCommonApiResponse> = withContext(Dispatchers.IO) {
+        try {
+            val token = SecurePreferences.getGuardAuthToken(context)
+                ?: return@withContext Result.failure(Exception("No authorization token"))
+
+            val response = pairingService.ringDevice("Bearer $token", deviceId)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Failed to ring device: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

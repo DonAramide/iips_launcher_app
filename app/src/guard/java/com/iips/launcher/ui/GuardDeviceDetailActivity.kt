@@ -66,6 +66,9 @@ class GuardDeviceDetailActivity : AppCompatActivity() {
         binding.btnUnlockDevice.setOnClickListener {
             updateDeviceStatus("NORMAL")
         }
+        binding.btnRingDevice.setOnClickListener {
+            ringDevice()
+        }
     }
 
     private fun updateDeviceStatus(status: String) {
@@ -84,6 +87,22 @@ class GuardDeviceDetailActivity : AppCompatActivity() {
             
             binding.btnLockDevice.isEnabled = true
             binding.btnUnlockDevice.isEnabled = true
+        }
+    }
+
+    private fun ringDevice() {
+        if (deviceId.isNullOrEmpty()) return
+        lifecycleScope.launch {
+            binding.btnRingDevice.isEnabled = false
+            
+            val result = syncRepository.ringDevice(deviceId!!)
+            if (result.isSuccess) {
+                Toast.makeText(this@GuardDeviceDetailActivity, "Ring command sent successfully", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this@GuardDeviceDetailActivity, "Failed to send ring command", Toast.LENGTH_SHORT).show()
+            }
+            
+            binding.btnRingDevice.isEnabled = true
         }
     }
 

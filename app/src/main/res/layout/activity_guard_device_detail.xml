@@ -470,7 +470,16 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Unlock Device"
-                        android:textColor="@color/success" />
+                        android:textColor="@color/success"
+                        android:layout_marginBottom="8dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_ring_device"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Ring Device"
+                        android:textColor="@color/warning" />
 
                 </LinearLayout>
 

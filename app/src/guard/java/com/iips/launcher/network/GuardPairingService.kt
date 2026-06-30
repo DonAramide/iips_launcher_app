@@ -18,6 +18,12 @@ interface GuardPairingService {
         @Body request: PairingStatusRequest
     ): Response<PairingStatusResponse>
 
+    @POST("manager/paired-devices/{deviceId}/ring")
+    suspend fun ringDevice(
+        @Header("Authorization") authHeader: String,
+        @Path("deviceId") deviceId: String
+    ): Response<com.iips.launcher.network.models.GuardCommonApiResponse>
+
     @GET("manager/paired-devices")
     suspend fun getPairedDevices(
         @Header("Authorization") authHeader: String
