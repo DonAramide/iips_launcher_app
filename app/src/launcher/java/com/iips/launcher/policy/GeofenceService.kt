@@ -58,8 +58,8 @@ class GeofenceService : Service() {
     }
 
     private fun setupLocationUpdates() {
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 9000L)
-            .setMinUpdateIntervalMillis(5000L)
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 3000L)
+            .setMinUpdateIntervalMillis(2000L)
             .build()
 
         locationCallback = object : LocationCallback() {
