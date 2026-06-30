@@ -49,7 +49,14 @@ data class ManagerNotifyRequest(
 )
 
 data class ManagerNotifyResponse(
-    val success: Boolean
+    val responseCode: String?,
+    val responseMessage: String?,
+    val data: ManagerNotifyData?
+)
+
+data class ManagerNotifyData(
+    val ok: Boolean?,
+    val securityStatus: String?
 )
 
 data class PairingStatusRequest(

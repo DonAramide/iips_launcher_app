@@ -177,6 +177,10 @@ class GuardMainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: android.view.MenuItem): Boolean {
         return when (item.itemId) {
+            com.iips.launcher.R.id.action_notifications -> {
+                Toast.makeText(this, "Notifications clicked", Toast.LENGTH_SHORT).show()
+                true
+            }
             com.iips.launcher.R.id.action_logout -> {
                 performLogout()
                 true

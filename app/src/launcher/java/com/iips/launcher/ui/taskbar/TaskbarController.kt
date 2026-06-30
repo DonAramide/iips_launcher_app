@@ -224,7 +224,7 @@ class TaskbarController(
                 val request = com.iips.launcher.network.models.ManagerNotifyRequest(title, message)
                 val response = pairingService.notifyManager(deviceId, authHeader, request)
                 
-                if (response.isSuccessful && response.body()?.success == true) {
+                if (response.isSuccessful && response.body()?.responseCode == "00") {
                     Toast.makeText(activity, "Message sent to manager", Toast.LENGTH_SHORT).show()
                 } else {
                     Log.e(TAG, "Failed to send message: ${response.errorBody()?.string()}")
