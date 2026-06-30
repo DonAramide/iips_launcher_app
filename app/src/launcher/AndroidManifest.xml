@@ -153,6 +153,26 @@
             android:exported="false"
             android:foregroundServiceType="location" />
 
+        <!-- AAI Phase 2 Services -->
+        <service
+            android:name=".aai.tracker.ActivityTrackerService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            tools:ignore="ForegroundServiceType" />
+
+        <service
+            android:name=".aai.monitor.AaiAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/aai_accessibility_service" />
+        </service>
+
         <service
             android:name=".guard.service.GuardLocationService"
             android:enabled="true"

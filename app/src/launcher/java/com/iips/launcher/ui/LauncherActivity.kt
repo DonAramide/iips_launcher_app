@@ -277,6 +277,11 @@ class LauncherActivity : AppCompatActivity() {
                 com.iips.launcher.pocket.service.ApkDirectoryObserverService.start(this@LauncherActivity)
                 com.iips.launcher.pocket.service.AppHealthMonitoringService.start(this@LauncherActivity)
                 com.iips.launcher.pocket.sync.AppPocketSyncWorker.schedulePeriodic(this@LauncherActivity)
+                
+                // AAI Phase 2 - WorkManager Wiring
+                com.iips.launcher.aai.inventory.InstalledAppSyncWorker.schedule(this@LauncherActivity)
+                com.iips.launcher.aai.upload.AaiUploadWorker.schedule(this@LauncherActivity)
+                
                 startMdmService()
             }
         }
