@@ -22,5 +22,11 @@ data class PairedDeviceEntity(
     val networkStatus: String?, // WIFI, CELLULAR, OFFLINE
     val guardStatus: String?, // NORMAL, LOCKED, VIOLATION_PENDING, RECOVERY_PENDING
     val deviceHealthStatus: String, // HEALTHY, WARNING, CRITICAL
-    val unreadAlertCount: Int
+    val unreadAlertCount: Int,
+    val lat: Double?,
+    val lng: Double?,
+    val isSimPresent: Boolean?,
+    val simOperator: String?,
+    val simNetworkType: String?,
+    val uptime: Long?
 )

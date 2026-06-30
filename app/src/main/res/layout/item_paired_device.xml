@@ -56,7 +56,34 @@
             android:text="Merchant Name • Branch Name"
             android:textSize="14sp"
             android:textColor="@color/text_secondary"
-            android:layout_marginBottom="12dp" />
+            android:layout_marginBottom="8dp" />
+
+        <!-- Location row -->
+        <LinearLayout
+            android:id="@+id/layout_location"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true">
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@android:drawable/ic_dialog_map"
+                app:tint="@color/text_secondary"
+                android:layout_marginEnd="4dp" />
+            <TextView
+                android:id="@+id/tv_location_coords"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Location coordinates"
+                android:textSize="12sp"
+                android:textColor="@color/accent"
+                android:textStyle="bold" />
+        </LinearLayout>
 
         <View
             android:layout_width="match_parent"

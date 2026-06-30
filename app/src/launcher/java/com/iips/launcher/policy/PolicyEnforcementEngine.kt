@@ -53,6 +53,11 @@ class PolicyEnforcementEngine @Inject constructor(
             
             // 5. Connectivity Policies
             enforceConnectivityRestrictions(snapshot)
+            // 6. Geofence Policies
+            if (snapshot.geofenceRules.isNotEmpty()) {
+                Log.i(TAG, "Geofence rules found, starting GeofenceService")
+                com.iips.launcher.policy.GeofenceService.start(context)
+            }
 
             Log.i(TAG, "Policy enforcement completed successfully")
         } catch (e: Exception) {

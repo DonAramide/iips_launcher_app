@@ -43,6 +43,24 @@ class PairedDeviceAdapter(
             binding.tvMerchantBranch.text = "${device.merchantName} • ${device.branchName}"
             binding.tvLastSeen.text = RelativeTimeUtils.formatRelativeTime(device.lastSeen)
 
+            if (device.lat != null && device.lng != null) {
+                binding.layoutLocation.visibility = View.VISIBLE
+                binding.tvLocationCoords.text = "${device.lat}, ${device.lng}"
+                binding.layoutLocation.setOnClickListener {
+                    val uri = android.net.Uri.parse("geo:${device.lat},${device.lng}?q=${device.lat},${device.lng}(${device.deviceName})")
+                    val mapIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
+                    mapIntent.setPackage("com.google.android.apps.maps")
+                    if (mapIntent.resolveActivity(binding.root.context.packageManager) != null) {
+                        binding.root.context.startActivity(mapIntent)
+                    } else {
+                        val fallbackIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
+                        binding.root.context.startActivity(fallbackIntent)
+                    }
+                }
+            } else {
+                binding.layoutLocation.visibility = View.GONE
+            }
+
             // Connectivity Badge tint
             val connColor = if (device.connectivityStatus == "ONLINE") {
                 ContextCompat.getColor(binding.root.context, R.color.success)

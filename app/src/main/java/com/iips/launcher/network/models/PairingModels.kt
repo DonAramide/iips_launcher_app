@@ -28,7 +28,13 @@ data class GuardPairingResponse(
     val networkStatus: String? = null,
     val guardStatus: String? = null,
     val deviceHealthStatus: String = "HEALTHY", // HEALTHY, WARNING, CRITICAL
-    val unreadAlertCount: Int = 0
+    val unreadAlertCount: Int = 0,
+    val lat: Double? = null,
+    val lng: Double? = null,
+    val isSimPresent: Boolean? = null,
+    val simOperator: String? = null,
+    val simNetworkType: String? = null,
+    val uptime: Long? = null
 )
 
 data class PairingStatusRequest(

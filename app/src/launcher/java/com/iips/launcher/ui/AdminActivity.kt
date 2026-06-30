@@ -276,7 +276,6 @@ class AdminActivity : AppCompatActivity() {
             showSystemResetAuthDialog()
         }
 
-        // Persistence Lock Setup
         binding.persistenceLockSwitch.isChecked = SecurePreferences.isFactoryResetProtectionEnabled(this)
         binding.persistenceLockSwitch.setOnCheckedChangeListener { _, isChecked ->
             SecurePreferences.setFactoryResetProtectionEnabled(this, isChecked)
@@ -286,10 +285,14 @@ class AdminActivity : AppCompatActivity() {
                 Toast.makeText(this, R.string.persistence_enabled, Toast.LENGTH_SHORT).show()
             } else {
                 DeviceController.disableFactoryResetProtection(this)
-                // Note: enableComprehensiveSecurity restrictions are harder to undo individually
-                // but DISALLOW_FACTORY_RESET is the main one for this toggle
                 Toast.makeText(this, R.string.persistence_disabled, Toast.LENGTH_SHORT).show()
             }
+        }
+
+        binding.geofenceAlarmToggle.isChecked = SecurePreferences.isGeofenceAlarmEnabled(this)
+        binding.geofenceAlarmToggle.setOnCheckedChangeListener { _, isChecked ->
+            SecurePreferences.setGeofenceAlarmEnabled(this, isChecked)
+            Toast.makeText(this, "Geofence Alarm ${if (isChecked) "Enabled" else "Disabled"}", Toast.LENGTH_SHORT).show()
         }
 
         binding.btnGeofenceEnrollment.setOnClickListener {

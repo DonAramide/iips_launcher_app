@@ -91,6 +91,16 @@ object SecurePreferences {
         prefs.edit().putBoolean("immersive_mode", enabled).apply()
     }
 
+    fun setGeofenceAlarmEnabled(context: Context, enabled: Boolean) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit().putBoolean("geofence_alarm_enabled", enabled).apply()
+    }
+
+    fun isGeofenceAlarmEnabled(context: Context): Boolean {
+        val prefs = getEncryptedPrefs(context)
+        return prefs.getBoolean("geofence_alarm_enabled", true)
+    }
+
     fun isFactoryResetProtectionEnabled(context: Context): Boolean {
         val prefs = getEncryptedPrefs(context)
         return prefs.getBoolean("factory_reset_protection", true)

@@ -122,6 +122,34 @@ class GuardDeviceDetailActivity : AppCompatActivity() {
 
         binding.tvDetailUnreadAlerts.text = if (device.unreadAlertCount == 1) "1 Alert" else "${device.unreadAlertCount} Alerts"
 
+        // Location & Call Home
+        binding.tvDetailUptime.text = device.uptime?.let { formatUptime(it) } ?: "N/A"
+        if (device.lat != null && device.lng != null) {
+            binding.tvDetailCoordinates.text = "${device.lat}, ${device.lng}"
+            binding.btnViewOnMap.isEnabled = true
+            binding.btnViewOnMap.setOnClickListener {
+                val uri = android.net.Uri.parse("geo:${device.lat},${device.lng}?q=${device.lat},${device.lng}(${device.deviceName})")
+                val mapIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
+                mapIntent.setPackage("com.google.android.apps.maps")
+                if (mapIntent.resolveActivity(packageManager) != null) {
+                    startActivity(mapIntent)
+                } else {
+                    // Fallback to implicit intent without package if Google Maps is not installed
+                    val fallbackIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
+                    startActivity(fallbackIntent)
+                }
+            }
+        } else {
+            binding.tvDetailCoordinates.text = "N/A"
+            binding.btnViewOnMap.isEnabled = false
+        }
+
+        // SIM Information
+        binding.tvDetailSimStatus.text = if (device.isSimPresent == true) "Present" else "Not Present"
+        binding.tvDetailSimOperator.text = device.simOperator ?: "N/A"
+        binding.tvDetailSimNetworkType.text = device.simNetworkType ?: "N/A"
+
+
         // 1. Connectivity Badge
         binding.tvDetailConnectivityBadge.text = device.connectivityStatus
         val connColor = if (device.connectivityStatus == "ONLINE") {
@@ -159,5 +187,18 @@ class GuardDeviceDetailActivity : AppCompatActivity() {
             return true
         }
         return super.onOptionsItemSelected(item)
+    }
+
+    private fun formatUptime(uptimeSeconds: Long): String {
+        val days = uptimeSeconds / (24 * 3600)
+        val hours = (uptimeSeconds % (24 * 3600)) / 3600
+        val minutes = (uptimeSeconds % 3600) / 60
+        
+        val parts = mutableListOf<String>()
+        if (days > 0) parts.add("${days}d")
+        if (hours > 0) parts.add("${hours}h")
+        if (minutes > 0) parts.add("${minutes}m")
+        
+        return if (parts.isEmpty()) "< 1m" else parts.joinToString(" ")
     }
 }

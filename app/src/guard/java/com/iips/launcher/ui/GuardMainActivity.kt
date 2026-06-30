@@ -122,9 +122,11 @@ class GuardMainActivity : AppCompatActivity() {
     private fun loadLocalData() {
         lifecycleScope.launch {
             try {
-                allDevices = deviceDao.getAllDevices()
-                updateCountersFromList(allDevices)
-                applyFilter()
+                deviceDao.getAllDevicesFlow().collect { devices ->
+                    allDevices = devices
+                    updateCountersFromList(allDevices)
+                    applyFilter()
+                }
             } catch (e: Exception) {
                 // Ignore cache read failures
             }
@@ -139,10 +141,7 @@ class GuardMainActivity : AppCompatActivity() {
 
             binding.swipeRefresh.isRefreshing = false
 
-            if (syncResult.isSuccess) {
-                allDevices = syncResult.getOrNull() ?: emptyList()
-                applyFilter()
-            } else {
+            if (syncResult.isFailure) {
                 Toast.makeText(
                     this@GuardMainActivity,
                     "Sync failed: ${syncResult.exceptionOrNull()?.message}",
@@ -158,8 +157,6 @@ class GuardMainActivity : AppCompatActivity() {
                 binding.tvCountLocked.text = summary.lockedDevices.toString()
                 binding.tvCountPending.text = summary.pendingDevices.toString()
                 binding.tvCountAlerts.text = summary.totalAlerts.toString()
-            } else {
-                updateCountersFromList(allDevices)
             }
         }
     }

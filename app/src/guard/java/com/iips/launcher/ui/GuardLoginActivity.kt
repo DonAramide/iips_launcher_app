@@ -252,6 +252,7 @@ class GuardLoginActivity : AppCompatActivity() {
         val edtEmail = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.edt_email)
         val edtPhone = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.edt_phone)
         val edtPassword = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.edt_password)
+        val edtConfirmPassword = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.edt_confirm_password)
         val progressBar = dialogView.findViewById<android.widget.ProgressBar>(R.id.dialog_progress_bar)
         val btnSubmit = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_submit)
         val btnCancel = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_cancel)
@@ -263,6 +264,7 @@ class GuardLoginActivity : AppCompatActivity() {
             val email = edtEmail.text.toString().trim()
             val phone = edtPhone.text.toString().trim()
             val password = edtPassword.text.toString().trim()
+            val confirmPassword = edtConfirmPassword.text.toString().trim()
 
             var isValid = true
             if (name.isEmpty()) {
@@ -279,6 +281,13 @@ class GuardLoginActivity : AppCompatActivity() {
             }
             if (password.isEmpty()) {
                 edtPassword.error = "Password is required"
+                isValid = false
+            }
+            if (confirmPassword.isEmpty()) {
+                edtConfirmPassword.error = "Confirm Password is required"
+                isValid = false
+            } else if (password != confirmPassword) {
+                edtConfirmPassword.error = "Passwords do not match"
                 isValid = false
             }
 

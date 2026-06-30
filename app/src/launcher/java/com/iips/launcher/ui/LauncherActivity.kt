@@ -322,6 +322,13 @@ class LauncherActivity : AppCompatActivity() {
             }
         }
         
+        if (state == SecurePreferences.STATE_ACTIVE) {
+            val snapshot = SecurePreferences.getDevicePolicySnapshot(this)
+            if (snapshot != null && snapshot.geofenceRules.isNotEmpty()) {
+                com.iips.launcher.policy.GeofenceService.start(this)
+            }
+        }
+        
         // Check if Kiosk Lock screen should be displayed
         if (com.iips.launcher.policy.KioskLockManager.isKioskLocked(this)) {
             android.util.Log.i("LauncherActivity", "Kiosk lock screen is active, redirecting...")
@@ -900,6 +907,9 @@ class LauncherActivity : AppCompatActivity() {
 
     private fun showGeofenceLock(locked: Boolean, reason: String? = null) {
         if (locked) {
+            if (com.iips.launcher.storage.SecurePreferences.isGeofenceAlarmEnabled(this)) {
+                com.iips.launcher.security.SecurityAlarmManager.startAlarm(this)
+            }
             binding.geofenceLockOverlay.visibility = View.VISIBLE
             binding.lockMessage.text = reason ?: getString(R.string.geofence_out_of_range)
             
@@ -908,6 +918,7 @@ class LauncherActivity : AppCompatActivity() {
                 com.iips.launcher.policy.KioskController.resumeLockTask(this)
             }
         } else {
+            com.iips.launcher.security.SecurityAlarmManager.stopAlarm(this)
             binding.geofenceLockOverlay.visibility = View.GONE
         }
     }
