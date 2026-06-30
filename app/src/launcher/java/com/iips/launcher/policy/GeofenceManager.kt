@@ -32,6 +32,24 @@ class GeofenceManager @Inject constructor(
         return true
     }
 
+    fun getClosestZone(context: Context, location: Location): com.iips.launcher.network.models.GeofenceRule? {
+        val snapshot = SecurePreferences.getDevicePolicySnapshot(context) ?: return null
+        val zones = snapshot.geofenceRules
+        if (zones.isEmpty()) return null
+
+        var closestZone: com.iips.launcher.network.models.GeofenceRule? = null
+        var minDistance = Double.MAX_VALUE
+
+        for (zone in zones) {
+            val distance = calculateDistance(location.latitude, location.longitude, zone.lat, zone.lng)
+            if (distance < minDistance) {
+                minDistance = distance
+                closestZone = zone
+            }
+        }
+        return closestZone
+    }
+
     private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
         val r = 6371e3 
         val φ1 = lat1 * PI / 180

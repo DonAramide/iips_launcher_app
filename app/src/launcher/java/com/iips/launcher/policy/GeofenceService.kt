@@ -1,4 +1,4 @@
-package com.iips.launcher.policy
+ package com.iips.launcher.policy
 
 import android.app.*
 import android.content.Context
@@ -88,7 +88,9 @@ class GeofenceService : Service() {
             if (isSpoofed || shouldLock) {
                 if (!isCurrentlyLocked) {
                     SecurePreferences.setGeofenceLocked(this@GeofenceService, true)
-                    broadcastLockStatus(true, if (isSpoofed) "Mock location detected" else "Outside authorized area")
+                    
+                    val closest = geofenceManager.getClosestZone(this@GeofenceService, location)
+                    broadcastLockStatus(true, if (isSpoofed) "Mock location detected" else "Outside authorized area", location, closest)
                 }
                 geofenceManager.reportStatus(this@GeofenceService, location, false)
             } else {
@@ -101,9 +103,17 @@ class GeofenceService : Service() {
         }
     }
 
-    private fun broadcastLockStatus(locked: Boolean, reason: String? = null) {
+    private fun broadcastLockStatus(locked: Boolean, reason: String? = null, location: Location? = null, closestZone: com.iips.launcher.network.models.GeofenceRule? = null) {
         val intent = Intent(if (locked) ACTION_GEOFENCE_LOCK else ACTION_GEOFENCE_UNLOCK)
         intent.putExtra(EXTRA_REASON, reason)
+        if (location != null) {
+            intent.putExtra("EXTRA_LAT", location.latitude)
+            intent.putExtra("EXTRA_LNG", location.longitude)
+        }
+        if (closestZone != null) {
+            intent.putExtra("EXTRA_CLOSEST_LAT", closestZone.lat)
+            intent.putExtra("EXTRA_CLOSEST_LNG", closestZone.lng)
+        }
         sendBroadcast(intent)
     }
 

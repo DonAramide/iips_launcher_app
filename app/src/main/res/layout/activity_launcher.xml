@@ -178,70 +178,101 @@
     </LinearLayout>
 
     <!-- Geofence Lock Overlay -->
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/geofence_lock_overlay"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
         android:background="@color/background"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:padding="32dp"
         android:elevation="200dp"
         android:translationZ="200dp"
         android:clickable="true"
         android:focusable="true"
-        android:visibility="gone"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        android:visibility="gone">
 
-        <ImageView
-            android:id="@+id/lock_icon"
-            android:layout_width="120dp"
-            android:layout_height="120dp"
-            android:src="@android:drawable/ic_dialog_alert"
-            app:tint="@color/error" />
-
-        <TextView
-            android:id="@+id/lock_message"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="@string/geofence_out_of_range"
-            android:textColor="@color/text_primary"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:gravity="center" />
+            android:layout_margin="16dp"
+            android:orientation="vertical"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent">
+            
+            <TextView
+                android:id="@+id/tv_current_location"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:text="Current: N/A" />
+                
+            <TextView
+                android:id="@+id/tv_closest_location"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:text="Expected: N/A" />
+        </LinearLayout>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_retry_location"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="48dp"
-            android:text="@string/retry_location"
-            app:cornerRadius="8dp" />
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="32dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_request_location_auth"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="Request Location Authorization"
-            app:cornerRadius="8dp" />
+            <ImageView
+                android:id="@+id/lock_icon"
+                android:layout_width="120dp"
+                android:layout_height="120dp"
+                android:src="@android:drawable/ic_dialog_alert"
+                app:tint="@color/error" />
 
-        <TextView
-            android:id="@+id/btn_admin_unlock"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="@string/admin_unlock"
-            android:textColor="@color/primary"
-            android:textSize="14sp"
-            android:padding="12dp"
-            android:background="?attr/selectableItemBackground" />
+            <TextView
+                android:id="@+id/lock_message"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="@string/geofence_out_of_range"
+                android:textColor="@color/text_primary"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:gravity="center" />
 
-    </LinearLayout>
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_retry_location"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="48dp"
+                android:text="@string/retry_location"
+                app:cornerRadius="8dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_request_location_auth"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="Request Location Authorization"
+                app:cornerRadius="8dp" />
+
+            <TextView
+                android:id="@+id/btn_admin_unlock"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="@string/admin_unlock"
+                android:textColor="@color/primary"
+                android:textSize="14sp"
+                android:padding="12dp"
+                android:background="?attr/selectableItemBackground" />
+
+        </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <!-- Remote Lock Overlay -->
     <LinearLayout

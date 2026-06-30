@@ -881,7 +881,11 @@ class LauncherActivity : AppCompatActivity() {
                 when (intent?.action) {
                     com.iips.launcher.policy.GeofenceService.ACTION_GEOFENCE_LOCK -> {
                         val reason = intent.getStringExtra(com.iips.launcher.policy.GeofenceService.EXTRA_REASON)
-                        showGeofenceLock(true, reason)
+                        val currLat = if (intent.hasExtra("EXTRA_LAT")) intent.getDoubleExtra("EXTRA_LAT", 0.0) else null
+                        val currLng = if (intent.hasExtra("EXTRA_LNG")) intent.getDoubleExtra("EXTRA_LNG", 0.0) else null
+                        val expLat = if (intent.hasExtra("EXTRA_CLOSEST_LAT")) intent.getDoubleExtra("EXTRA_CLOSEST_LAT", 0.0) else null
+                        val expLng = if (intent.hasExtra("EXTRA_CLOSEST_LNG")) intent.getDoubleExtra("EXTRA_CLOSEST_LNG", 0.0) else null
+                        showGeofenceLock(true, reason, currLat, currLng, expLat, expLng)
                     }
                     com.iips.launcher.policy.GeofenceService.ACTION_GEOFENCE_UNLOCK -> {
                         showGeofenceLock(false)
@@ -905,13 +909,25 @@ class LauncherActivity : AppCompatActivity() {
         registerReceiver(geofenceReceiver, filter)
     }
 
-    private fun showGeofenceLock(locked: Boolean, reason: String? = null) {
+    private fun showGeofenceLock(locked: Boolean, reason: String? = null, currLat: Double? = null, currLng: Double? = null, expLat: Double? = null, expLng: Double? = null) {
         if (locked) {
             if (com.iips.launcher.storage.SecurePreferences.isGeofenceAlarmEnabled(this)) {
                 com.iips.launcher.security.SecurityAlarmManager.startAlarm(this)
             }
             binding.geofenceLockOverlay.visibility = View.VISIBLE
             binding.lockMessage.text = reason ?: getString(R.string.geofence_out_of_range)
+            
+            if (currLat != null && currLng != null) {
+                binding.tvCurrentLocation.text = String.format("Current: %.4f, %.4f", currLat, currLng)
+            } else {
+                binding.tvCurrentLocation.text = "Current: N/A"
+            }
+            
+            if (expLat != null && expLng != null) {
+                binding.tvClosestLocation.text = String.format("Expected: %.4f, %.4f", expLat, expLng)
+            } else {
+                binding.tvClosestLocation.text = "Expected: N/A"
+            }
             
             // If locked by geofence, ensure lock task is on
             if (DeviceAdminReceiver.isDeviceOwner(this)) {
