@@ -51,7 +51,8 @@ class GuardPairingRepository @Inject constructor(
                     isSimPresent = body.isSimPresent,
                     simOperator = body.simOperator,
                     simNetworkType = body.simNetworkType,
-                    uptime = body.uptime
+                    uptime = body.uptime,
+                    locationName = body.locationName
                 )
                 deviceDao.insertDevice(entity)
                 Result.success(entity)

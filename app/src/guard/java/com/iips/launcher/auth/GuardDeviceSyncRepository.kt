@@ -50,7 +50,8 @@ class GuardDeviceSyncRepository @Inject constructor(
                         isSimPresent = body.isSimPresent,
                         simOperator = body.simOperator,
                         simNetworkType = body.simNetworkType,
-                        uptime = body.uptime
+                        uptime = body.uptime,
+                        locationName = body.locationName
                     )
                 }
                 
@@ -96,7 +97,8 @@ class GuardDeviceSyncRepository @Inject constructor(
                     isSimPresent = body.isSimPresent,
                     simOperator = body.simOperator,
                     simNetworkType = body.simNetworkType,
-                    uptime = body.uptime
+                    uptime = body.uptime,
+                    locationName = body.locationName
                 )
                 deviceDao.insertDevice(entity)
                 Result.success(entity)
@@ -150,6 +152,23 @@ class GuardDeviceSyncRepository @Inject constructor(
                 Result.success(response.body()!!)
             } else {
                 Result.failure(Exception("Failed to ring device: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun sendNotification(deviceId: String, title: String, message: String): Result<com.iips.launcher.network.models.GuardCommonApiResponse> = withContext(Dispatchers.IO) {
+        try {
+            val token = SecurePreferences.getGuardAuthToken(context)
+                ?: return@withContext Result.failure(Exception("No authorization token"))
+
+            val request = com.iips.launcher.network.models.GuardNotifyRequest(title = title, message = message)
+            val response = pairingService.notifyDevice("Bearer $token", deviceId, request)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Failed to send notification: ${response.code()}"))
             }
         } catch (e: Exception) {
             Result.failure(e)

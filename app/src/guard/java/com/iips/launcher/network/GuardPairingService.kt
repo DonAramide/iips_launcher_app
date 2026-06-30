@@ -24,6 +24,13 @@ interface GuardPairingService {
         @Path("deviceId") deviceId: String
     ): Response<com.iips.launcher.network.models.GuardCommonApiResponse>
 
+    @POST("manager/paired-devices/{deviceId}/notify")
+    suspend fun notifyDevice(
+        @Header("Authorization") authHeader: String,
+        @Path("deviceId") deviceId: String,
+        @Body request: GuardNotifyRequest
+    ): Response<com.iips.launcher.network.models.GuardCommonApiResponse>
+
     @GET("manager/paired-devices")
     suspend fun getPairedDevices(
         @Header("Authorization") authHeader: String

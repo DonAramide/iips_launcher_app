@@ -448,6 +448,20 @@ class RemoteCommandExecutionEngine @Inject constructor(
                         )
                         broadcastRenderingEngine.dispatchBroadcast(gson.toJson(broadcastPayload))
                     }
+                    "custom_notification" -> {
+                        val title = root.getAsJsonPrimitive("title")?.asString ?: "Notification"
+                        val message = root.getAsJsonPrimitive("message")?.asString ?: ""
+                        val broadcastPayload = BroadcastPayload(
+                            broadcastId = "notify-${System.currentTimeMillis()}",
+                            tenantId = SecurePreferences.getTenantId(context),
+                            severity = "info",
+                            launcherMode = BroadcastRenderingEngine.MODE_BANNER,
+                            title = title,
+                            message = message,
+                            requiresAcknowledgement = true
+                        )
+                        broadcastRenderingEngine.dispatchBroadcast(gson.toJson(broadcastPayload))
+                    }
                     else -> {
                         successStatus = "FAILED"
                         finalMessage = "Unmapped target command profile type: $type"

@@ -14,7 +14,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AlertFeedEntity::class,
         TrackedCoordinateEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class GuardMobileDatabase : RoomDatabase() {
@@ -103,6 +103,12 @@ abstract class GuardMobileDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `paired_devices` ADD COLUMN `locationName` TEXT")
+            }
+        }
+
         fun getDatabase(context: Context): GuardMobileDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -110,7 +116,7 @@ abstract class GuardMobileDatabase : RoomDatabase() {
                     GuardMobileDatabase::class.java,
                     "guard_mobile_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
                 INSTANCE = instance
                 instance

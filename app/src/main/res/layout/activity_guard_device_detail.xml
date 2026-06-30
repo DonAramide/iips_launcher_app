@@ -479,7 +479,16 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Ring Device"
-                        android:textColor="@color/warning" />
+                        android:textColor="@color/warning"
+                        android:layout_marginBottom="8dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_send_notification"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Send Message"
+                        android:textColor="@color/primary" />
 
                 </LinearLayout>
 

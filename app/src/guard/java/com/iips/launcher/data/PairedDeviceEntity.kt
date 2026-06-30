@@ -25,6 +25,7 @@ data class PairedDeviceEntity(
     val unreadAlertCount: Int,
     val lat: Double?,
     val lng: Double?,
+    val locationName: String?,
     val isSimPresent: Boolean?,
     val simOperator: String?,
     val simNetworkType: String?,

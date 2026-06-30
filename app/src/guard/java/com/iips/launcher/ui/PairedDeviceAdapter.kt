@@ -45,7 +45,11 @@ class PairedDeviceAdapter(
 
             if (device.lat != null && device.lng != null) {
                 binding.layoutLocation.visibility = View.VISIBLE
-                binding.tvLocationCoords.text = "${device.lat}, ${device.lng}"
+                if (device.locationName != null) {
+                    binding.tvLocationCoords.text = "${device.locationName}: ${device.lat}, ${device.lng}"
+                } else {
+                    binding.tvLocationCoords.text = "${device.lat}, ${device.lng}"
+                }
                 binding.layoutLocation.setOnClickListener {
                     val uri = android.net.Uri.parse("geo:${device.lat},${device.lng}?q=${device.lat},${device.lng}(${device.deviceName})")
                     val mapIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri)

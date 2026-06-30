@@ -34,7 +34,13 @@ data class GuardPairingResponse(
     val isSimPresent: Boolean? = null,
     val simOperator: String? = null,
     val simNetworkType: String? = null,
-    val uptime: Long? = null
+    val uptime: Long? = null,
+    val locationName: String? = null
+)
+
+data class GuardNotifyRequest(
+    val title: String,
+    val message: String
 )
 
 data class PairingStatusRequest(

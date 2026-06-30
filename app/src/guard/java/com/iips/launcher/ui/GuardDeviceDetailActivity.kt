@@ -69,6 +69,10 @@ class GuardDeviceDetailActivity : AppCompatActivity() {
         binding.btnRingDevice.setOnClickListener {
             ringDevice()
         }
+
+        binding.btnSendNotification.setOnClickListener {
+            showSendNotificationDialog()
+        }
     }
 
     private fun updateDeviceStatus(status: String) {
@@ -103,6 +107,43 @@ class GuardDeviceDetailActivity : AppCompatActivity() {
             }
             
             binding.btnRingDevice.isEnabled = true
+        }
+    }
+
+    private fun showSendNotificationDialog() {
+        if (deviceId.isNullOrEmpty()) return
+        
+        val dialogView = layoutInflater.inflate(R.layout.dialog_send_notification, null)
+        val etTitle = dialogView.findViewById<android.widget.EditText>(R.id.et_notification_title)
+        val etMessage = dialogView.findViewById<android.widget.EditText>(R.id.et_notification_message)
+        
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Send Message")
+            .setView(dialogView)
+            .setPositiveButton("Send") { _, _ ->
+                val title = etTitle.text.toString().trim()
+                val message = etMessage.text.toString().trim()
+                if (message.isNotEmpty()) {
+                    sendNotification(title, message)
+                } else {
+                    Toast.makeText(this, "Message cannot be empty", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun sendNotification(title: String, message: String) {
+        if (deviceId.isNullOrEmpty()) return
+        lifecycleScope.launch {
+            binding.btnSendNotification.isEnabled = false
+            val result = syncRepository.sendNotification(deviceId!!, title, message)
+            if (result.isSuccess) {
+                Toast.makeText(this@GuardDeviceDetailActivity, "Message sent successfully", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this@GuardDeviceDetailActivity, "Failed to send message: ${result.exceptionOrNull()?.message}", Toast.LENGTH_SHORT).show()
+            }
+            binding.btnSendNotification.isEnabled = true
         }
     }
 
@@ -144,7 +185,11 @@ class GuardDeviceDetailActivity : AppCompatActivity() {
         // Location & Call Home
         binding.tvDetailUptime.text = device.uptime?.let { formatUptime(it) } ?: "N/A"
         if (device.lat != null && device.lng != null) {
-            binding.tvDetailCoordinates.text = "${device.lat}, ${device.lng}"
+            if (device.locationName != null) {
+                binding.tvDetailCoordinates.text = "${device.locationName}: ${device.lat}, ${device.lng}"
+            } else {
+                binding.tvDetailCoordinates.text = "${device.lat}, ${device.lng}"
+            }
             binding.btnViewOnMap.isEnabled = true
             binding.btnViewOnMap.setOnClickListener {
                 val uri = android.net.Uri.parse("geo:${device.lat},${device.lng}?q=${device.lat},${device.lng}(${device.deviceName})")
