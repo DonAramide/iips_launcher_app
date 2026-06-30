@@ -60,7 +60,6 @@ class GeofenceService : Service() {
     private fun setupLocationUpdates() {
         val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 9000L)
             .setMinUpdateIntervalMillis(5000L)
-            .setMinUpdateDistanceMeters(2.0f) // Stop polling if no motion detected (less than 2m)
             .build()
 
         locationCallback = object : LocationCallback() {
