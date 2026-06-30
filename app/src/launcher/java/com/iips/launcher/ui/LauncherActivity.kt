@@ -885,7 +885,8 @@ class LauncherActivity : AppCompatActivity() {
                         val currLng = if (intent.hasExtra("EXTRA_LNG")) intent.getDoubleExtra("EXTRA_LNG", 0.0) else null
                         val expLat = if (intent.hasExtra("EXTRA_CLOSEST_LAT")) intent.getDoubleExtra("EXTRA_CLOSEST_LAT", 0.0) else null
                         val expLng = if (intent.hasExtra("EXTRA_CLOSEST_LNG")) intent.getDoubleExtra("EXTRA_CLOSEST_LNG", 0.0) else null
-                        showGeofenceLock(true, reason, currLat, currLng, expLat, expLng)
+                        val radius = if (intent.hasExtra("EXTRA_RADIUS")) intent.getDoubleExtra("EXTRA_RADIUS", 0.0) else null
+                        showGeofenceLock(true, reason, currLat, currLng, expLat, expLng, radius)
                     }
                     com.iips.launcher.policy.GeofenceService.ACTION_GEOFENCE_UNLOCK -> {
                         showGeofenceLock(false)
@@ -909,7 +910,7 @@ class LauncherActivity : AppCompatActivity() {
         registerReceiver(geofenceReceiver, filter)
     }
 
-    private fun showGeofenceLock(locked: Boolean, reason: String? = null, currLat: Double? = null, currLng: Double? = null, expLat: Double? = null, expLng: Double? = null) {
+    private fun showGeofenceLock(locked: Boolean, reason: String? = null, currLat: Double? = null, currLng: Double? = null, expLat: Double? = null, expLng: Double? = null, radius: Double? = null) {
         if (locked) {
             if (com.iips.launcher.storage.SecurePreferences.isGeofenceAlarmEnabled(this)) {
                 com.iips.launcher.security.SecurityAlarmManager.startAlarm(this)
@@ -924,7 +925,18 @@ class LauncherActivity : AppCompatActivity() {
             }
             
             if (expLat != null && expLng != null) {
-                binding.tvClosestLocation.text = String.format("Expected: %.4f, %.4f", expLat, expLng)
+                var expectedText = String.format("Expected: %.4f, %.4f", expLat, expLng)
+                if (currLat != null && currLng != null) {
+                    val results = FloatArray(1)
+                    android.location.Location.distanceBetween(currLat, currLng, expLat, expLng, results)
+                    val distanceMeters = results[0]
+                    if (radius != null) {
+                        expectedText += String.format("\nRadius: %.0fm (Dist: %.0fm)", radius, distanceMeters)
+                    } else {
+                        expectedText += String.format("\n(Dist: %.0fm)", distanceMeters)
+                    }
+                }
+                binding.tvClosestLocation.text = expectedText
             } else {
                 binding.tvClosestLocation.text = "Expected: N/A"
             }
