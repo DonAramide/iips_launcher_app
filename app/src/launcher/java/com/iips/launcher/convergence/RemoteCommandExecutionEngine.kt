@@ -199,6 +199,40 @@ class RemoteCommandExecutionEngine @Inject constructor(
             return
         }
 
+        // Direct interception for fire-and-forget push frames that don't have a command_id
+        if (type == "custom_notification" || type == "payment_notification") {
+            scope.launch {
+                if (type == "custom_notification") {
+                    val title = root.getAsJsonPrimitive("title")?.asString ?: "Notification"
+                    val message = root.getAsJsonPrimitive("message")?.asString ?: ""
+                    val broadcastPayload = BroadcastPayload(
+                        broadcastId = "notify-${System.currentTimeMillis()}",
+                        tenantId = SecurePreferences.getTenantId(context),
+                        severity = "info",
+                        launcherMode = BroadcastRenderingEngine.MODE_BANNER,
+                        title = title,
+                        message = message,
+                        requiresAcknowledgement = true
+                    )
+                    broadcastRenderingEngine.dispatchBroadcast(gson.toJson(broadcastPayload))
+                } else if (type == "payment_notification") {
+                    val appName = root.getAsJsonPrimitive("app_name")?.asString ?: "Payment Service"
+                    val paymentPayload = root.get("payment_payload")?.toString() ?: "{}"
+                    val broadcastPayload = BroadcastPayload(
+                        broadcastId = "pay-${System.currentTimeMillis()}",
+                        tenantId = SecurePreferences.getTenantId(context),
+                        severity = "success",
+                        launcherMode = BroadcastRenderingEngine.MODE_BLOCKING,
+                        title = "Payment Confirmed - $appName",
+                        message = "Transaction Details:\n$paymentPayload",
+                        requiresAcknowledgement = true
+                    )
+                    broadcastRenderingEngine.dispatchBroadcast(gson.toJson(broadcastPayload))
+                }
+            }
+            return
+        }
+
         routeCommandObject(root)
     }
 
@@ -433,34 +467,6 @@ class RemoteCommandExecutionEngine @Inject constructor(
                             prefs.edit().putString(appPackage, gson.toJson(configMap)).apply()
                             Log.i(TAG, "Parameters persisted for app package $appPackage")
                         }
-                    }
-                    "payment_notification" -> {
-                        val appName = root.getAsJsonPrimitive("app_name")?.asString ?: "Payment Service"
-                        val paymentPayload = root.get("payment_payload")?.toString() ?: "{}"
-                        val broadcastPayload = BroadcastPayload(
-                            broadcastId = "pay-${System.currentTimeMillis()}",
-                            tenantId = SecurePreferences.getTenantId(context),
-                            severity = "success",
-                            launcherMode = BroadcastRenderingEngine.MODE_BLOCKING,
-                            title = "Payment Confirmed - $appName",
-                            message = "Transaction Details:\n$paymentPayload",
-                            requiresAcknowledgement = true
-                        )
-                        broadcastRenderingEngine.dispatchBroadcast(gson.toJson(broadcastPayload))
-                    }
-                    "custom_notification" -> {
-                        val title = root.getAsJsonPrimitive("title")?.asString ?: "Notification"
-                        val message = root.getAsJsonPrimitive("message")?.asString ?: ""
-                        val broadcastPayload = BroadcastPayload(
-                            broadcastId = "notify-${System.currentTimeMillis()}",
-                            tenantId = SecurePreferences.getTenantId(context),
-                            severity = "info",
-                            launcherMode = BroadcastRenderingEngine.MODE_BANNER,
-                            title = title,
-                            message = message,
-                            requiresAcknowledgement = true
-                        )
-                        broadcastRenderingEngine.dispatchBroadcast(gson.toJson(broadcastPayload))
                     }
                     else -> {
                         successStatus = "FAILED"
