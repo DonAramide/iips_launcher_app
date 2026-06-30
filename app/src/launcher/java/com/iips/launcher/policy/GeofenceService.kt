@@ -139,7 +139,21 @@ class GeofenceService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == "com.iips.launcher.ACTION_FORCE_LOCATION_CHECK") {
+            try {
+                fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null).addOnSuccessListener { loc ->
+                    if (loc != null) {
+                        processLocation(loc)
+                    }
+                }
+            } catch (e: SecurityException) {
+                Log.e(TAG, "Failed to force location check: ${e.message}")
+            }
+        }
+        return START_STICKY
+    }
+    
     override fun onDestroy() {
         super.onDestroy()
         fusedLocationClient.removeLocationUpdates(locationCallback)

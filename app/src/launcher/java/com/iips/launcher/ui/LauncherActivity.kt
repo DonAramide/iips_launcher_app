@@ -858,9 +858,11 @@ class LauncherActivity : AppCompatActivity() {
 
     private fun setupGeofenceOverlay() {
         binding.btnRetryLocation.setOnClickListener {
-            // Force a location check by restarting the service or sending an intent
-            com.iips.launcher.policy.GeofenceService.start(this)
-            Toast.makeText(this, "Checking location...", Toast.LENGTH_SHORT).show()
+            val forceIntent = Intent(this, com.iips.launcher.policy.GeofenceService::class.java).apply {
+                action = "com.iips.launcher.ACTION_FORCE_LOCATION_CHECK"
+            }
+            startService(forceIntent)
+            Toast.makeText(this, "Acquiring real-time GPS lock...", Toast.LENGTH_SHORT).show()
         }
 
         binding.btnRequestLocationAuth.setOnClickListener {
