@@ -219,7 +219,7 @@ class TaskbarController(
         scope.launch {
             try {
                 val deviceId = com.iips.launcher.storage.SecurePreferences.getDeviceId(activity) ?: ""
-                val authHeader = "Bearer ${com.iips.launcher.storage.SecurePreferences.getAuthToken(activity)}"
+                val authHeader = "Bearer ${com.iips.launcher.storage.SecurePreferences.getDeviceToken(activity)}"
                 
                 val request = com.iips.launcher.network.models.ManagerNotifyRequest(title, message)
                 val response = pairingService.notifyManager(deviceId, authHeader, request)
