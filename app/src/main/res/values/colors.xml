@@ -26,6 +26,32 @@
     <color name="success">#10B981</color>
     <color name="warning">#F59E0B</color>
     <color name="info">#3B82F6</color>
+
+    <!-- AAI Severity Palette (R4 — theme-aware named colors replacing hardcoded hex) -->
+    <color name="aai_severity_critical">#EF4444</color>
+    <color name="aai_severity_high">#F97316</color>
+    <color name="aai_severity_medium">#F59E0B</color>
+    <color name="aai_severity_low">#10B981</color>
+
+    <!-- AAI Stream State Colors (R4) -->
+    <color name="aai_stream_connected">#10B981</color>
+    <color name="aai_stream_connecting">#F59E0B</color>
+    <color name="aai_stream_offline">#EF4444</color>
+
+    <!-- AAI Event Dot Colors (R4) -->
+    <color name="aai_event_foreground">#10B981</color>
+    <color name="aai_event_background_end">#F59E0B</color>
+    <color name="aai_event_breach">#EF4444</color>
+    <color name="aai_event_info">#3B82F6</color>
+
+    <!-- AAI Session Status Colors (R4) -->
+    <color name="aai_session_active">#10B981</color>
+    <color name="aai_session_completed">#3B82F6</color>
+    <color name="aai_session_aborted">#EF4444</color>
+    <color name="aai_session_unknown">#94A3B8</color>
+
+    <!-- Operations stream log background (dark; unchanged in dark mode intentionally) -->
+    <color name="aai_stream_log_bg">#0F172A</color>
     
     <!-- Gradient Colors -->
     <color name="gradient_start">#1E3A8A</color>

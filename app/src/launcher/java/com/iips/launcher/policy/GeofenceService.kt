@@ -95,6 +95,7 @@ class GeofenceService : Service() {
             val shouldLock = geofenceManager.shouldLockDevice(this@GeofenceService, location)
             val isCurrentlyLocked = SecurePreferences.isGeofenceLocked(this@GeofenceService)
             
+
             if (isSpoofed || shouldLock) {
                 if (!isCurrentlyLocked) {
                     SecurePreferences.setGeofenceLocked(this@GeofenceService, true)

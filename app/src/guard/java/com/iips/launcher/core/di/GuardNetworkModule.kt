@@ -1,5 +1,7 @@
 package com.iips.launcher.core.di
 
+import com.iips.launcher.aai.cache.AaiMemoryCache
+import com.iips.launcher.network.GuardAaiService
 import com.iips.launcher.network.GuardPairingService
 import dagger.Module
 import dagger.Provides
@@ -17,4 +19,14 @@ object GuardNetworkModule {
     fun provideGuardPairingService(retrofit: Retrofit): GuardPairingService {
         return retrofit.create(GuardPairingService::class.java)
     }
+
+    @Provides
+    @Singleton
+    fun provideGuardAaiService(retrofit: Retrofit): GuardAaiService {
+        return retrofit.create(GuardAaiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideAaiMemoryCache(): AaiMemoryCache = AaiMemoryCache(ttlMs = AaiMemoryCache.DEFAULT_TTL_MS)
 }

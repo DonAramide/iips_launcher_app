@@ -78,12 +78,7 @@ class GeofenceManager @Inject constructor(
     }
 
     fun isLocationSpoofed(context: Context, location: Location): Boolean {
-        val isMock = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-            location.isMock
-        } else {
-            @Suppress("DEPRECATION")
-            location.isFromMockProvider
-        }
+        val isMock = com.iips.launcher.guard.security.MockLocationDetector.isMockLocation(location)
         if (isMock) return true
 
         lastLocation?.let { last ->

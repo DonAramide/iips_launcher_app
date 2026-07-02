@@ -64,6 +64,10 @@ class LauncherActivity : AppCompatActivity() {
     private var currentExpectedRadius: Double? = null
     private var currentExpectedZoneName: String? = null
     
+    private var sensorManager: android.hardware.SensorManager? = null
+    private var rotationSensor: android.hardware.Sensor? = null
+    private var rotationListener: android.hardware.SensorEventListener? = null
+    
     // Track when we launch an allowed app to prevent lock task from being re-enabled
     private var lastLaunchedAllowedApp: String? = null
     private var lastLaunchTime: Long = 0
@@ -122,6 +126,22 @@ class LauncherActivity : AppCompatActivity() {
 
         database = AppDatabase.getDatabase(this)
         fusedLocationClient = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(this)
+        
+        sensorManager = getSystemService(android.content.Context.SENSOR_SERVICE) as android.hardware.SensorManager
+        rotationSensor = sensorManager?.getDefaultSensor(android.hardware.Sensor.TYPE_ROTATION_VECTOR)
+        rotationListener = object : android.hardware.SensorEventListener {
+            override fun onSensorChanged(event: android.hardware.SensorEvent) {
+                if (event.sensor.type == android.hardware.Sensor.TYPE_ROTATION_VECTOR) {
+                    val rotationMatrix = FloatArray(9)
+                    android.hardware.SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+                    val orientationAngles = FloatArray(3)
+                    android.hardware.SensorManager.getOrientation(rotationMatrix, orientationAngles)
+                    val azimuth = Math.toDegrees(orientationAngles[0].toDouble()).toFloat()
+                    binding.geofenceRadarView.updateAzimuth(azimuth)
+                }
+            }
+            override fun onAccuracyChanged(sensor: android.hardware.Sensor, accuracy: Int) {}
+        }
         
         setupUI()
         loadApps()
@@ -949,6 +969,8 @@ class LauncherActivity : AppCompatActivity() {
                 currentExpectedRadius = radius
                 currentExpectedZoneName = zoneName
                 
+                binding.geofenceRadarView.updateData(currLat, currLng, expLat, expLng, radius)
+                
                 var expectedText = if (zoneName != null) {
                     String.format("Expected (%s): %.4f, %.4f", zoneName, expLat, expLng)
                 } else {
@@ -991,6 +1013,10 @@ class LauncherActivity : AppCompatActivity() {
         
         isLiveLocationActive = true
         
+        rotationSensor?.let { sensor ->
+            sensorManager?.registerListener(rotationListener, sensor, android.hardware.SensorManager.SENSOR_DELAY_UI)
+        }
+        
         val request = com.google.android.gms.location.LocationRequest.Builder(
             com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, 1000L
         ).setMinUpdateIntervalMillis(500L).build()
@@ -1003,6 +1029,8 @@ class LauncherActivity : AppCompatActivity() {
                     val expLat = currentExpectedLat
                     val expLng = currentExpectedLng
                     val radius = currentExpectedRadius
+                    
+                    binding.geofenceRadarView.updateData(loc.latitude, loc.longitude, expLat, expLng, radius)
                     
                     if (expLat != null && expLng != null) {
                         var expectedText = if (currentExpectedZoneName != null) {
@@ -1031,6 +1059,9 @@ class LauncherActivity : AppCompatActivity() {
     private fun stopLiveLocationUpdates() {
         if (!isLiveLocationActive) return
         isLiveLocationActive = false
+        
+        sensorManager?.unregisterListener(rotationListener)
+        
         liveLocationCallback?.let {
             fusedLocationClient.removeLocationUpdates(it)
         }
@@ -1060,7 +1091,7 @@ class LauncherActivity : AppCompatActivity() {
         try {
             fusedLocationClient.lastLocation.addOnSuccessListener { location ->
                 if (location != null) {
-                    sendLocationAuthProposal(location)
+                    showLocationAuthDialog(location)
                 } else {
                     val locationRequest = com.google.android.gms.location.LocationRequest.Builder(
                         com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, 1000L
@@ -1070,7 +1101,7 @@ class LauncherActivity : AppCompatActivity() {
                         override fun onLocationResult(result: com.google.android.gms.location.LocationResult) {
                             val loc = result.lastLocation
                             if (loc != null) {
-                                sendLocationAuthProposal(loc)
+                                showLocationAuthDialog(loc)
                             } else {
                                 Toast.makeText(this@LauncherActivity, "Could not acquire GPS lock. Please retry.", Toast.LENGTH_LONG).show()
                             }
@@ -1088,7 +1119,45 @@ class LauncherActivity : AppCompatActivity() {
         }
     }
 
-    private fun sendLocationAuthProposal(location: android.location.Location) {
+    private fun showLocationAuthDialog(location: android.location.Location) {
+        val builder = com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        builder.setTitle("Propose Authorized Site")
+        
+        val layout = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(64, 32, 64, 32)
+        }
+        
+        val coordinatesText = android.widget.TextView(this).apply {
+            text = String.format("Current Location:\nLat: %.5f\nLng: %.5f", location.latitude, location.longitude)
+            textSize = 14f
+            setPadding(0, 0, 0, 32)
+        }
+        
+        val radiusInput = com.google.android.material.textfield.TextInputEditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setText("30.0")
+            hint = "Radius (meters)"
+        }
+        
+        val inputLayout = com.google.android.material.textfield.TextInputLayout(this).apply {
+            addView(radiusInput)
+        }
+        
+        layout.addView(coordinatesText)
+        layout.addView(inputLayout)
+        
+        builder.setView(layout)
+        builder.setPositiveButton("Submit") { _, _ ->
+            val radiusStr = radiusInput.text.toString()
+            val radius = radiusStr.toDoubleOrNull() ?: 30.0
+            sendLocationAuthProposal(location, radius)
+        }
+        builder.setNegativeButton("Cancel", null)
+        builder.show()
+    }
+
+    private fun sendLocationAuthProposal(location: android.location.Location, radius: Double) {
         lifecycleScope.launch {
             try {
                 val token = SecurePreferences.getDeviceToken(this@LauncherActivity)
@@ -1102,7 +1171,7 @@ class LauncherActivity : AppCompatActivity() {
                     name = "Authorized Site Request",
                     lat = location.latitude,
                     lng = location.longitude,
-                    radius_m = 30.0
+                    radius_m = radius
                 )
                 val payload = mapOf("zones" to listOf(proposedRule))
                 val request = com.iips.launcher.network.models.MdmEventRequest(

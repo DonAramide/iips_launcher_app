@@ -181,6 +181,10 @@ class GuardMainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Notifications clicked", Toast.LENGTH_SHORT).show()
                 true
             }
+            com.iips.launcher.R.id.action_aai_console -> {
+                startActivity(Intent(this, com.iips.launcher.ui.aai.GuardAaiConsoleActivity::class.java))
+                true
+            }
             com.iips.launcher.R.id.action_logout -> {
                 performLogout()
                 true

@@ -206,7 +206,7 @@ object SecurePreferences {
 
     fun isGeofenceVibrationEnabled(context: Context): Boolean {
         val prefs = getEncryptedPrefs(context)
-        return prefs.getBoolean("geofence_vibration_enabled", true)
+        return prefs.getBoolean("geofence_vibration_enabled", false)
     }
 
     fun setGeofenceVibrationEnabled(context: Context, enabled: Boolean) {

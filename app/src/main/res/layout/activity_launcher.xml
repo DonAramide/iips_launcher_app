@@ -226,12 +226,10 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
 
-            <ImageView
-                android:id="@+id/lock_icon"
-                android:layout_width="120dp"
-                android:layout_height="120dp"
-                android:src="@android:drawable/ic_dialog_alert"
-                app:tint="@color/error" />
+            <com.iips.launcher.ui.views.GeofenceRadarView
+                android:id="@+id/geofence_radar_view"
+                android:layout_width="250dp"
+                android:layout_height="250dp" />
 
             <TextView
                 android:id="@+id/lock_message"

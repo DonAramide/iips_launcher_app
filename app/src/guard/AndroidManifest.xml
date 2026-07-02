@@ -46,6 +46,20 @@
             android:screenOrientation="portrait"
             android:theme="@style/Theme.Dotroid.NoActionBar" />
 
+        <!-- AAI Intelligence Console -->
+        <activity
+            android:name=".ui.aai.GuardAaiConsoleActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified"
+            android:theme="@style/Theme.Dotroid.NoActionBar" />
+
+        <!-- AAI App Detail -->
+        <activity
+            android:name=".ui.aai.explorer.AppDetailActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Dotroid.NoActionBar" />
+
         <!-- FCM Service for Manager App notifications -->
         <service
             android:name=".fcm.PushNotificationService"

@@ -82,5 +82,6 @@
     <string name="provisioning_failed">Enrollment Failed</string>
     <string name="provisioning_retry">Retry</string>
     <string name="provisioning_footnote">This device is being configured for enterprise use.\nDo not power off during setup.</string>
+    <string name="aai_accessibility_desc">Dotroid Application Activity Intelligence accessibility monitor.</string>
 </resources>
 

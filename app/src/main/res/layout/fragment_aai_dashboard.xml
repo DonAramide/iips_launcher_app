@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/swipe_refresh"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Stream Status Banner -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_stream_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="#1A10B981">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:padding="12dp">
+
+                    <View
+                        android:id="@+id/view_stream_dot"
+                        android:layout_width="10dp"
+                        android:layout_height="10dp"
+                        android:background="@color/success"
+                        android:layout_marginEnd="8dp" />
+
+                    <TextView
+                        android:id="@+id/tv_stream_status"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Live Stream: Connecting…"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_primary" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- KPI Cards Row -->
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none"
+                android:clipToPadding="false"
+                android:layout_marginBottom="16dp">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <!-- Active Devices -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/card_active_devices"
+                        android:layout_width="120dp"
+                        android:layout_height="90dp"
+                        android:layout_marginEnd="10dp"
+                        app:cardCornerRadius="14dp"
+                        app:cardElevation="2dp">
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+                            android:orientation="vertical" android:gravity="center" android:padding="12dp">
+                            <TextView android:id="@+id/tv_active_devices" android:layout_width="wrap_content"
+                                android:layout_height="wrap_content" android:text="—"
+                                android:textSize="24sp" android:textStyle="bold" android:textColor="@color/primary" />
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:text="Active Devices" android:textSize="11sp" android:textColor="@color/text_secondary"
+                                android:gravity="center" android:layout_marginTop="2dp" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Active Sessions -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/card_active_sessions"
+                        android:layout_width="120dp"
+                        android:layout_height="90dp"
+                        android:layout_marginEnd="10dp"
+                        app:cardCornerRadius="14dp"
+                        app:cardElevation="2dp">
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+                            android:orientation="vertical" android:gravity="center" android:padding="12dp">
+                            <TextView android:id="@+id/tv_active_sessions" android:layout_width="wrap_content"
+                                android:layout_height="wrap_content" android:text="—"
+                                android:textSize="24sp" android:textStyle="bold" android:textColor="@color/success" />
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:text="Active Sessions" android:textSize="11sp" android:textColor="@color/text_secondary"
+                                android:gravity="center" android:layout_marginTop="2dp" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Active Apps -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/card_active_apps"
+                        android:layout_width="120dp"
+                        android:layout_height="90dp"
+                        android:layout_marginEnd="10dp"
+                        app:cardCornerRadius="14dp"
+                        app:cardElevation="2dp">
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+                            android:orientation="vertical" android:gravity="center" android:padding="12dp">
+                            <TextView android:id="@+id/tv_active_apps" android:layout_width="wrap_content"
+                                android:layout_height="wrap_content" android:text="—"
+                                android:textSize="24sp" android:textStyle="bold" android:textColor="@color/accent" />
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:text="Active Apps" android:textSize="11sp" android:textColor="@color/text_secondary"
+                                android:gravity="center" android:layout_marginTop="2dp" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Compliance Alerts -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/card_compliance_alerts"
+                        android:layout_width="120dp"
+                        android:layout_height="90dp"
+                        app:cardCornerRadius="14dp"
+                        app:cardElevation="2dp">
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+                            android:orientation="vertical" android:gravity="center" android:padding="12dp">
+                            <TextView android:id="@+id/tv_compliance_alerts" android:layout_width="wrap_content"
+                                android:layout_height="wrap_content" android:text="—"
+                                android:textSize="24sp" android:textStyle="bold" android:textColor="@color/error" />
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:text="Compliance" android:textSize="11sp" android:textColor="@color/text_secondary"
+                                android:gravity="center" android:layout_marginTop="2dp" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                </LinearLayout>
+            </HorizontalScrollView>
+
+            <!-- Live Activity Feed -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Live Activity Feed"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary"
+                android:layout_marginBottom="8dp" />
+
+            <!-- Shimmer / Loading -->
+            <LinearLayout
+                android:id="@+id/shimmer_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+                <!-- Shimmer rows (3 placeholder cards) -->
+                <include layout="@layout/item_shimmer_row" />
+                <include layout="@layout/item_shimmer_row" />
+                <include layout="@layout/item_shimmer_row" />
+            </LinearLayout>
+
+            <!-- Empty State -->
+            <LinearLayout
+                android:id="@+id/empty_state"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="32dp"
+                android:visibility="gone">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="No Live Activity" android:textSize="18sp" android:textStyle="bold"
+                    android:textColor="@color/text_primary" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Waiting for device events…" android:textSize="14sp"
+                    android:textColor="@color/text_secondary" android:gravity="center" android:layout_marginTop="4dp" />
+            </LinearLayout>
+
+            <!-- Error State -->
+            <LinearLayout
+                android:id="@+id/error_state"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="32dp"
+                android:visibility="gone">
+                <TextView android:id="@+id/tv_error_message"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Failed to load dashboard" android:textSize="14sp"
+                    android:textColor="@color/error" android:gravity="center" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_retry"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Retry" android:layout_marginTop="12dp" />
+            </LinearLayout>
+
+            <!-- Live Feed RecyclerView -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recycler_live_feed"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false"
+                android:visibility="gone" />
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Filter Intelligence" android:textSize="18sp"
+            android:textStyle="bold" android:textColor="?attr/colorOnSurface"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Device ID -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:hint="Device ID">
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_device_id"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:imeOptions="actionNext" android:inputType="text" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- User ID (R2) -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:hint="User ID">
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_user_id"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:imeOptions="actionNext" android:inputType="text" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Package Name -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:hint="Package Name">
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_package_name"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:imeOptions="actionNext" android:inputType="text" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Risk Level / Category -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:layout_marginBottom="10dp">
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:layout_marginEnd="6dp"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:hint="Risk Level">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_risk_level"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:imeOptions="actionNext" android:inputType="text" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:layout_marginStart="6dp"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:hint="Category">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_category"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:imeOptions="actionNext" android:inputType="text" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+        </LinearLayout>
+
+        <!-- Min Trust Score (R2) -->
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Min Trust Score" android:textSize="12sp"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:layout_marginBottom="4dp" />
+        <SeekBar
+            android:id="@+id/seek_trust_min"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:max="100" android:progress="0"
+            android:layout_marginBottom="2dp" />
+        <TextView
+            android:id="@+id/tv_trust_value"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Any" android:textSize="11sp"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Correlation ID / Session ID -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:layout_marginBottom="10dp">
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:layout_marginEnd="6dp"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:hint="Correlation ID">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_correlation_id"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:imeOptions="actionNext" android:inputType="text" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:layout_marginStart="6dp"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:hint="Session ID">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_session_id"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:imeOptions="actionNext" android:inputType="text" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+        </LinearLayout>
+
+        <!-- Date Range -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:layout_marginBottom="10dp">
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:layout_marginEnd="6dp"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:hint="Date From (ISO)">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_date_from"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:imeOptions="actionNext" android:inputType="text" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:layout_marginStart="6dp"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:hint="Date To (ISO)">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_date_to"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:imeOptions="actionDone" android:inputType="text" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+        </LinearLayout>
+
+        <!-- Actions -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:layout_marginTop="8dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_clear"
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:layout_marginEnd="8dp"
+                android:text="Clear"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_apply"
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Apply Filters" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</androidx.core.widget.NestedScrollView>
