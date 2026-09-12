@@ -103,8 +103,9 @@ class DeviceAdminReceiver : DeviceAdminReceiver() {
         // 1. Set Dotroid as the default home launcher automatically
         com.iips.launcher.policy.DeviceController.setDefaultLauncher(context)
 
-        // 2. Apply initial security restrictions common to all managed devices
-        com.iips.launcher.policy.DeviceController.enableComprehensiveSecurity(context)
+        // 2. Do not apply kiosk/security here. Enrollment and a valid policy
+        //    snapshot must exist first; KioskController.applyPolicy() is the gate.
+        Log.i(TAG, "onProfileProvisioningComplete — deferring kiosk/security until enrollment+policy are ready")
 
         // Launch bootstrap service to perform the actual enrollment
         launchBootstrapService(context)

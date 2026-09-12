@@ -7,6 +7,7 @@ import android.os.UserManager
 import android.util.Log
 import com.iips.launcher.core.StructuredLogger
 import com.iips.launcher.network.models.DevicePolicySnapshot
+import com.iips.launcher.storage.SecurePreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -32,6 +33,11 @@ class PolicyEnforcementEngine @Inject constructor(
      */
     fun enforce(snapshot: DevicePolicySnapshot) {
         Log.i(TAG, "Starting full policy enforcement (Version: \${snapshot.version})")
+
+        if (!SecurePreferences.isEnrollmentComplete(context)) {
+            Log.i(TAG, "enforce skipped: SKIPPED_REASON_NOT_ENROLLED")
+            return
+        }
         
         try {
             if (!dpm.isAdminActive(admin)) {

@@ -9,8 +9,24 @@ import android.os.Build
 import android.view.View
 import androidx.annotation.RequiresApi
 import com.iips.launcher.policy.DeviceAdminReceiver
+import com.iips.launcher.storage.SecurePreferences
 
 object DeviceController {
+
+    private fun isKioskSecurityReady(context: Context): Boolean {
+        val ready = SecurePreferences.isReadyForKioskSecurity(context)
+        if (!ready) {
+            android.util.Log.i(
+                "DeviceController",
+                "Kiosk/security skipped: DeviceOwner=${DeviceAdminReceiver.isDeviceOwner(context)} " +
+                    "EnrollmentComplete=${SecurePreferences.isEnrollmentComplete(context)} " +
+                    "Registered=${SecurePreferences.isRegistered(context)} " +
+                    "PolicyAvailable=${SecurePreferences.hasValidPolicySnapshot(context)} " +
+                    "state=${SecurePreferences.getDeviceState(context)}"
+            )
+        }
+        return ready
+    }
 
     fun enableLockTaskMode(context: Context) {
         // Always wrap in try-catch to prevent any crashes
@@ -22,6 +38,9 @@ object DeviceController {
             // Early return if not Device Owner
             if (!DeviceAdminReceiver.isDeviceOwner(context)) {
                 return // Not Device Owner, skip silently
+            }
+            if (!isKioskSecurityReady(context)) {
+                return
             }
             
             try {
@@ -91,6 +110,9 @@ object DeviceController {
                 if (!DeviceAdminReceiver.isDeviceOwner(activity)) {
                     return
                 }
+                if (!isKioskSecurityReady(activity)) {
+                    return
+                }
                 
                 // Check if admin is active before starting lock task
                 val devicePolicyManager =
@@ -156,6 +178,9 @@ object DeviceController {
     }
 
     fun enableImmersiveMode(activity: Activity) {
+        if (!isKioskSecurityReady(activity)) {
+            return
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
             val flags = (
                 View.SYSTEM_UI_FLAG_LAYOUT_STABLE
@@ -219,6 +244,9 @@ object DeviceController {
     fun enableFactoryResetProtection(context: Context) {
         try {
             if (!DeviceAdminReceiver.isDeviceOwner(context)) {
+                return
+            }
+            if (!isKioskSecurityReady(context)) {
                 return
             }
 
@@ -379,6 +407,9 @@ object DeviceController {
             if (!DeviceAdminReceiver.isDeviceOwner(context)) {
                 return
             }
+            if (!isKioskSecurityReady(context)) {
+                return
+            }
 
             val devicePolicyManager =
                 context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
@@ -421,17 +452,12 @@ object DeviceController {
             // Block access to app info/uninstall/force stop screens
             val restrictions = mutableListOf(
                 android.os.UserManager.DISALLOW_CONFIG_CREDENTIALS,
-                android.os.UserManager.DISALLOW_SAFE_BOOT,
                 android.os.UserManager.DISALLOW_MODIFY_ACCOUNTS,
                 android.os.UserManager.DISALLOW_APPS_CONTROL,  // Prevents app management access - BLOCKS FORCE STOP
                 android.os.UserManager.DISALLOW_CONFIG_PRIVATE_DNS
             )
-
-            // Keep debugging and USB transfer enabled in debug builds to prevent locking developers out of ADB
-            if (!com.iips.launcher.BuildConfig.DEBUG) {
-                restrictions.add(android.os.UserManager.DISALLOW_DEBUGGING_FEATURES)
-                restrictions.add(android.os.UserManager.DISALLOW_USB_FILE_TRANSFER)
-            }
+            // Do not disable ADB, USB transfer, or safe boot here. That bricks recovery
+            // on test/release installs when Device Owner is set.
             
             // Add additional restrictions if available (Android 6.0+)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -484,6 +510,9 @@ object DeviceController {
     fun setStatusBarLocked(context: Context, locked: Boolean) {
         try {
             if (!DeviceAdminReceiver.isDeviceOwner(context)) return
+            if (locked && !isKioskSecurityReady(context)) {
+                return
+            }
 
             val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
             val admin = DeviceAdminReceiver.getComponentName(context)
@@ -505,6 +534,9 @@ object DeviceController {
     fun preventForceStop(context: Context) {
         try {
             if (!DeviceAdminReceiver.isDeviceOwner(context)) {
+                return
+            }
+            if (!isKioskSecurityReady(context)) {
                 return
             }
             
@@ -596,6 +628,9 @@ object DeviceController {
      * Block swipe-down and Settings access by intercepting system UI
      */
     fun blockSystemUI(activity: Activity) {
+        if (!isKioskSecurityReady(activity)) {
+            return
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
             // Full immersive mode to prevent notifications pull-down
             val flags = (

@@ -178,41 +178,54 @@ class BootReceiver : BroadcastReceiver() {
     
     private fun handleBootComplete(context: Context) {
         try {
-            // Check if Device Owner is set
             if (!DeviceAdminReceiver.isDeviceOwner(context)) {
-                return // Not Device Owner, skip auto-start
+                return
             }
-            
-            // Auto-enable security features on boot (if previously enabled)
-            if (SecurePreferences.isLockdownEnabled(context)) {
-                // Security features will be enabled when LauncherActivity starts
+
+            val state = SecurePreferences.getDeviceState(context)
+            if (state == SecurePreferences.STATE_NEW || state == SecurePreferences.STATE_ONBOARDING) {
+                return
             }
-            
-            // Auto-launch launcher if enabled as system app
-            // This ensures launcher is always running
+
             val launchIntent = Intent(context, LauncherActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
-            
+
             try {
                 context.startActivity(launchIntent)
             } catch (e: Exception) {
                 // Ignore if launcher cannot start (may already be running)
             }
-            
-            // Apply comprehensive security after boot
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+
+            val policyReady = SecurePreferences.isReadyForKioskSecurity(context)
+            if (policyReady &&
+                SecurePreferences.isLockdownEnabled(context) &&
+                state == SecurePreferences.STATE_ACTIVE &&
+                android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP
+            ) {
+                android.util.Log.i(
+                    "BootReceiver",
+                    "Boot kiosk apply: DeviceOwner=true EnrollmentComplete=true PolicyAvailable=true"
+                )
                 DeviceController.enableComprehensiveSecurity(context)
+            } else {
+                android.util.Log.i(
+                    "BootReceiver",
+                    "Boot kiosk skipped: DeviceOwner=true " +
+                        "EnrollmentComplete=${SecurePreferences.isEnrollmentComplete(context)} " +
+                        "Registered=${SecurePreferences.isRegistered(context)} " +
+                        "PolicyAvailable=${SecurePreferences.hasValidPolicySnapshot(context)} " +
+                        "state=$state"
+                )
             }
 
-            // Start Guard service and sync worker if registered
             if (SecurePreferences.isRegistered(context)) {
                 com.iips.launcher.guard.service.GuardLocationService.start(context)
                 com.iips.launcher.guard.worker.LocationSyncWorker.schedule(context)
             }
-            
+
         } catch (e: Exception) {
             // Ignore errors during boot (system may not be fully ready)
         }

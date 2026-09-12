@@ -81,7 +81,17 @@ class LauncherActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
-        
+
+        // Process provisioning extras on cold start
+        com.iips.launcher.network.DeviceEnrollmentManager.extractAndPersistProvisioningExtras(this, intent)
+
+        if (routeToSetupIfNeeded()) {
+            // Dismiss splash immediately. Finishing HOME relaunches this activity and loops splash.
+            splashScreen.setKeepOnScreenCondition { false }
+            splashScreen.setOnExitAnimationListener { it.remove() }
+            return
+        }
+
         // Custom exit animation for a premium feel
         splashScreen.setOnExitAnimationListener { splashScreenProvider ->
             val iconView = splashScreenProvider.iconView
@@ -94,31 +104,6 @@ class LauncherActivity : AppCompatActivity() {
                     splashScreenProvider.remove()
                 }
                 .start()
-        }
-        
-        // Process provisioning extras on cold start
-        com.iips.launcher.network.DeviceEnrollmentManager.extractAndPersistProvisioningExtras(this, intent)
-
-        if (!SecurePreferences.isRegistered(this)) {
-            SecurePreferences.setDeviceState(this, SecurePreferences.STATE_ONBOARDING)
-            startActivity(Intent(this, OnboardingActivity::class.java))
-            finish()
-            return
-        }
-
-        val state = SecurePreferences.getDeviceState(this)
-        when (state) {
-            SecurePreferences.STATE_NEW, SecurePreferences.STATE_ONBOARDING -> {
-                // Always route to OnboardingActivity — it now contains the full enrollment form
-                startActivity(Intent(this, OnboardingActivity::class.java))
-                finish()
-                return
-            }
-            SecurePreferences.STATE_REGISTERED, SecurePreferences.STATE_PENDING_APPROVAL -> {
-                startActivity(Intent(this, PendingActivity::class.java))
-                finish()
-                return
-            }
         }
 
         binding = ActivityLauncherBinding.inflate(layoutInflater)
@@ -343,21 +328,15 @@ class LauncherActivity : AppCompatActivity() {
         // Process provisioning extras on resume
         com.iips.launcher.network.DeviceEnrollmentManager.extractAndPersistProvisioningExtras(this, intent)
 
-        val state = SecurePreferences.getDeviceState(this)
-        when (state) {
-            SecurePreferences.STATE_NEW, SecurePreferences.STATE_ONBOARDING -> {
-                // Always route to OnboardingActivity — it now contains the full enrollment form
-                startActivity(Intent(this, OnboardingActivity::class.java))
-                finish()
-                return
-            }
-            SecurePreferences.STATE_REGISTERED, SecurePreferences.STATE_PENDING_APPROVAL -> {
-                startActivity(Intent(this, PendingActivity::class.java))
-                finish()
-                return
-            }
+        if (routeToSetupIfNeeded()) {
+            return
         }
-        
+
+        if (!::binding.isInitialized) {
+            return
+        }
+
+        val state = SecurePreferences.getDeviceState(this)
         if (state == SecurePreferences.STATE_ACTIVE) {
             val snapshot = SecurePreferences.getDevicePolicySnapshot(this)
             if (snapshot != null && snapshot.geofenceRules.isNotEmpty()) {
@@ -631,6 +610,19 @@ class LauncherActivity : AppCompatActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        val setupState = SecurePreferences.getDeviceState(this)
+        if (setupState == SecurePreferences.STATE_NEW || setupState == SecurePreferences.STATE_ONBOARDING) {
+            return
+        }
+        if (!SecurePreferences.isReadyForKioskSecurity(this)) {
+            android.util.Log.i(
+                "LauncherActivity",
+                "onWindowFocusChanged skipped lockdown: DeviceOwner=${DeviceAdminReceiver.isDeviceOwner(this)} " +
+                    "EnrollmentComplete=${SecurePreferences.isEnrollmentComplete(this)} " +
+                    "PolicyAvailable=${SecurePreferences.hasValidPolicySnapshot(this)}"
+            )
+            return
+        }
         if (hasFocus) {
             // Don't enable lock task if AdminActivity is currently showing
             val isAdminActivityVisible = try {
@@ -659,8 +651,52 @@ class LauncherActivity : AppCompatActivity() {
         }
     }
 
+    private fun routeToSetupIfNeeded(): Boolean {
+        val registered = SecurePreferences.isRegistered(this)
+        val state = SecurePreferences.getDeviceState(this)
+        if (!registered || state == SecurePreferences.STATE_NEW || state == SecurePreferences.STATE_ONBOARDING) {
+            SecurePreferences.setDeviceState(this, SecurePreferences.STATE_ONBOARDING)
+            startActivity(Intent(this, OnboardingActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+            })
+            return true
+        }
+        if (state == SecurePreferences.STATE_REGISTERED || state == SecurePreferences.STATE_PENDING_APPROVAL) {
+            startActivity(Intent(this, PendingActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+            })
+            return true
+        }
+        return false
+    }
+
+    private fun isSetupFlowVisible(): Boolean {
+        return try {
+            val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val runningTasks = activityManager.getRunningTasks(5)
+            runningTasks.any { task ->
+                val className = task.topActivity?.className ?: ""
+                className.contains("OnboardingActivity") ||
+                    className.contains("QrScannerActivity") ||
+                    className.contains("WifiSetupActivity") ||
+                    className.contains("PendingActivity") ||
+                    className.contains("ProvisioningStatusActivity")
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
+
+        val setupState = SecurePreferences.getDeviceState(this)
+        if (setupState == SecurePreferences.STATE_NEW ||
+            setupState == SecurePreferences.STATE_ONBOARDING ||
+            isSetupFlowVisible()
+        ) {
+            return
+        }
         
         // Check if we recently launched an allowed app
         val recentlyLaunchedAllowedApp = lastLaunchedAllowedApp != null && 
@@ -1218,7 +1254,19 @@ class LauncherActivity : AppCompatActivity() {
         }
 
         binding.statusText.visibility = View.GONE
-        
+
+        val decision = com.iips.launcher.policy.KioskController.evaluateSecurityGate(this)
+        if (!decision.apply) {
+            android.util.Log.i(
+                "LauncherActivity",
+                "setupDeviceControls skipped lockdown: ${decision.reason} " +
+                    "DeviceOwner=${decision.deviceOwner} EnrollmentComplete=${decision.enrollmentComplete} " +
+                    "Registered=${decision.registered} PolicyAvailable=${decision.policyAvailable}"
+            )
+            com.iips.launcher.policy.KioskController.applyPolicy(this)
+            return
+        }
+
         // Always enable factory reset protection
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP_MR1) {
             DeviceController.enableFactoryResetProtection(this)
