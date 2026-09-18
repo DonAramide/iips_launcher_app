@@ -41,6 +41,10 @@ class KioskManager @Inject constructor(
                 Log.e(TAG, "Cannot enable Kiosk: Not Device Owner")
                 return
             }
+            if (!SecurePreferences.isReadyForKioskSecurity(context)) {
+                Log.i(TAG, "${com.iips.launcher.policy.KioskController.GATE_MARKER} enableKiosk skipped: not enrollment/policy ready")
+                return
+            }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 dpm.setLockTaskPackages(admin, arrayOf(context.packageName))

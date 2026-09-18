@@ -4,55 +4,89 @@ import android.app.Activity
 import android.content.Context
 import android.os.Build
 import android.util.Log
-import com.iips.launcher.policy.DeviceController
 import com.iips.launcher.storage.SecurePreferences
 
 object KioskController {
     private const val TAG = "KioskController"
+    const val GATE_MARKER = "DOTROID_DO_GATE_V2"
+
+    data class SecurityGateDecision(
+        val apply: Boolean,
+        val reason: String,
+        val deviceOwner: Boolean,
+        val registered: Boolean,
+        val enrollmentComplete: Boolean,
+        val policyAvailable: Boolean,
+        val state: String
+    )
 
     /**
-     * Reads the current policy from SecurePreferences and applies its restrictions via DeviceController.
+     * Existing authoritative state:
+     * - registered = device_id + access_token
+     * - enrollment complete = registered AND state ACTIVE/LOCKED
+     * - policy available = persisted MDM DevicePolicySnapshot
      */
-    fun applyPolicy(context: Context) {
+    fun evaluateSecurityGate(context: Context): SecurityGateDecision {
+        val deviceOwner = DeviceAdminReceiver.isDeviceOwner(context)
+        val registered = SecurePreferences.isRegistered(context)
         val state = SecurePreferences.getDeviceState(context)
-        if (state == SecurePreferences.STATE_NEW || state == SecurePreferences.STATE_ONBOARDING) {
-            Log.d(TAG, "Device is in onboarding/new state ($state). Disabling kiosk mode and stopping lock task.")
-            SecurePreferences.setLockdownEnabled(context, false)
-            DeviceController.disableLockTaskMode(context)
-            if (context is Activity) {
-                DeviceController.stopLockTask(context)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                DeviceController.blockSettingsAccess(context, false)
-            }
+        val enrollmentComplete = SecurePreferences.isEnrollmentComplete(context)
+        val policyAvailable = SecurePreferences.hasValidPolicySnapshot(context)
+        val reason = when {
+            !registered || !enrollmentComplete -> "SKIPPED_REASON_NOT_ENROLLED"
+            !policyAvailable -> "SKIPPED_REASON_NO_POLICY"
+            else -> "APPLY"
+        }
+        val apply = deviceOwner && enrollmentComplete && policyAvailable
+        Log.i(
+            TAG,
+            "$GATE_MARKER DeviceOwner=$deviceOwner EnrollmentComplete=$enrollmentComplete " +
+                "Registered=$registered PolicyAvailable=$policyAvailable " +
+                "state=$state KioskApply=$reason"
+        )
+        return SecurityGateDecision(
+            apply = apply,
+            reason = reason,
+            deviceOwner = deviceOwner,
+            registered = registered,
+            enrollmentComplete = enrollmentComplete,
+            policyAvailable = policyAvailable,
+            state = state
+        )
+    }
+
+    fun applyPolicy(context: Context) {
+        val decision = evaluateSecurityGate(context)
+        if (!decision.apply) {
+            Log.i(TAG, "applyPolicy skipped: ${decision.reason}")
+            releasePrematureLockdown(context)
             return
         }
 
         val snapshot = SecurePreferences.getDevicePolicySnapshot(context)
-        val kioskEnabled = SecurePreferences.getKioskModeEnabled(context)
-        val settingsLocked = SecurePreferences.isSettingsLocked(context)
-        
-        // 1. Check for Expired Policy (Lockdown)
-        var isExpired = false
-        if (snapshot != null) {
-            val age = System.currentTimeMillis() - snapshot.lastUpdatedAt
-            if (age >= 2 * snapshot.maxPolicyAge) { // 2x maxAge = Expired
-                isExpired = true
-                Log.w(TAG, "MDM Policy EXPIRED. Forcing Lockdown Mode.")
-            }
-        } else {
-            Log.w(TAG, "No MDM Policy found. Defaulting to Lockdown.")
-            isExpired = true
+        if (snapshot == null) {
+            Log.i(TAG, "applyPolicy skipped: SKIPPED_REASON_NO_POLICY")
+            releasePrematureLockdown(context)
+            return
         }
 
-        Log.d(TAG, "Applying Kiosk State: Enabled=$kioskEnabled, SettingsLocked=$settingsLocked (Expired=$isExpired)")
+        val kioskEnabled = SecurePreferences.getKioskModeEnabled(context)
+        val settingsLocked = SecurePreferences.isSettingsLocked(context)
+
+        var isExpired = false
+        val age = System.currentTimeMillis() - snapshot.lastUpdatedAt
+        if (age >= 2 * snapshot.maxPolicyAge) {
+            isExpired = true
+            Log.w(TAG, "MDM Policy EXPIRED. Forcing Lockdown Mode.")
+        }
+
+        Log.i(TAG, "Applying Kiosk State: Enabled=$kioskEnabled, SettingsLocked=$settingsLocked (Expired=$isExpired)")
 
         if (isExpired || kioskEnabled) {
-            // Enable kiosk mode
             SecurePreferences.setLockdownEnabled(context, true)
             DeviceController.enableLockTaskMode(context)
             if (context is Activity) DeviceController.startLockTask(context)
-            
+
             if (settingsLocked || isExpired) {
                 DeviceController.enableComprehensiveSecurity(context)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -60,7 +94,6 @@ object KioskController {
                 }
             }
         } else {
-            // Disable kiosk mode completely
             SecurePreferences.setLockdownEnabled(context, false)
             DeviceController.disableLockTaskMode(context)
             if (context is Activity) {
@@ -72,24 +105,35 @@ object KioskController {
         }
     }
 
-    /**
-     * Helper to temporarily pause Lock Task mode.
-     */
     fun pauseLockTask(activity: Activity) {
         DeviceController.stopLockTask(activity)
     }
 
-    /**
-     * Helper to resume Lock Task mode if policy dictates.
-     */
     fun resumeLockTask(activity: Activity) {
+        val decision = evaluateSecurityGate(activity)
+        if (!decision.apply) {
+            Log.i(TAG, "resumeLockTask skipped: ${decision.reason}")
+            return
+        }
+
         val kioskEnabled = SecurePreferences.getKioskModeEnabled(activity)
         val snapshot = SecurePreferences.getDevicePolicySnapshot(activity)
-        
-        val isExpired = snapshot?.let { (System.currentTimeMillis() - it.lastUpdatedAt) >= 2 * it.maxPolicyAge } ?: true
+        val isExpired = snapshot?.let {
+            (System.currentTimeMillis() - it.lastUpdatedAt) >= 2 * it.maxPolicyAge
+        } ?: false
 
         if (isExpired || kioskEnabled) {
             DeviceController.startLockTask(activity)
+        }
+    }
+
+    private fun releasePrematureLockdown(context: Context) {
+        DeviceController.disableLockTaskMode(context)
+        if (context is Activity) {
+            DeviceController.stopLockTask(context)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            DeviceController.blockSettingsAccess(context, false)
         }
     }
 }

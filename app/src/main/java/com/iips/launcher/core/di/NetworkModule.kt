@@ -28,9 +28,9 @@ object NetworkModule {
             level = HttpLoggingInterceptor.Level.BODY
         }
         return OkHttpClient.Builder()
-            .addInterceptor(logging)
-            .addInterceptor(MdmErrorInterceptor())
             .addInterceptor(DynamicBaseUrlInterceptor(context))
+            .addInterceptor(MdmErrorInterceptor())
+            .addInterceptor(logging)
             .followRedirects(false)
             .followSslRedirects(false)
             .build()
@@ -79,7 +79,7 @@ class DynamicBaseUrlInterceptor(private val context: Context) : okhttp3.Intercep
         request = requestBuilder.build()
 
         val parsedBase = BuildConfig.BASE_URL.toHttpUrlOrNull()
-        
+
         if (parsedBase != null && originalUrl.host == parsedBase.host) {
             val customUrl = SecurePreferences.getProvisioningBackendUrl(context)
                 ?: SecurePreferences.getBackendUrl(context)
@@ -90,18 +90,10 @@ class DynamicBaseUrlInterceptor(private val context: Context) : okhttp3.Intercep
                     val normalizedUrl = com.iips.launcher.policy.DeviceAdminReceiver.normalizeBackendUrl(customUrl)
                     val parsedCustom = normalizedUrl.toHttpUrlOrNull()
                     if (parsedCustom != null) {
-                        val baseSegmentCount = parsedBase.pathSize
-                        val requestSegments = originalUrl.pathSegments
-                        
-                        val newUrlBuilder = parsedCustom.newBuilder()
-                        if (requestSegments.size > baseSegmentCount) {
-                            val relativeSegments = requestSegments.subList(baseSegmentCount, requestSegments.size)
-                            for (segment in relativeSegments) {
-                                newUrlBuilder.addPathSegment(segment)
-                            }
+                        val rewritten = rewriteAgainstBase(originalUrl, parsedBase, parsedCustom)
+                        if (rewritten != null) {
+                            request = request.newBuilder().url(rewritten).build()
                         }
-                        val newHttpUrl = newUrlBuilder.build()
-                        request = request.newBuilder().url(newHttpUrl).build()
                     }
                 } catch (e: java.lang.Exception) {
                     android.util.Log.e("BaseUrlInterceptor", "Error rewriting base URL", e)
@@ -109,6 +101,52 @@ class DynamicBaseUrlInterceptor(private val context: Context) : okhttp3.Intercep
             }
         }
         return chain.proceed(request)
+    }
+
+    companion object {
+        /**
+         * Replace BuildConfig base host/prefix with the provisioned backend while preserving
+         * the relative API path (e.g. device/register).
+         *
+         * Trailing-slash empty segments must be ignored — otherwise pathSize over-counts and
+         * drops the first relative segment (device/register → register → 404).
+         */
+        fun rewriteAgainstBase(
+            requestUrl: HttpUrl,
+            buildConfigBase: HttpUrl,
+            customBase: HttpUrl
+        ): HttpUrl? {
+            val baseSegments = meaningfulPathSegments(buildConfigBase)
+            val requestSegments = meaningfulPathSegments(requestUrl)
+            val customSegments = meaningfulPathSegments(customBase)
+
+            val relativeSegments = when {
+                requestSegments.size >= baseSegments.size &&
+                    requestSegments.take(baseSegments.size) == baseSegments ->
+                    requestSegments.drop(baseSegments.size)
+                else -> requestSegments
+            }
+
+            val builder = HttpUrl.Builder()
+                .scheme(customBase.scheme)
+                .host(customBase.host)
+                .port(customBase.port)
+
+            for (segment in customSegments) {
+                builder.addPathSegment(segment)
+            }
+            for (segment in relativeSegments) {
+                builder.addPathSegment(segment)
+            }
+
+            if (requestUrl.encodedQuery != null) {
+                builder.encodedQuery(requestUrl.encodedQuery)
+            }
+            return builder.build()
+        }
+
+        fun meaningfulPathSegments(url: HttpUrl): List<String> =
+            url.pathSegments.filter { it.isNotEmpty() }
     }
 }
 

@@ -81,9 +81,22 @@ class BootReceiver : BroadcastReceiver() {
                 // Ignore if launcher cannot start (may already be running)
             }
             
-            // Apply comprehensive security after boot
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+            if (SecurePreferences.isReadyForKioskSecurity(context) &&
+                android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP
+            ) {
+                android.util.Log.i(
+                    "BootReceiver",
+                    "${com.iips.launcher.policy.KioskController.GATE_MARKER} Boot kiosk apply"
+                )
                 DeviceController.enableComprehensiveSecurity(context)
+            } else {
+                android.util.Log.i(
+                    "BootReceiver",
+                    "${com.iips.launcher.policy.KioskController.GATE_MARKER} Boot kiosk skipped: " +
+                        "EnrollmentComplete=${SecurePreferences.isEnrollmentComplete(context)} " +
+                        "PolicyAvailable=${SecurePreferences.hasValidPolicySnapshot(context)} " +
+                        "state=${SecurePreferences.getDeviceState(context)}"
+                )
             }
             
         } catch (e: Exception) {

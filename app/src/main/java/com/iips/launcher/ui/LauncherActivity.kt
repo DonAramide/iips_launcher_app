@@ -4,14 +4,25 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
+import android.net.wifi.WifiManager
 import android.os.BatteryManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.view.View
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.SeekBar
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -531,6 +542,14 @@ class LauncherActivity : AppCompatActivity() {
     }
     
     override fun onDestroy() {
+        if (isTorchOn) {
+            try {
+                val cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+                torchCameraId?.let { cameraManager.setTorchMode(it, false) }
+            } catch (_: Exception) {
+            }
+            isTorchOn = false
+        }
         super.onDestroy()
         timeHandler.removeCallbacks(timeRunnable)
         batteryReceiver?.let { unregisterReceiver(it) }
@@ -548,6 +567,13 @@ class LauncherActivity : AppCompatActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        if (!SecurePreferences.isReadyForKioskSecurity(this)) {
+            android.util.Log.i(
+                "LauncherActivity",
+                "${com.iips.launcher.policy.KioskController.GATE_MARKER} onWindowFocusChanged skipped lockdown"
+            )
+            return
+        }
         if (hasFocus) {
             // Don't enable lock task if AdminActivity is currently showing
             val isAdminActivityVisible = try {
@@ -716,12 +742,15 @@ class LauncherActivity : AppCompatActivity() {
 
     private var qsStartY = 0f
     private var isQsOpen = false
-    private val QS_HEIGHT_DP = 300 // Max height to show
+    private val QS_PANEL_HEIGHT_DP = 720
+    private var isTorchOn = false
+    private var torchCameraId: String? = null
+    private val qsPrefs by lazy { getSharedPreferences("qs_controls", MODE_PRIVATE) }
 
     private fun setupQuickSettings() {
         val density = resources.displayMetrics.density
         val qsMaxTranslation = 0f
-        val qsMinTranslation = -500 * density
+        val qsMinTranslation = -QS_PANEL_HEIGHT_DP * density
 
         binding.qsDragHandle.setOnTouchListener { _, event ->
             when (event.action) {
@@ -733,29 +762,23 @@ class LauncherActivity : AppCompatActivity() {
                     val deltaY = event.rawY - qsStartY
                     if (deltaY > 0 || isQsOpen) {
                         val newTranslation = if (isQsOpen) deltaY else qsMinTranslation + deltaY
-                        binding.quickSettingsPanel.translationY = newTranslation.coerceIn(qsMinTranslation, qsMaxTranslation)
+                        binding.quickSettingsPanel.translationY =
+                            newTranslation.coerceIn(qsMinTranslation, qsMaxTranslation)
                     }
                     true
                 }
                 android.view.MotionEvent.ACTION_UP -> {
                     val currentTranslation = binding.quickSettingsPanel.translationY
                     val threshold = (qsMinTranslation + qsMaxTranslation) / 2
-                    if (currentTranslation > threshold) {
-                        animateQuickSettings(true)
-                    } else {
-                        animateQuickSettings(false)
-                    }
+                    animateQuickSettings(currentTranslation > threshold)
                     true
                 }
                 else -> false
             }
         }
-        
-        // Also allow closing by clicking background or handle when open
-        binding.quickSettingsPanel.setOnClickListener { 
-            // Prevent clicks from passing through
-        }
-        
+
+        binding.quickSettingsPanel.setOnClickListener { }
+
         binding.root.setOnTouchListener { _, event ->
             if (isQsOpen && event.action == android.view.MotionEvent.ACTION_DOWN) {
                 animateQuickSettings(false)
@@ -764,23 +787,251 @@ class LauncherActivity : AppCompatActivity() {
                 false
             }
         }
+
+        binding.qsTileWifi.setOnClickListener { toggleWifi() }
+        binding.qsTileWifi.setOnLongClickListener {
+            openSystemSettings(Settings.ACTION_WIFI_SETTINGS)
+            true
+        }
+        binding.qsTileHotspot.setOnClickListener { openHotspotSettings() }
+        binding.qsTileTorch.setOnClickListener { toggleTorch() }
+        binding.qsTileDark.setOnClickListener { toggleDarkMode() }
+        binding.qsTileBrightness.setOnClickListener {
+            val seek = binding.qsBrightnessSeek
+            seek.visibility = if (seek.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+            if (seek.visibility == View.VISIBLE) {
+                seek.progress = getCurrentBrightness()
+            }
+        }
+        binding.qsTileAirplane.setOnClickListener { toggleAirplaneMode() }
+        binding.qsTileLandscape.setOnClickListener { toggleLandscape() }
+
+        binding.qsBrightnessSeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) applyBrightness(progress)
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        applySavedOrientation()
+        applySavedDarkMode()
+        refreshQuickSettingsTiles()
     }
 
     private fun animateQuickSettings(open: Boolean) {
         val density = resources.displayMetrics.density
-        val targetY = if (open) 0f else -500 * density
-        
+        val targetY = if (open) 0f else -QS_PANEL_HEIGHT_DP * density
+
         binding.quickSettingsPanel.animate()
             .translationY(targetY)
             .setDuration(300)
             .withEndAction {
                 isQsOpen = open
+                if (open) refreshQuickSettingsTiles()
             }
             .start()
     }
 
     private fun toggleQuickSettings(open: Boolean) {
         animateQuickSettings(open)
+    }
+
+    private fun refreshQuickSettingsTiles() {
+        val wifiOn = try {
+            val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            wifi.isWifiEnabled
+        } catch (_: Exception) {
+            false
+        }
+        setTileSelected(binding.qsTileWifi, binding.qsTileWifiIcon, binding.qsTileWifiLabel, wifiOn)
+
+        val hotspotOn = isHotspotActive()
+        setTileSelected(binding.qsTileHotspot, binding.qsTileHotspotIcon, binding.qsTileHotspotLabel, hotspotOn)
+        setTileSelected(binding.qsTileTorch, binding.qsTileTorchIcon, binding.qsTileTorchLabel, isTorchOn)
+
+        val darkOn = qsPrefs.getBoolean("dark_mode", false) ||
+            AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES
+        setTileSelected(binding.qsTileDark, binding.qsTileDarkIcon, binding.qsTileDarkLabel, darkOn)
+
+        val brightnessOpen = binding.qsBrightnessSeek.visibility == View.VISIBLE
+        setTileSelected(
+            binding.qsTileBrightness,
+            binding.qsTileBrightnessIcon,
+            binding.qsTileBrightnessLabel,
+            brightnessOpen
+        )
+
+        val airplaneOn = Settings.Global.getInt(contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0) == 1
+        setTileSelected(binding.qsTileAirplane, binding.qsTileAirplaneIcon, binding.qsTileAirplaneLabel, airplaneOn)
+
+        val landscapeOn = qsPrefs.getBoolean("landscape", false)
+        setTileSelected(
+            binding.qsTileLandscape,
+            binding.qsTileLandscapeIcon,
+            binding.qsTileLandscapeLabel,
+            landscapeOn
+        )
+    }
+
+    private fun setTileSelected(
+        tile: LinearLayout,
+        icon: ImageView,
+        label: TextView,
+        selected: Boolean
+    ) {
+        tile.isSelected = selected
+        val color = ContextCompat.getColor(this, if (selected) R.color.primary else R.color.white)
+        icon.setColorFilter(color)
+        label.setTextColor(color)
+    }
+
+    private fun toggleWifi() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startActivity(Intent(Settings.Panel.ACTION_WIFI))
+            } else {
+                val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+                @Suppress("DEPRECATION")
+                wifi.isWifiEnabled = !wifi.isWifiEnabled
+            }
+        } catch (e: Exception) {
+            openSystemSettings(Settings.ACTION_WIFI_SETTINGS)
+        }
+        binding.quickSettingsPanel.postDelayed({ refreshQuickSettingsTiles() }, 600)
+    }
+
+    private fun openHotspotSettings() {
+        val intents = listOf(
+            Intent("android.settings.TETHER_SETTINGS"),
+            Intent(Settings.ACTION_WIRELESS_SETTINGS),
+            Intent(Settings.ACTION_WIFI_SETTINGS)
+        )
+        for (intent in intents) {
+            try {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+                return
+            } catch (_: Exception) {
+            }
+        }
+        Toast.makeText(this, "Hotspot settings unavailable", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun isHotspotActive(): Boolean {
+        return try {
+            val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            val method = wifi.javaClass.getDeclaredMethod("isWifiApEnabled")
+            method.invoke(wifi) as Boolean
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun toggleTorch() {
+        try {
+            val cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+            if (torchCameraId == null) {
+                torchCameraId = cameraManager.cameraIdList.firstOrNull { id ->
+                    cameraManager.getCameraCharacteristics(id)
+                        .get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+                }
+            }
+            val id = torchCameraId
+            if (id == null) {
+                Toast.makeText(this, "No torch on this device", Toast.LENGTH_SHORT).show()
+                return
+            }
+            isTorchOn = !isTorchOn
+            cameraManager.setTorchMode(id, isTorchOn)
+            refreshQuickSettingsTiles()
+        } catch (e: Exception) {
+            isTorchOn = false
+            Toast.makeText(this, "Unable to toggle torch", Toast.LENGTH_SHORT).show()
+            refreshQuickSettingsTiles()
+        }
+    }
+
+    private fun toggleDarkMode() {
+        val enable = !qsPrefs.getBoolean("dark_mode", false)
+        qsPrefs.edit().putBoolean("dark_mode", enable).apply()
+        AppCompatDelegate.setDefaultNightMode(
+            if (enable) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
+        )
+        refreshQuickSettingsTiles()
+    }
+
+    private fun applySavedDarkMode() {
+        val enable = qsPrefs.getBoolean("dark_mode", false)
+        val mode = if (enable) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+        if (AppCompatDelegate.getDefaultNightMode() != mode && enable) {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+        }
+    }
+
+    private fun getCurrentBrightness(): Int {
+        return try {
+            Settings.System.getInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS)
+        } catch (_: Exception) {
+            (window.attributes.screenBrightness.takeIf { it >= 0f }?.times(255)?.toInt()) ?: 128
+        }
+    }
+
+    private fun applyBrightness(level: Int) {
+        val clamped = level.coerceIn(1, 255)
+        val lp = window.attributes
+        lp.screenBrightness = clamped / 255f
+        window.attributes = lp
+        try {
+            if (Settings.System.canWrite(this)) {
+                Settings.System.putInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS, clamped)
+            }
+        } catch (_: Exception) {
+        }
+        qsPrefs.edit().putInt("brightness", clamped).apply()
+    }
+
+    private fun toggleAirplaneMode() {
+        val currentlyOn = Settings.Global.getInt(contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0) == 1
+        val enable = !currentlyOn
+        var applied = false
+        try {
+            Settings.Global.putInt(contentResolver, Settings.Global.AIRPLANE_MODE_ON, if (enable) 1 else 0)
+            sendBroadcast(Intent(Intent.ACTION_AIRPLANE_MODE_CHANGED).putExtra("state", enable))
+            applied = true
+        } catch (_: Exception) {
+        }
+        if (!applied) {
+            openSystemSettings(Settings.ACTION_AIRPLANE_MODE_SETTINGS)
+        }
+        binding.quickSettingsPanel.postDelayed({ refreshQuickSettingsTiles() }, 500)
+    }
+
+    private fun toggleLandscape() {
+        val enable = !qsPrefs.getBoolean("landscape", false)
+        qsPrefs.edit().putBoolean("landscape", enable).apply()
+        requestedOrientation = if (enable) {
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+        }
+        refreshQuickSettingsTiles()
+    }
+
+    private fun applySavedOrientation() {
+        requestedOrientation = if (qsPrefs.getBoolean("landscape", false)) {
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
+
+    private fun openSystemSettings(action: String) {
+        try {
+            startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: Exception) {
+            Toast.makeText(this, "Settings unavailable", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun setupGeofenceOverlay() {
@@ -959,7 +1210,17 @@ class LauncherActivity : AppCompatActivity() {
         }
 
         binding.statusText.visibility = View.GONE
-        
+
+        val decision = com.iips.launcher.policy.KioskController.evaluateSecurityGate(this)
+        if (!decision.apply) {
+            android.util.Log.i(
+                "LauncherActivity",
+                "${com.iips.launcher.policy.KioskController.GATE_MARKER} setupDeviceControls skipped: ${decision.reason}"
+            )
+            com.iips.launcher.policy.KioskController.applyPolicy(this)
+            return
+        }
+
         // Always enable factory reset protection
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP_MR1) {
             DeviceController.enableFactoryResetProtection(this)
@@ -1167,29 +1428,24 @@ class LauncherActivity : AppCompatActivity() {
         val batteryInfo = com.iips.launcher.core.HardwareProvider.getBatteryInfo(this)
         val batteryText = "${batteryInfo.level}%"
         binding.batteryText.text = batteryText
-        binding.qsBatteryStatus.text = "Battery: $batteryText${if (batteryInfo.charging) " (Charging)" else ""}"
-        
-        if (batteryInfo.level < 20) {
-            binding.qsBatteryIcon.setImageResource(android.R.drawable.ic_lock_idle_low_battery)
-        } else {
-            binding.qsBatteryIcon.setImageResource(android.R.drawable.ic_lock_idle_charging)
-        }
+        binding.qsBatteryStatus.text =
+            if (batteryInfo.charging) "$batteryText⚡" else batteryText
+        binding.qsBatteryIcon.setImageResource(R.drawable.ic_qs_battery)
 
         // Network
         val networkInfo = com.iips.launcher.core.HardwareProvider.getNetworkInfo(this)
         binding.networkText.text = networkInfo.type
-        binding.qsWifiStatus.text = "Network: ${networkInfo.type}"
-        
-        if (networkInfo.type == "WIFI") {
-            binding.qsWifiIcon.setImageResource(android.R.drawable.ic_menu_compass)
-        } else {
-            binding.qsWifiIcon.setImageResource(android.R.drawable.ic_menu_mylocation)
-        }
-        
-        // SIM Status (Deprecated in heartbeat, showing static label or hiding)
+        binding.qsWifiStatus.text = networkInfo.type
+        binding.qsWifiIcon.setImageResource(R.drawable.ic_qs_wifi)
+
+        // SIM / cellular chip
         binding.simText.visibility = View.GONE
-        binding.qsSimStatus.text = "Cellular: Ready"
-        binding.qsSimIcon.setImageResource(android.R.drawable.ic_menu_call)
+        binding.qsSimStatus.text = "Ready"
+        binding.qsSimIcon.setImageResource(R.drawable.ic_qs_cellular)
+
+        if (isQsOpen) {
+            refreshQuickSettingsTiles()
+        }
     }
     
     private fun updateBatteryStatus() {

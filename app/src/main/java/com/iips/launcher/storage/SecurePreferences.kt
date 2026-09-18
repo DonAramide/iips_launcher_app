@@ -179,6 +179,27 @@ object SecurePreferences {
         return !id.isNullOrBlank() && !token.isNullOrBlank()
     }
 
+    /**
+     * Backend enrollment is complete when the device has an identity
+     * (device_id + access_token) and the lifecycle is ACTIVE or LOCKED.
+     */
+    fun isEnrollmentComplete(context: Context): Boolean {
+        val state = getDeviceState(context)
+        return isRegistered(context) && (state == STATE_ACTIVE || state == STATE_LOCKED)
+    }
+
+    fun hasValidPolicySnapshot(context: Context): Boolean {
+        return getDevicePolicySnapshot(context) != null
+    }
+
+    /**
+     * Authoritative gate for kiosk/security lockdown.
+     * Device Owner alone is never sufficient.
+     */
+    fun isReadyForKioskSecurity(context: Context): Boolean {
+        return isEnrollmentComplete(context) && hasValidPolicySnapshot(context)
+    }
+
     fun isGeofenceLocked(context: Context): Boolean {
         if (com.iips.launcher.BuildConfig.DEBUG) return false
         val prefs = getEncryptedPrefs(context)

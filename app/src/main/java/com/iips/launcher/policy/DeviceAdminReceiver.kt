@@ -63,8 +63,31 @@ class DeviceAdminReceiver : DeviceAdminReceiver() {
          *  - Must be longer than 10 characters
          */
         fun isValidBackendUrl(url: String): Boolean {
-            val isHttpAllowed = com.iips.launcher.BuildConfig.DEBUG
-            return (url.startsWith("https://") || (isHttpAllowed && url.startsWith("http://"))) && url.length > 10
+            val trimmed = url.trim()
+            if (trimmed.length <= 10) return false
+            if (trimmed.startsWith("https://")) return true
+            return trimmed.startsWith("http://") && isAllowedStagingHttpUrl(trimmed)
+        }
+
+        /**
+         * HTTP is allowed only for known LAN/staging hosts, and only when
+         * DEBUG or ALLOW_STAGING_HTTP. Production release remains HTTPS-only.
+         */
+        fun isAllowedStagingHttpUrl(url: String): Boolean {
+            if (!(com.iips.launcher.BuildConfig.DEBUG || com.iips.launcher.BuildConfig.ALLOW_STAGING_HTTP)) {
+                return false
+            }
+            return try {
+                val host = android.net.Uri.parse(url).host?.lowercase() ?: return false
+                host == "192.168.1.134" ||
+                    host == "10.0.2.2" ||
+                    host == "localhost" ||
+                    host == "127.0.0.1" ||
+                    host.startsWith("192.168.") ||
+                    host.startsWith("10.")
+            } catch (e: Exception) {
+                false
+            }
         }
 
         /**
@@ -100,11 +123,10 @@ class DeviceAdminReceiver : DeviceAdminReceiver() {
         com.iips.launcher.network.DeviceEnrollmentManager.extractAndPersistProvisioningExtras(context, intent)
 
         // ── Enterprise initialization ────────────────────────────────────────
-        // 1. Set Dotroid as the default home launcher automatically
+        // Set home launcher so enrollment UI can continue. Do NOT apply
+        // kiosk/security here — Device Owner is not enrollment/policy-ready.
         com.iips.launcher.policy.DeviceController.setDefaultLauncher(context)
-
-        // 2. Apply initial security restrictions common to all managed devices
-        com.iips.launcher.policy.DeviceController.enableComprehensiveSecurity(context)
+        Log.i(TAG, "${KioskController.GATE_MARKER} onProfileProvisioningComplete — deferring kiosk/security until enrollment+policy are ready")
 
         // Launch bootstrap service to perform the actual enrollment
         launchBootstrapService(context)
