@@ -46,6 +46,7 @@ class MdmSocketService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        startForeground(1, createNotification())
         return START_STICKY
     }
 

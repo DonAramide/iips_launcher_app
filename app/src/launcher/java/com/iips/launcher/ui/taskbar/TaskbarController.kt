@@ -265,57 +265,51 @@ class TaskbarController(
     }
 
     private suspend fun updateWorkspaceState() {
-        val allowedAppsFromPolicy = withContext(Dispatchers.IO) {
-            database.appPolicyDao().getAllPolicies()
-        }
-        val localAllowedApps = withContext(Dispatchers.IO) {
-            database.allowedAppDao().getAll()
-        }
-        val pocketApps = withContext(Dispatchers.IO) {
-            database.appPocketDao().getAllApps()
-        }
+        val (visible, items) = withContext(Dispatchers.IO) {
+            val allowedAppsFromPolicy = database.appPolicyDao().getAllPolicies()
+            val localAllowedApps = database.allowedAppDao().getAll()
+            val pocketApps = database.appPocketDao().getAllApps()
 
-        val allowedSet = mutableSetOf<String>()
-        allowedAppsFromPolicy
-            .filter { it.mode.uppercase() == "REQUIRED" || (it.mode.uppercase() == "ALLOWED" && it.pinned) }
-            .forEach { allowedSet.add(it.packageName.trim().lowercase()) }
-        localAllowedApps.forEach { allowedSet.add(it.packageName.trim().lowercase()) }
-        pocketApps.filter { it.status == "INSTALLED" }
-            .forEach { allowedSet.add(it.packageName.trim().lowercase()) }
+            val allowedSet = mutableSetOf<String>()
+            allowedAppsFromPolicy
+                .filter { it.mode.uppercase() == "REQUIRED" || (it.mode.uppercase() == "ALLOWED" && it.pinned) }
+                .forEach { allowedSet.add(it.packageName.trim().lowercase()) }
+            localAllowedApps.forEach { allowedSet.add(it.packageName.trim().lowercase()) }
+            pocketApps.filter { it.status == "INSTALLED" }
+                .forEach { allowedSet.add(it.packageName.trim().lowercase()) }
 
-        allowedPackages = allowedSet
+            allowedPackages = allowedSet
 
-        val foregroundPkg = getForegroundPackage()
-        if (foregroundPkg != null && allowedPackages.contains(foregroundPkg.lowercase())) {
-            lastActiveAppPackage = foregroundPkg
-            repository.addRecentApp(foregroundPkg)
-        }
+            val foregroundPkg = getForegroundPackage()
+            if (foregroundPkg != null && allowedPackages.contains(foregroundPkg.lowercase())) {
+                lastActiveAppPackage = foregroundPkg
+                repository.addRecentApp(foregroundPkg)
+            }
 
-        val activePkg = if (foregroundPkg != null && allowedPackages.contains(foregroundPkg.lowercase())) {
-            foregroundPkg
-        } else {
-            lastActiveAppPackage ?: repository.getRecentApps()
-                .lastOrNull { allowedPackages.contains(it.lowercase()) }
-        }
+            val activePkg = if (foregroundPkg != null && allowedPackages.contains(foregroundPkg.lowercase())) {
+                foregroundPkg
+            } else {
+                lastActiveAppPackage ?: repository.getRecentApps()
+                    .lastOrNull { allowedPackages.contains(it.lowercase()) }
+            }
 
-        val runningPackages = getRunningPackages()
-        runningPackages.forEach { pkg ->
-            if (allowedPackages.contains(pkg.lowercase())) repository.addRecentApp(pkg)
-        }
+            val runningPackages = getRunningPackages()
+            runningPackages.forEach { pkg ->
+                if (allowedPackages.contains(pkg.lowercase())) repository.addRecentApp(pkg)
+            }
 
-        val removedApps = repository.getRemovedApps()
-        val pinned = repository.getPinnedApps()
-            .filter { allowedPackages.contains(it.lowercase()) && !removedApps.contains(it) }
-        val recents = repository.getRecentApps()
-            .filter { allowedPackages.contains(it.lowercase()) && !pinned.contains(it) && !removedApps.contains(it) }
+            val removedApps = repository.getRemovedApps()
+            val pinned = repository.getPinnedApps()
+                .filter { allowedPackages.contains(it.lowercase()) && !removedApps.contains(it) }
+            val recents = repository.getRecentApps()
+                .filter { allowedPackages.contains(it.lowercase()) && !pinned.contains(it) && !removedApps.contains(it) }
 
-        val allPkgs = (pinned + recents).distinct().toMutableList()
-        if (foregroundPkg != null && allowedPackages.contains(foregroundPkg.lowercase()) &&
-            !allPkgs.contains(foregroundPkg) && !removedApps.contains(foregroundPkg)
-        ) allPkgs.add(foregroundPkg)
+            val allPkgs = (pinned + recents).distinct().toMutableList()
+            if (foregroundPkg != null && allowedPackages.contains(foregroundPkg.lowercase()) &&
+                !allPkgs.contains(foregroundPkg) && !removedApps.contains(foregroundPkg)
+            ) allPkgs.add(foregroundPkg)
 
-        val items = withContext(Dispatchers.IO) {
-            allPkgs.map { pkg ->
+            val computedItems = allPkgs.map { pkg ->
                 var appName = pkg
                 var icon: android.graphics.drawable.Drawable? = null
                 try {
@@ -331,23 +325,25 @@ class TaskbarController(
                     isPinned = pinned.contains(pkg)
                 )
             }
-        }
-        workspaceItems = items
 
-        val visible = if (items.size <= 5) {
-            items.toMutableList()
-        } else {
-            items.take(4).toMutableList<WorkspaceItem>().also {
-                it.add(
-                    WorkspaceItem(
-                        packageName = "overflow", name = "More", icon = null,
-                        isRunning = false, isPinned = false,
-                        isOverflow = true, overflowCount = items.size - 4
+            val computedVisible = if (computedItems.size <= 5) {
+                computedItems.toMutableList()
+            } else {
+                computedItems.take(4).toMutableList<WorkspaceItem>().also {
+                    it.add(
+                        WorkspaceItem(
+                            packageName = "overflow", name = "More", icon = null,
+                            isRunning = false, isPinned = false,
+                            isOverflow = true, overflowCount = computedItems.size - 4
+                        )
                     )
-                )
+                }
             }
+            Pair(computedVisible, computedItems)
         }
-        withContext(Dispatchers.Main) { adapter.submitList(visible) }
+
+        workspaceItems = items
+        adapter.submitList(visible)
     }
 
     private fun getForegroundPackage(): String? {

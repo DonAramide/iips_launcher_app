@@ -273,6 +273,14 @@
             android:excludeFromRecents="true"
             android:exported="false" />
 
+        <!-- Secure Hotspot Setup Screen -->
+        <activity
+            android:name=".ui.HotspotSetupActivity"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Dotroid.NoActionBar"
+            android:excludeFromRecents="true"
+            android:exported="false" />
+
         <!-- Kiosk Lock Screen Activity -->
         <activity
             android:name=".ui.KioskLockActivity"

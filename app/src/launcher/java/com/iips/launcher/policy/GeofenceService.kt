@@ -181,6 +181,8 @@ class GeofenceService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        createNotificationChannel()
+        startForeground(NOTIFICATION_ID, createNotification())
         if (intent?.action == "com.iips.launcher.ACTION_FORCE_LOCATION_CHECK") {
             try {
                 fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null).addOnSuccessListener { loc ->

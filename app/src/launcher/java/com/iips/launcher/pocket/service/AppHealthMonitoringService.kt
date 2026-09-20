@@ -30,10 +30,14 @@ class AppHealthMonitoringService : Service() {
 
         fun start(context: Context) {
             val intent = Intent(context, AppHealthMonitoringService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
+            try {
                 context.startService(intent)
+            } catch (e: Exception) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    try {
+                        context.startForegroundService(intent)
+                    } catch (_: Exception) {}
+                }
             }
         }
     }
@@ -54,6 +58,8 @@ class AppHealthMonitoringService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        createNotificationChannel()
+        startForeground(NOTIF_ID, buildNotification())
         return START_STICKY
     }
 

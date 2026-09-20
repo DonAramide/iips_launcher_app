@@ -27,11 +27,12 @@ class ProvisioningRecoveryManager @Inject constructor(
     fun attemptRecovery() {
         val isDO = deviceOwnerManager.isDeviceOwner()
         val isCompleted = SecurePreferences.isProvisioningCompleted(context)
+        val isRegistered = SecurePreferences.isRegistered(context)
         val hasToken = SecurePreferences.getEnrollmentToken(context) != null
 
-        Log.d(TAG, "Checking recovery: isDO=$isDO, isCompleted=$isCompleted, hasToken=$hasToken")
+        Log.d(TAG, "Checking recovery: isDO=$isDO, isCompleted=$isCompleted, isRegistered=$isRegistered, hasToken=$hasToken")
 
-        if (isDO && !isCompleted && hasToken) {
+        if (isDO && !isCompleted && !isRegistered && hasToken) {
             Log.i(TAG, "Interrupted provisioning detected. Restarting bootstrap service...")
             val intent = Intent(context, ProvisioningBootstrapService::class.java)
             try {

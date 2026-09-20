@@ -59,7 +59,9 @@ class AppPocketActivity : AppCompatActivity() {
     }
 
     private fun setupUI() {
-        binding.btnBack.setOnClickListener { finish() }
+        binding.btnBack.setOnClickListener {
+            onBackPressedDispatcher.onBackPressed()
+        }
 
         binding.btnSyncCatalog.setOnClickListener {
             triggerCatalogSync()

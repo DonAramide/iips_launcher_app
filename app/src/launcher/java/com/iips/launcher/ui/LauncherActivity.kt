@@ -4,14 +4,25 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
+import android.net.wifi.WifiManager
 import android.os.BatteryManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.view.View
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.SeekBar
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -108,6 +119,7 @@ class LauncherActivity : AppCompatActivity() {
 
         binding = ActivityLauncherBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        supportActionBar?.hide()
 
         database = AppDatabase.getDatabase(this)
         fusedLocationClient = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(this)
@@ -269,7 +281,6 @@ class LauncherActivity : AppCompatActivity() {
         }
         binding.root.setOnClickListener(hiddenGestureListener)
         binding.statusBar.setOnClickListener(hiddenGestureListener)
-        binding.businessNameText.setOnClickListener(hiddenGestureListener)
     }
 
     private fun initializeMdm() {
@@ -294,10 +305,14 @@ class LauncherActivity : AppCompatActivity() {
 
     private fun startMdmService() {
         val intent = Intent(this, com.iips.launcher.network.MdmSocketService::class.java)
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
+        try {
             startService(intent)
+        } catch (e: Exception) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                try {
+                    startForegroundService(intent)
+                } catch (_: Exception) {}
+            }
         }
     }
 
@@ -319,6 +334,28 @@ class LauncherActivity : AppCompatActivity() {
         if (missingPermissions.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, missingPermissions.toTypedArray(), 1001)
         }
+    }
+
+    private fun isOwnAppPackage(pkg: String): Boolean {
+        return pkg.equals(packageName, ignoreCase = true) ||
+               pkg.contains("dotroid", ignoreCase = true) ||
+               pkg.contains("iips", ignoreCase = true)
+    }
+
+    private fun isInternalAllowedActivity(className: String): Boolean {
+        return className.contains("AdminActivity", ignoreCase = true) ||
+               className.contains("AppSelectionActivity", ignoreCase = true) ||
+               className.contains("AppPocketActivity", ignoreCase = true) ||
+               className.contains("LauncherPairingActivity", ignoreCase = true) ||
+               className.contains("WifiSetupActivity", ignoreCase = true) ||
+               className.contains("HotspotSetupActivity", ignoreCase = true) ||
+               className.contains("OnboardingActivity", ignoreCase = true) ||
+               className.contains("PendingActivity", ignoreCase = true) ||
+               className.contains("QrScannerActivity", ignoreCase = true) ||
+               className.contains("ProvisioningStatusActivity", ignoreCase = true) ||
+               className.contains("permissioncontroller", ignoreCase = true) ||
+               className.contains("GrantPermissionsActivity", ignoreCase = true) ||
+               className.contains("packageinstaller", ignoreCase = true)
     }
 
     override fun onResume() {
@@ -366,6 +403,7 @@ class LauncherActivity : AppCompatActivity() {
             ""
         }
         
+        val isInternalActivityVisible = isInternalAllowedActivity(topActivityName)
         val isAdminActivityVisible = topActivityName.contains("AdminActivity", ignoreCase = true)
         val isAppSelectionActivityVisible = topActivityName.contains("AppSelectionActivity", ignoreCase = true)
         
@@ -377,7 +415,7 @@ class LauncherActivity : AppCompatActivity() {
                 val topActivity = runningTasks[0].topActivity
                 val packageName = topActivity?.packageName?.lowercase() ?: ""
                 // Check if it's not our package and not settings
-                val isNotOwnPackage = !packageName.contains("iips.launcher", ignoreCase = true)
+                val isNotOwnPackage = !isOwnAppPackage(packageName)
                 val isNotSettings = !packageName.contains("settings", ignoreCase = true)
                 
                 if (isNotOwnPackage && isNotSettings && packageName.isNotEmpty()) {
@@ -395,7 +433,7 @@ class LauncherActivity : AppCompatActivity() {
             false
         }
         
-        android.util.Log.d("LauncherActivity", "onResume - Top activity: $topActivityName, isAllowedAppVisible: $isAllowedAppVisible")
+        android.util.Log.d("LauncherActivity", "onResume - Top activity: $topActivityName, isInternalActivityVisible: $isInternalActivityVisible, isAllowedAppVisible: $isAllowedAppVisible")
         
         // Always reload apps when resuming to get latest selections
         loadApps()
@@ -421,22 +459,23 @@ class LauncherActivity : AppCompatActivity() {
         }
         
         // Always block system UI when resuming (but only if we're in foreground)
-        if (!isAllowedAppVisible) {
+        if (!isAllowedAppVisible && !isInternalActivityVisible) {
             DeviceController.blockSystemUI(this)
         }
         
-        // Force lock task if Device Owner AND Kiosk is enabled - BUT don't enable if AdminActivity, AppSelectionActivity, allowed app is visible, OR we recently launched an allowed app
+        // Force lock task if Device Owner AND Kiosk is enabled - BUT don't enable if internal activity, AdminActivity, AppSelectionActivity, allowed app is visible, OR we recently launched an allowed app
         if (DeviceAdminReceiver.isDeviceOwner(this) && 
+            !isInternalActivityVisible &&
             !isAdminActivityVisible && 
             !isAppSelectionActivityVisible && 
             !isAllowedAppVisible &&
             !recentlyLaunchedAllowedApp) {
             com.iips.launcher.policy.KioskController.resumeLockTask(this)
-        } else if (isAllowedAppVisible || recentlyLaunchedAllowedApp) {
-            // Ensure lock task is stopped when allowed app is visible or recently launched
+        } else if (isAllowedAppVisible || recentlyLaunchedAllowedApp || isInternalActivityVisible) {
+            // Ensure lock task is stopped when allowed app or internal activity is visible or recently launched
             try {
                 com.iips.launcher.policy.KioskController.pauseLockTask(this)
-                android.util.Log.d("LauncherActivity", "Stopped lock task because allowed app is visible or recently launched")
+                android.util.Log.d("LauncherActivity", "Stopped lock task because allowed app or internal activity is visible or recently launched")
             } catch (e: Exception) {
                 android.util.Log.w("LauncherActivity", "Could not stop lock task: ${e.message}")
             }
@@ -476,7 +515,18 @@ class LauncherActivity : AppCompatActivity() {
         val recentlyLaunchedAllowedApp = lastLaunchedAllowedApp != null && 
                                         (System.currentTimeMillis() - lastLaunchTime) < LOCK_TASK_DISABLE_DURATION
         
-        // Check if AdminActivity, AppSelectionActivity, or allowed app is launching
+        // Check if internal activity, AdminActivity, AppSelectionActivity, or allowed app is launching
+        val isInternalActivityLaunching = recentlyLaunchedAllowedApp || try {
+            val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val runningTasks = activityManager.getRunningTasks(5)
+            runningTasks.any { task ->
+                val className = task.topActivity?.className ?: ""
+                isInternalAllowedActivity(className)
+            }
+        } catch (e: Exception) {
+            false
+        }
+
         val isAdminActivityLaunching = try {
             val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
             val runningTasks = activityManager.getRunningTasks(1)
@@ -502,7 +552,7 @@ class LauncherActivity : AppCompatActivity() {
             runningTasks.any { task ->
                 val topActivity = task.topActivity
                 val packageName = topActivity?.packageName?.lowercase() ?: ""
-                val isNotOwnPackage = !packageName.contains("iips.launcher", ignoreCase = true)
+                val isNotOwnPackage = !isOwnAppPackage(packageName)
                 val isNotSettings = !packageName.contains("settings", ignoreCase = true)
                 
                 if (isNotOwnPackage && isNotSettings && packageName.isNotEmpty()) {
@@ -520,11 +570,12 @@ class LauncherActivity : AppCompatActivity() {
             false
         }
         
-        android.util.Log.d("LauncherActivity", "onPause - isAdminActivityLaunching: $isAdminActivityLaunching, isAllowedAppLaunching: $isAllowedAppLaunching, recentlyLaunchedAllowedApp: $recentlyLaunchedAllowedApp (${lastLaunchedAllowedApp})")
+        android.util.Log.d("LauncherActivity", "onPause - isInternalActivityLaunching: $isInternalActivityLaunching, isAdminActivityLaunching: $isAdminActivityLaunching, isAllowedAppLaunching: $isAllowedAppLaunching, recentlyLaunchedAllowedApp: $recentlyLaunchedAllowedApp (${lastLaunchedAllowedApp})")
         
-        // Don't re-enable lock task if AdminActivity, allowed app is launching, OR we recently launched an allowed app
+        // Don't re-enable lock task if internal activity, AdminActivity, allowed app is launching, OR we recently launched an allowed app
         if (DeviceAdminReceiver.isDeviceOwner(this) && 
             SecurePreferences.isLockdownEnabled(this) && 
+            !isInternalActivityLaunching &&
             !isAdminActivityLaunching && 
             !isAllowedAppLaunching &&
             !recentlyLaunchedAllowedApp) {
@@ -549,10 +600,11 @@ class LauncherActivity : AppCompatActivity() {
                             val className = topActivity?.className ?: ""
                             val packageName = topActivity?.packageName?.lowercase() ?: ""
                             
+                            val isInternal = isInternalAllowedActivity(className)
                             val isAdmin = className.contains("AdminActivity", ignoreCase = true) ||
                                          className.contains("AppSelectionActivity", ignoreCase = true)
                             
-                            val isAllowed = if (!packageName.contains("iips.launcher", ignoreCase = true) &&
+                            val isAllowed = if (!isOwnAppPackage(packageName) &&
                                                !packageName.contains("settings", ignoreCase = true) &&
                                                packageName.isNotEmpty()) {
                                 app?.isPackageAllowed(packageName) == true
@@ -560,11 +612,11 @@ class LauncherActivity : AppCompatActivity() {
                                 false
                             }
                             
-                            if (isAdmin || isAllowed) {
-                                android.util.Log.d("LauncherActivity", "Double-check found admin/allowed app: $packageName")
+                            if (isInternal || isAdmin || isAllowed) {
+                                android.util.Log.d("LauncherActivity", "Double-check found internal/admin/allowed app: $className / $packageName")
                             }
                             
-                            isAdmin || isAllowed
+                            isInternal || isAdmin || isAllowed
                         }
                         
                         !hasAdminOrAllowedApp
@@ -624,13 +676,13 @@ class LauncherActivity : AppCompatActivity() {
             return
         }
         if (hasFocus) {
-            // Don't enable lock task if AdminActivity is currently showing
-            val isAdminActivityVisible = try {
+            // Don't enable lock task if internal activity (AdminActivity, AppPocketActivity, etc.) is currently showing
+            val isInternalActivityVisible = try {
                 val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
                 val runningTasks = activityManager.getRunningTasks(1)
                 if (runningTasks.isNotEmpty()) {
                     val topActivity = runningTasks[0].topActivity
-                    topActivity?.className?.contains("AdminActivity", ignoreCase = true) == true
+                    isInternalAllowedActivity(topActivity?.className ?: "")
                 } else {
                     false
                 }
@@ -644,8 +696,8 @@ class LauncherActivity : AppCompatActivity() {
             // Enable immersive mode always (prevents swipe-down)
             DeviceController.enableImmersiveMode(this)
             
-            // Only enforce lock task if Device Owner AND AdminActivity is NOT visible
-            if (DeviceAdminReceiver.isDeviceOwner(this) && !isAdminActivityVisible) {
+            // Only enforce lock task if Device Owner AND internal activity is NOT visible
+            if (DeviceAdminReceiver.isDeviceOwner(this) && !isInternalActivityVisible) {
                 com.iips.launcher.policy.KioskController.resumeLockTask(this)
             }
         }
@@ -679,6 +731,7 @@ class LauncherActivity : AppCompatActivity() {
                 className.contains("OnboardingActivity") ||
                     className.contains("QrScannerActivity") ||
                     className.contains("WifiSetupActivity") ||
+                    className.contains("HotspotSetupActivity") ||
                     className.contains("PendingActivity") ||
                     className.contains("ProvisioningStatusActivity")
             }
@@ -702,7 +755,19 @@ class LauncherActivity : AppCompatActivity() {
         val recentlyLaunchedAllowedApp = lastLaunchedAllowedApp != null && 
                                         (System.currentTimeMillis() - lastLaunchTime) < LOCK_TASK_DISABLE_DURATION
         
-        // Check if AdminActivity or allowed app is visible - don't interfere with it
+        // Check if internal activity, AdminActivity, or allowed app is visible - don't interfere with it
+        val isInternalActivityVisible = try {
+            val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val runningTasks = activityManager.getRunningTasks(5) // Check top 5 tasks
+            runningTasks.any { task ->
+                val topActivity = task.topActivity
+                val className = topActivity?.className ?: ""
+                isInternalAllowedActivity(className)
+            }
+        } catch (e: Exception) {
+            false
+        }
+
         val isAdminActivityVisible = try {
             val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
             val runningTasks = activityManager.getRunningTasks(5) // Check top 5 tasks
@@ -725,7 +790,7 @@ class LauncherActivity : AppCompatActivity() {
             runningTasks.any { task ->
                 val topActivity = task.topActivity
                 val packageName = topActivity?.packageName?.lowercase() ?: ""
-                val isNotOwnPackage = !packageName.contains("iips.launcher", ignoreCase = true)
+                val isNotOwnPackage = !isOwnAppPackage(packageName)
                 val isNotSettings = !packageName.contains("settings", ignoreCase = true)
                 
                 if (isNotOwnPackage && isNotSettings && packageName.isNotEmpty()) {
@@ -738,11 +803,11 @@ class LauncherActivity : AppCompatActivity() {
             false
         }
         
-        android.util.Log.d("LauncherActivity", "onUserLeaveHint - isAdminActivityVisible: $isAdminActivityVisible, isAllowedAppVisible: $isAllowedAppVisible, recentlyLaunchedAllowedApp: $recentlyLaunchedAllowedApp")
+        android.util.Log.d("LauncherActivity", "onUserLeaveHint - isInternalActivityVisible: $isInternalActivityVisible, isAdminActivityVisible: $isAdminActivityVisible, isAllowedAppVisible: $isAllowedAppVisible, recentlyLaunchedAllowedApp: $recentlyLaunchedAllowedApp")
         
-        // Don't bring launcher back if AdminActivity, allowed app is visible, OR we recently launched an allowed app
-        if (isAdminActivityVisible || isAllowedAppVisible || recentlyLaunchedAllowedApp) {
-            android.util.Log.d("LauncherActivity", "Not bringing launcher back in onUserLeaveHint - admin/allowed app visible or recently launched")
+        // Don't bring launcher back if internal activity, AdminActivity, allowed app is visible, OR we recently launched an allowed app
+        if (isInternalActivityVisible || isAdminActivityVisible || isAllowedAppVisible || recentlyLaunchedAllowedApp) {
+            android.util.Log.d("LauncherActivity", "Not bringing launcher back in onUserLeaveHint - internal/admin/allowed app visible or recently launched")
             return
         }
         
@@ -760,10 +825,11 @@ class LauncherActivity : AppCompatActivity() {
                         val className = topActivity?.className ?: ""
                         val packageName = topActivity?.packageName?.lowercase() ?: ""
                         
+                        val isInternal = isInternalAllowedActivity(className)
                         val isAdmin = className.contains("AdminActivity", ignoreCase = true) ||
                                      className.contains("AppSelectionActivity", ignoreCase = true)
                         
-                        val isAllowed = if (!packageName.contains("iips.launcher", ignoreCase = true) &&
+                        val isAllowed = if (!isOwnAppPackage(packageName) &&
                                            !packageName.contains("settings", ignoreCase = true) &&
                                            packageName.isNotEmpty()) {
                             app?.isPackageAllowed(packageName) == true
@@ -771,7 +837,7 @@ class LauncherActivity : AppCompatActivity() {
                             false
                         }
                         
-                        isAdmin || isAllowed
+                        isInternal || isAdmin || isAllowed
                     }
                     
                     val stillRecentlyLaunched = lastLaunchedAllowedApp != null && 
@@ -803,6 +869,10 @@ class LauncherActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
+        if (isQsOpen) {
+            animateQuickSettings(false)
+            return
+        }
         if (SecurePreferences.isGeofenceLocked(this) || SecurePreferences.isRemoteLocked(this)) {
             return
         }
@@ -831,21 +901,35 @@ class LauncherActivity : AppCompatActivity() {
         }
 
         binding.btnAppPocket.setOnClickListener {
-            val intent = Intent(this, com.iips.launcher.pocket.ui.AppPocketActivity::class.java)
-            startActivity(intent)
+            openAppPocket()
         }
     }
 
     private var qsStartY = 0f
     private var isQsOpen = false
-    private val QS_HEIGHT_DP = 300 // Max height to show
+    private val QS_PANEL_HEIGHT_DP = 720
+    private var isTorchOn = false
+    private var torchCameraId: String? = null
+    private val qsPrefs by lazy { getSharedPreferences("qs_controls", MODE_PRIVATE) }
 
     private fun setupQuickSettings() {
         val density = resources.displayMetrics.density
         val qsMaxTranslation = 0f
-        val qsMinTranslation = -600 * density
+        val qsMinTranslation = -QS_PANEL_HEIGHT_DP * density
         var qsStartX = 0f
         var qsDownTime = 0L
+
+        binding.businessNameText.setOnClickListener {
+            toggleQuickSettings(!isQsOpen)
+        }
+
+        binding.qsBtnClose.setOnClickListener {
+            toggleQuickSettings(false)
+        }
+
+        binding.qsScrim.setOnClickListener {
+            toggleQuickSettings(false)
+        }
 
         binding.qsDragHandle.setOnTouchListener { _, event ->
             when (event.action) {
@@ -859,7 +943,8 @@ class LauncherActivity : AppCompatActivity() {
                     val deltaY = event.rawY - qsStartY
                     if (deltaY > 0 || isQsOpen) {
                         val newTranslation = if (isQsOpen) deltaY else qsMinTranslation + deltaY
-                        binding.quickSettingsPanel.translationY = newTranslation.coerceIn(qsMinTranslation, qsMaxTranslation)
+                        binding.quickSettingsPanel.translationY =
+                            newTranslation.coerceIn(qsMinTranslation, qsMaxTranslation)
                     }
                     true
                 }
@@ -867,8 +952,8 @@ class LauncherActivity : AppCompatActivity() {
                     val deltaY = event.rawY - qsStartY
                     val deltaX = event.rawX - qsStartX
                     val duration = System.currentTimeMillis() - qsDownTime
-                    
-                    // Check if it's a tap gesture (short duration, small movement)
+
+                    // Check if it's a tap gesture for hidden admin access or quick settings toggle
                     if (duration < 250 && Math.abs(deltaY) < 15 && Math.abs(deltaX) < 15) {
                         val currentTime = System.currentTimeMillis()
                         if (currentTime - lastTapTime > 500) {
@@ -880,52 +965,299 @@ class LauncherActivity : AppCompatActivity() {
                         if (tapCount >= 6) {
                             tapCount = 0
                             showAdminPasswordDialog()
+                        } else {
+                            toggleQuickSettings(!isQsOpen)
                         }
                     } else {
                         val currentTranslation = binding.quickSettingsPanel.translationY
                         val threshold = (qsMinTranslation + qsMaxTranslation) / 2
-                        if (currentTranslation > threshold) {
-                            animateQuickSettings(true)
-                        } else {
-                            animateQuickSettings(false)
-                        }
+                        animateQuickSettings(currentTranslation > threshold)
                     }
                     true
                 }
                 else -> false
             }
         }
-        
-        // Also allow closing by clicking background or handle when open
-        binding.quickSettingsPanel.setOnClickListener { 
-            // Prevent clicks from passing through
+
+        binding.quickSettingsPanel.setOnClickListener { }
+
+
+        binding.qsTileWifi.setOnClickListener { openWifiSetup() }
+        binding.qsTileWifi.setOnLongClickListener {
+            openWifiSetup()
+            true
         }
-        
-        binding.root.setOnTouchListener { _, event ->
-            if (isQsOpen && event.action == android.view.MotionEvent.ACTION_DOWN) {
-                animateQuickSettings(false)
-                true
-            } else {
-                false
+        binding.qsTileHotspot.setOnClickListener { openHotspotSetup() }
+        binding.qsTileHotspot.setOnLongClickListener {
+            openHotspotSetup()
+            true
+        }
+        binding.qsTileTorch.setOnClickListener { toggleTorch() }
+        binding.qsTileDark.setOnClickListener { toggleDarkMode() }
+        binding.qsTileBrightness.setOnClickListener {
+            val seek = binding.qsBrightnessSeek
+            seek.visibility = if (seek.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+            if (seek.visibility == View.VISIBLE) {
+                seek.progress = getCurrentBrightness()
             }
         }
+        binding.qsTileAirplane.setOnClickListener { toggleAirplaneMode() }
+        binding.qsTileLandscape.setOnClickListener { toggleLandscape() }
+
+        binding.qsBrightnessSeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) applyBrightness(progress)
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        applySavedOrientation()
+        applySavedDarkMode()
+        refreshQuickSettingsTiles()
     }
 
     private fun animateQuickSettings(open: Boolean) {
         val density = resources.displayMetrics.density
-        val targetY = if (open) 0f else -600 * density
-        
+        val targetY = if (open) 0f else -QS_PANEL_HEIGHT_DP * density
+
+        if (open) {
+            binding.qsScrim.visibility = View.VISIBLE
+            binding.qsScrim.alpha = 0f
+            binding.qsScrim.animate().alpha(1f).setDuration(200).start()
+            binding.qsDragHandle.visibility = View.GONE
+        } else {
+            binding.qsScrim.animate().alpha(0f).setDuration(200).withEndAction {
+                binding.qsScrim.visibility = View.GONE
+            }.start()
+            binding.qsDragHandle.visibility = View.VISIBLE
+        }
+
         binding.quickSettingsPanel.animate()
             .translationY(targetY)
             .setDuration(300)
             .withEndAction {
                 isQsOpen = open
+                if (open) refreshQuickSettingsTiles()
             }
             .start()
     }
 
     private fun toggleQuickSettings(open: Boolean) {
         animateQuickSettings(open)
+    }
+
+    private fun refreshQuickSettingsTiles() {
+        val wifiOn = try {
+            val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            wifi.isWifiEnabled
+        } catch (_: Exception) {
+            false
+        }
+        setTileSelected(binding.qsTileWifi, binding.qsTileWifiIcon, binding.qsTileWifiLabel, wifiOn)
+
+        val hotspotOn = isHotspotActive()
+        setTileSelected(binding.qsTileHotspot, binding.qsTileHotspotIcon, binding.qsTileHotspotLabel, hotspotOn)
+        setTileSelected(binding.qsTileTorch, binding.qsTileTorchIcon, binding.qsTileTorchLabel, isTorchOn)
+
+        val darkOn = qsPrefs.getBoolean("dark_mode", false) ||
+            AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES
+        setTileSelected(binding.qsTileDark, binding.qsTileDarkIcon, binding.qsTileDarkLabel, darkOn)
+
+        val brightnessOpen = binding.qsBrightnessSeek.visibility == View.VISIBLE
+        setTileSelected(
+            binding.qsTileBrightness,
+            binding.qsTileBrightnessIcon,
+            binding.qsTileBrightnessLabel,
+            brightnessOpen
+        )
+
+        val airplaneOn = Settings.Global.getInt(contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0) == 1
+        setTileSelected(binding.qsTileAirplane, binding.qsTileAirplaneIcon, binding.qsTileAirplaneLabel, airplaneOn)
+
+        val landscapeOn = qsPrefs.getBoolean("landscape", false)
+        setTileSelected(
+            binding.qsTileLandscape,
+            binding.qsTileLandscapeIcon,
+            binding.qsTileLandscapeLabel,
+            landscapeOn
+        )
+    }
+
+    private fun setTileSelected(
+        tile: LinearLayout,
+        icon: ImageView,
+        label: TextView,
+        selected: Boolean
+    ) {
+        tile.isSelected = selected
+        val color = ContextCompat.getColor(this, if (selected) R.color.primary else R.color.white)
+        icon.setColorFilter(color)
+        label.setTextColor(color)
+    }
+
+    private fun openWifiSetup() {
+        android.util.Log.i("DotroidQS", "Tapped Wi-Fi tile -> launching WifiSetupActivity")
+        animateQuickSettings(false)
+        try {
+            lastLaunchedAllowedApp = "WifiSetupActivity"
+            lastLaunchTime = System.currentTimeMillis()
+            if (DeviceAdminReceiver.isDeviceOwner(this)) {
+                try {
+                    DeviceController.stopLockTask(this)
+                    DeviceController.disableLockTaskMode(this)
+                } catch (e: Exception) {
+                    android.util.Log.w("DotroidQS", "Could not stop lock task: ${e.message}")
+                }
+            }
+            val intent = Intent(this, WifiSetupActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            android.util.Log.e("DotroidQS", "Failed to start WifiSetupActivity", e)
+            Toast.makeText(this, "Wi-Fi setup unavailable", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun openHotspotSetup() {
+        android.util.Log.i("DotroidQS", "Tapped Hotspot tile -> launching HotspotSetupActivity")
+        animateQuickSettings(false)
+        try {
+            lastLaunchedAllowedApp = "HotspotSetupActivity"
+            lastLaunchTime = System.currentTimeMillis()
+            if (DeviceAdminReceiver.isDeviceOwner(this)) {
+                try {
+                    DeviceController.stopLockTask(this)
+                    DeviceController.disableLockTaskMode(this)
+                } catch (e: Exception) {
+                    android.util.Log.w("DotroidQS", "Could not stop lock task: ${e.message}")
+                }
+            }
+            val intent = Intent(this, HotspotSetupActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            android.util.Log.e("DotroidQS", "Failed to start HotspotSetupActivity", e)
+            Toast.makeText(this, "Hotspot setup unavailable", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun isHotspotActive(): Boolean {
+        return try {
+            val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            val method = wifi.javaClass.getDeclaredMethod("isWifiApEnabled")
+            method.invoke(wifi) as Boolean
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun toggleTorch() {
+        try {
+            val cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+            if (torchCameraId == null) {
+                torchCameraId = cameraManager.cameraIdList.firstOrNull { id ->
+                    cameraManager.getCameraCharacteristics(id)
+                        .get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+                }
+            }
+            val id = torchCameraId
+            if (id == null) {
+                Toast.makeText(this, "No torch on this device", Toast.LENGTH_SHORT).show()
+                return
+            }
+            isTorchOn = !isTorchOn
+            cameraManager.setTorchMode(id, isTorchOn)
+            refreshQuickSettingsTiles()
+        } catch (e: Exception) {
+            isTorchOn = false
+            Toast.makeText(this, "Unable to toggle torch", Toast.LENGTH_SHORT).show()
+            refreshQuickSettingsTiles()
+        }
+    }
+
+    private fun toggleDarkMode() {
+        val enable = !qsPrefs.getBoolean("dark_mode", false)
+        qsPrefs.edit().putBoolean("dark_mode", enable).apply()
+        AppCompatDelegate.setDefaultNightMode(
+            if (enable) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
+        )
+        refreshQuickSettingsTiles()
+    }
+
+    private fun applySavedDarkMode() {
+        val enable = qsPrefs.getBoolean("dark_mode", false)
+        val mode = if (enable) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+        if (AppCompatDelegate.getDefaultNightMode() != mode && enable) {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+        }
+    }
+
+    private fun getCurrentBrightness(): Int {
+        return try {
+            Settings.System.getInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS)
+        } catch (_: Exception) {
+            (window.attributes.screenBrightness.takeIf { it >= 0f }?.times(255)?.toInt()) ?: 128
+        }
+    }
+
+    private fun applyBrightness(level: Int) {
+        val clamped = level.coerceIn(1, 255)
+        val lp = window.attributes
+        lp.screenBrightness = clamped / 255f
+        window.attributes = lp
+        try {
+            if (Settings.System.canWrite(this)) {
+                Settings.System.putInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS, clamped)
+            }
+        } catch (_: Exception) {
+        }
+        qsPrefs.edit().putInt("brightness", clamped).apply()
+    }
+
+    private fun toggleAirplaneMode() {
+        val currentlyOn = Settings.Global.getInt(contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0) == 1
+        val enable = !currentlyOn
+        var applied = false
+        try {
+            Settings.Global.putInt(contentResolver, Settings.Global.AIRPLANE_MODE_ON, if (enable) 1 else 0)
+            sendBroadcast(Intent(Intent.ACTION_AIRPLANE_MODE_CHANGED).putExtra("state", enable))
+            applied = true
+        } catch (_: Exception) {
+        }
+        if (!applied) {
+            openSystemSettings(Settings.ACTION_AIRPLANE_MODE_SETTINGS)
+        }
+        binding.quickSettingsPanel.postDelayed({ refreshQuickSettingsTiles() }, 500)
+    }
+
+    private fun toggleLandscape() {
+        val enable = !qsPrefs.getBoolean("landscape", false)
+        qsPrefs.edit().putBoolean("landscape", enable).apply()
+        requestedOrientation = if (enable) {
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+        }
+        refreshQuickSettingsTiles()
+    }
+
+    private fun applySavedOrientation() {
+        requestedOrientation = if (qsPrefs.getBoolean("landscape", false)) {
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
+
+    private fun openSystemSettings(action: String) {
+        try {
+            startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: Exception) {
+            Toast.makeText(this, "Settings unavailable", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun setupGeofenceOverlay() {
@@ -1286,78 +1618,83 @@ class LauncherActivity : AppCompatActivity() {
 
     private fun loadApps() {
         lifecycleScope.launch {
-            val allowedApps = withContext(Dispatchers.IO) {
-                database.appPolicyDao().getAllPolicies()
+            val finalAppsList = withContext(Dispatchers.IO) {
+                val allowedApps = database.appPolicyDao().getAllPolicies()
+                val localAllowedApps = database.allowedAppDao().getAll()
+                val pocketApps = database.appPocketDao().getAllApps()
+                val pocketInstalledApps = pocketApps.filter { it.status == "INSTALLED" }
+
+                val allowedPackageNames = mutableSetOf<String>()
+                allowedApps
+                    .filter { it.mode.uppercase() == "REQUIRED" || (it.mode.uppercase() == "ALLOWED" && it.pinned) }
+                    .forEach { allowedPackageNames.add(it.packageName.trim().lowercase()) }
+                localAllowedApps
+                    .forEach { allowedPackageNames.add(it.packageName.trim().lowercase()) }
+                pocketInstalledApps
+                    .forEach { allowedPackageNames.add(it.packageName.trim().lowercase()) }
+
+                val pm = packageManager
+                val intent = Intent(Intent.ACTION_MAIN, null).apply {
+                    addCategory(Intent.CATEGORY_LAUNCHER)
+                }
+
+                val resolvedApps = pm.queryIntentActivities(intent, 0)
+                val sortedApps = resolvedApps.mapNotNull { resolveInfo ->
+                    val packageName = resolveInfo.activityInfo.packageName.trim().lowercase()
+                    if (allowedPackageNames.contains(packageName)) {
+                        AppInfo.fromApplicationInfo(
+                            resolveInfo.activityInfo.applicationInfo,
+                            pm
+                        )
+                    } else {
+                        null
+                    }
+                }.sortedBy { it.name }
+
+                val appPocketDrawable = androidx.core.content.ContextCompat.getDrawable(this@LauncherActivity, R.drawable.ic_app_pocket)
+                val appPocketInfo = AppInfo(
+                    packageName = "com.iips.launcher.pocket",
+                    name = "App Pocket",
+                    icon = appPocketDrawable,
+                    isSystemApp = true
+                )
+
+                val list = mutableListOf<AppInfo>()
+                list.add(appPocketInfo)
+                list.addAll(sortedApps)
+                list
             }
-            val localAllowedApps = withContext(Dispatchers.IO) {
-                database.allowedAppDao().getAll()
-            }
-            val pocketApps = withContext(Dispatchers.IO) {
-                database.appPocketDao().getAllApps()
-            }
-            val pocketInstalledApps = pocketApps.filter { it.status == "INSTALLED" }
 
             binding.emptyState.visibility = View.GONE
             binding.appGrid.visibility = View.VISIBLE
-
-            val packageManager = packageManager
-            val intent = Intent(Intent.ACTION_MAIN, null).apply {
-                addCategory(Intent.CATEGORY_LAUNCHER)
-            }
-
-            val resolvedApps = packageManager.queryIntentActivities(intent, 0)
-            
-            // Filter rule: Only display apps where:
-            // 1. Policy mode is REQUIRED or (ALLOWED and pinned)
-            // 2. Locally allowed in allowed_apps DB
-            // 3. Installed from App Pocket
-            val allowedPackageNames = mutableSetOf<String>()
-            allowedApps
-                .filter { it.mode.uppercase() == "REQUIRED" || (it.mode.uppercase() == "ALLOWED" && it.pinned) }
-                .forEach { allowedPackageNames.add(it.packageName.trim().lowercase()) }
-            localAllowedApps
-                .forEach { allowedPackageNames.add(it.packageName.trim().lowercase()) }
-            pocketInstalledApps
-                .forEach { allowedPackageNames.add(it.packageName.trim().lowercase()) }
-            
-            val sortedApps = resolvedApps.mapNotNull { resolveInfo ->
-                val packageName = resolveInfo.activityInfo.packageName.trim().lowercase()
-                if (allowedPackageNames.contains(packageName)) {
-                    // Use original package name (not lowercased) for creating AppInfo
-                    AppInfo.fromApplicationInfo(
-                        resolveInfo.activityInfo.applicationInfo,
-                        packageManager
-                    )
-                } else {
-                    null
-                }
-            }.sortedBy { it.name }
-
-            val appPocketInfo = AppInfo(
-                packageName = "com.iips.launcher.pocket",
-                name = "App Pocket",
-                icon = androidx.core.content.ContextCompat.getDrawable(this@LauncherActivity, R.drawable.ic_app_pocket),
-                isSystemApp = true
-            )
-
-            val finalAppsList = mutableListOf<AppInfo>()
-            finalAppsList.add(appPocketInfo)
-            finalAppsList.addAll(sortedApps)
-
             allApps = finalAppsList
             appAdapter.submitList(finalAppsList)
         }
     }
 
+    private fun openAppPocket() {
+        try {
+            lastLaunchedAllowedApp = "com.iips.launcher.pocket"
+            lastLaunchTime = System.currentTimeMillis()
+            if (DeviceAdminReceiver.isDeviceOwner(this)) {
+                try {
+                    DeviceController.stopLockTask(this)
+                    DeviceController.disableLockTaskMode(this)
+                } catch (e: Exception) {
+                    android.util.Log.w("LauncherActivity", "Could not stop lock task before opening App Pocket: ${e.message}")
+                }
+            }
+            val intent = Intent(this, com.iips.launcher.pocket.ui.AppPocketActivity::class.java)
+            startActivity(intent)
+        } catch (e: Exception) {
+            android.util.Log.e("LauncherActivity", "Error launching AppPocket: ${e.message}", e)
+            Toast.makeText(this, "Error launching App Pocket", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun launchApp(appInfo: AppInfo) {
         if (appInfo.packageName == "com.iips.launcher.pocket") {
-            try {
-                val intent = Intent(this, com.iips.launcher.pocket.ui.AppPocketActivity::class.java)
-                startActivity(intent)
-            } catch (e: Exception) {
-                android.util.Log.e("LauncherActivity", "Error launching AppPocket: ${e.message}", e)
-                Toast.makeText(this, "Error launching App Pocket", Toast.LENGTH_SHORT).show()
-            }
+            openAppPocket()
             return
         }
         try {
@@ -1504,29 +1841,24 @@ class LauncherActivity : AppCompatActivity() {
         val batteryInfo = com.iips.launcher.core.HardwareProvider.getBatteryInfo(this)
         val batteryText = "${batteryInfo.level}%"
         binding.batteryText.text = batteryText
-        binding.qsBatteryStatus.text = "Battery: $batteryText${if (batteryInfo.charging) " (Charging)" else ""}"
-        
-        if (batteryInfo.level < 20) {
-            binding.qsBatteryIcon.setImageResource(android.R.drawable.ic_lock_idle_low_battery)
-        } else {
-            binding.qsBatteryIcon.setImageResource(android.R.drawable.ic_lock_idle_charging)
-        }
+        binding.qsBatteryStatus.text =
+            if (batteryInfo.charging) "$batteryText⚡" else batteryText
+        binding.qsBatteryIcon.setImageResource(R.drawable.ic_qs_battery)
 
         // Network
         val networkInfo = com.iips.launcher.core.HardwareProvider.getNetworkInfo(this)
         binding.networkText.text = networkInfo.type
-        binding.qsWifiStatus.text = "Network: ${networkInfo.type}"
-        
-        if (networkInfo.type == "WIFI") {
-            binding.qsWifiIcon.setImageResource(android.R.drawable.ic_menu_compass)
-        } else {
-            binding.qsWifiIcon.setImageResource(android.R.drawable.ic_menu_mylocation)
-        }
-        
-        // SIM Status (Deprecated in heartbeat, showing static label or hiding)
+        binding.qsWifiStatus.text = networkInfo.type
+        binding.qsWifiIcon.setImageResource(R.drawable.ic_qs_wifi)
+
+        // SIM / cellular chip
         binding.simText.visibility = View.GONE
-        binding.qsSimStatus.text = "Cellular: Ready"
-        binding.qsSimIcon.setImageResource(android.R.drawable.ic_menu_call)
+        binding.qsSimStatus.text = "Ready"
+        binding.qsSimIcon.setImageResource(R.drawable.ic_qs_cellular)
+
+        if (isQsOpen) {
+            refreshQuickSettingsTiles()
+        }
     }
     
     private fun updateBatteryStatus() {

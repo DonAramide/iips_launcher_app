@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Modern Base Application Theme -->
-    <style name="Theme.Dotroid" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+    <style name="Theme.Dotroid" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- Primary Colors -->
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryVariant">@color/primary_dark</item>
@@ -40,7 +40,9 @@
     </style>
 
     <!-- Full Screen Theme for Launcher -->
-    <style name="Theme.Dotroid.FullScreen" parent="Theme.Dotroid">
+    <style name="Theme.Dotroid.FullScreen" parent="Theme.Dotroid.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowActionBar">false</item>
         <item name="android:windowFullscreen">true</item>

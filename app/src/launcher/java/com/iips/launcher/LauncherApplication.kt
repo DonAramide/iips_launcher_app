@@ -101,8 +101,9 @@ class LauncherApplication : Application(), androidx.work.Configuration.Provider 
                                      activityName == "com.iips.launcher.ui.AdminActivity"
                 val isAppSelectionActivity = activityName.contains("AppSelectionActivity", ignoreCase = true) ||
                                             activityName == "com.iips.launcher.ui.AppSelectionActivity"
-                val isOwnPackage = packageName == "com.iips.launcher" || 
-                                  packageName.contains("iips.launcher", ignoreCase = true)
+                val isOwnPackage = packageName == this@LauncherApplication.packageName.lowercase() ||
+                                  packageName.contains("dotroid", ignoreCase = true) ||
+                                  packageName.contains("iips", ignoreCase = true)
                 val isBypass = isSystemBypassPackage(packageName)
                 
                 if (isAdminActivity || isAppSelectionActivity || isOwnPackage || isBypass) {
@@ -171,8 +172,9 @@ class LauncherApplication : Application(), androidx.work.Configuration.Provider 
                                      activityName == "com.iips.launcher.ui.AdminActivity"
                 val isAppSelectionActivity = activityName.contains("AppSelectionActivity", ignoreCase = true) ||
                                             activityName == "com.iips.launcher.ui.AppSelectionActivity"
-                val isOwnPackage = packageName == "com.iips.launcher" || 
-                                  packageName.contains("iips.launcher", ignoreCase = true)
+                val isOwnPackage = packageName == this@LauncherApplication.packageName.lowercase() || 
+                                  packageName.contains("dotroid", ignoreCase = true) ||
+                                  packageName.contains("iips", ignoreCase = true)
                 val isBypass = isSystemBypassPackage(packageName)
                 
                 // Never intercept AdminActivity, AppSelectionActivity, own package, or system permission activities
@@ -250,12 +252,13 @@ class LauncherApplication : Application(), androidx.work.Configuration.Provider 
                     return
                 }
                 
-                // Allow LauncherActivity - always allow
-                if (activity is LauncherActivity) {
+                val packageName = activity.packageName?.lowercase() ?: ""
+                val isOwnPackage = packageName == this@LauncherApplication.packageName.lowercase() ||
+                                  packageName.contains("dotroid", ignoreCase = true) ||
+                                  packageName.contains("iips", ignoreCase = true)
+                if (isOwnPackage) {
                     return
                 }
-                
-                val packageName = activity.packageName?.lowercase() ?: ""
                 
                 if (isSystemBypassPackage(packageName)) {
                     return

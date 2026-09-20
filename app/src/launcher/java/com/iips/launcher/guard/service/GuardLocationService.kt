@@ -59,16 +59,26 @@ class GuardLocationService : Service() {
 
         fun start(context: Context) {
             val intent = Intent(context, GuardLocationService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
+            try {
                 context.startService(intent)
+            } catch (e: Exception) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    try {
+                        context.startForegroundService(intent)
+                    } catch (e2: Exception) {
+                        Log.e(TAG, "Failed to start foreground service: ${e2.message}")
+                    }
+                }
             }
         }
 
         fun stop(context: Context) {
             val intent = Intent(context, GuardLocationService::class.java)
-            context.stopService(intent)
+            try {
+                context.stopService(intent)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to stop service: ${e.message}")
+            }
         }
     }
 
@@ -92,6 +102,12 @@ class GuardLocationService : Service() {
         startNetworkMonitoring()
         requestLocationUpdates()
         restoreActiveSession()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        createNotificationChannel()
+        startForeground(NOTIFICATION_ID, createNotification())
+        return START_STICKY
     }
 
     private fun registerProviderReceiver() {
@@ -262,7 +278,7 @@ class GuardLocationService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        Log.d(TAG, "Destroying GuardLocationService")
+        Log.d(TAG, "Destroying GuardLocationService", Throwable("GuardLocationService onDestroy trace"))
         try {
             fusedLocationClient.removeLocationUpdates(locationCallback)
         } catch (e: Exception) {

@@ -181,6 +181,20 @@ object DeviceController {
         if (!isKioskSecurityReady(activity)) {
             return
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                activity.window.setDecorFitsSystemWindows(false)
+                val controller = activity.window.insetsController
+                controller?.hide(
+                    android.view.WindowInsets.Type.statusBars() or
+                    android.view.WindowInsets.Type.navigationBars()
+                )
+                controller?.systemBarsBehavior =
+                    android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            } catch (e: Exception) {
+                android.util.Log.w("DeviceController", "Could not apply WindowInsetsController: ${e.message}")
+            }
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
             val flags = (
                 View.SYSTEM_UI_FLAG_LAYOUT_STABLE
@@ -191,11 +205,25 @@ object DeviceController {
                     or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
             )
             activity.window.decorView.systemUiVisibility = flags
+            activity.window.decorView.setOnSystemUiVisibilityChangeListener(null)
         }
     }
 
     fun disableImmersiveMode(activity: Activity) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                activity.window.setDecorFitsSystemWindows(true)
+                val controller = activity.window.insetsController
+                controller?.show(
+                    android.view.WindowInsets.Type.statusBars() or
+                    android.view.WindowInsets.Type.navigationBars()
+                )
+            } catch (e: Exception) {
+                android.util.Log.w("DeviceController", "Could not show insets: ${e.message}")
+            }
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            activity.window.decorView.setOnSystemUiVisibilityChangeListener(null)
             activity.window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
         }
     }
@@ -631,6 +659,20 @@ object DeviceController {
         if (!isKioskSecurityReady(activity)) {
             return
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                activity.window.setDecorFitsSystemWindows(false)
+                val controller = activity.window.insetsController
+                controller?.hide(
+                    android.view.WindowInsets.Type.statusBars() or
+                    android.view.WindowInsets.Type.navigationBars()
+                )
+                controller?.systemBarsBehavior =
+                    android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            } catch (e: Exception) {
+                android.util.Log.w("DeviceController", "Could not apply WindowInsetsController in blockSystemUI: ${e.message}")
+            }
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
             // Full immersive mode to prevent notifications pull-down
             val flags = (
@@ -642,16 +684,8 @@ object DeviceController {
                     or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
             )
             activity.window.decorView.systemUiVisibility = flags
-
-            // Set listener to re-apply when system UI is shown
-            activity.window.decorView.setOnSystemUiVisibilityChangeListener { visibility ->
-                if (visibility and View.SYSTEM_UI_FLAG_FULLSCREEN == 0) {
-                    // System UI is visible, hide it again
-                    activity.window.decorView.post {
-                        activity.window.decorView.systemUiVisibility = flags
-                    }
-                }
-            }
+            // Explicitly clear any listener to prevent infinite runnable loop on touch
+            activity.window.decorView.setOnSystemUiVisibilityChangeListener(null)
         }
     }
 }

@@ -56,8 +56,7 @@ class ProvisioningStatusActivity : AppCompatActivity() {
         retryButton.setOnClickListener { onRetry() }
 
         // If already enrolled, jump straight to launcher
-        if (SecurePreferences.isProvisioningCompleted(this) &&
-            SecurePreferences.isRegistered(this)) {
+        if (SecurePreferences.isRegistered(this)) {
             navigateToLauncher()
             return
         }
