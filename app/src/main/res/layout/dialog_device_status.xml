@@ -113,8 +113,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingVertical="8dp"
-        android:layout_marginBottom="24dp">
+        android:paddingVertical="8dp">
         <ImageView
             android:layout_width="24dp"
             android:layout_height="24dp"
@@ -135,6 +134,56 @@
             android:text="Connected"
             android:textColor="@color/text_primary"
             android:textSize="14sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Quasar Cloud Handshake -->
+    <LinearLayout
+        android:id="@+id/row_quasar_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingVertical="10dp"
+        android:paddingHorizontal="4dp"
+        android:layout_marginBottom="24dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true">
+        <ImageView
+            android:id="@+id/img_quasar_cloud_status"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:src="@drawable/ic_cloud_quasar"
+            app:tint="#EF4444" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:orientation="vertical">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Quasar Handshake"
+                android:textColor="@color/text_primary"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/txt_quasar_sub"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Tap to trigger heartbeat"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp" />
+        </LinearLayout>
+        <TextView
+            android:id="@+id/txt_quasar_val"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Disconnected"
+            android:textColor="#EF4444"
+            android:textSize="13sp"
             android:textStyle="bold" />
     </LinearLayout>
 

@@ -82,12 +82,15 @@ class GuardAaiWebSocketManager @Inject constructor(
 
         val baseUrl = SecurePreferences.getProvisioningBackendUrl(context)
             ?: SecurePreferences.getBackendUrl(context)
-            ?: "http://192.168.1.134:4000/"
+            ?: com.iips.launcher.BuildConfig.DEFAULT_SERVER_URL
 
-        val wsUrl = baseUrl
-            .replace("https://", "wss://")
-            .replace("http://", "ws://")
-            .trimEnd('/') + "/api/v1/$AAI_WS_PATH"
+        val normalized = SecurePreferences.normalizeBackendUrl(baseUrl)
+        val wsBase = when {
+            normalized.startsWith("https://") -> normalized.replace("https://", "wss://")
+            normalized.startsWith("http://") -> normalized.replace("http://", "ws://")
+            else -> "wss://$normalized"
+        }
+        val wsUrl = wsBase.trimEnd('/') + "/$AAI_WS_PATH"
 
         Log.i(TAG, "Connecting to AAI stream: $wsUrl")
         scope.launch { _connectionState.emit(ConnectionState.CONNECTING) }

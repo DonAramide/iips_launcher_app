@@ -1,0 +1,457 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Windows-style lock screen: full-screen dark overlay with centered glass card -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/lock_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#CC0A1628"
+    android:fitsSystemWindows="false">
+
+    <!-- Background subtle pattern: radial glow at center -->
+    <View
+        android:layout_width="600dp"
+        android:layout_height="600dp"
+        android:layout_gravity="center"
+        android:background="@drawable/bg_lock_radial_glow"
+        android:alpha="0.25" />
+
+    <!-- Top: Big clock and date — Windows-style top-center -->
+    <LinearLayout
+        android:id="@+id/lock_clock_area"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="48dp"
+        android:orientation="vertical"
+        android:gravity="center_horizontal">
+
+        <TextView
+            android:id="@+id/lock_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="08:47"
+            android:textColor="#FFFFFFFF"
+            android:textSize="72sp"
+            android:textStyle="normal"
+            android:letterSpacing="-0.02"
+            android:fontFamily="sans-serif-thin" />
+
+        <TextView
+            android:id="@+id/lock_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Saturday, 20 September 2026"
+            android:textColor="#CCE0E8F0"
+            android:textSize="16sp"
+            android:letterSpacing="0.06"
+            android:fontFamily="sans-serif-light" />
+
+    </LinearLayout>
+
+    <!-- Center: Glass card (Windows login card) -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/lock_card"
+        android:layout_width="340dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="48dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="24dp"
+        app:cardBackgroundColor="#1AFFFFFF">
+
+        <!-- Glass inner container -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:paddingStart="28dp"
+            android:paddingEnd="28dp"
+            android:paddingTop="32dp"
+            android:paddingBottom="28dp"
+            android:background="#1AFFFFFF">
+
+            <!-- Dotroid Logo -->
+            <ImageView
+                android:id="@+id/lock_logo"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:src="@drawable/ic_dotroid_premium_branding"
+                android:contentDescription="Dotroid" />
+
+            <!-- "Dotroid" title -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="Dotroid"
+                android:textColor="#FFFFFFFF"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium" />
+
+            <!-- "Screen locked" subtitle -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Screen locked"
+                android:textColor="#80FFFFFF"
+                android:textSize="13sp"
+                android:fontFamily="sans-serif-light" />
+
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="20dp"
+                android:layout_marginBottom="20dp"
+                android:background="#20FFFFFF" />
+
+            <!-- Password field area (shown by default) -->
+            <LinearLayout
+                android:id="@+id/lock_password_area"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <!-- Password label -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Enter password to unlock"
+                    android:textColor="#CCE0E8F0"
+                    android:textSize="12sp"
+                    android:layout_marginBottom="8dp"
+                    android:fontFamily="sans-serif-light" />
+
+                <!-- Password row -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:orientation="horizontal"
+                    android:background="@drawable/bg_lock_input_field"
+                    android:gravity="center_vertical">
+
+                    <EditText
+                        android:id="@+id/lock_password_input"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:background="@null"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="8dp"
+                        android:hint="Password"
+                        android:textColorHint="#60FFFFFF"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="15sp"
+                        android:inputType="textPassword"
+                        android:imeOptions="actionDone"
+                        android:singleLine="true"
+                        android:fontFamily="sans-serif" />
+
+                    <!-- Eye toggle -->
+                    <ImageView
+                        android:id="@+id/lock_toggle_password"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:padding="10dp"
+                        android:src="@android:drawable/ic_menu_view"
+                        android:contentDescription="Toggle password visibility"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:tint="#80FFFFFF" />
+
+                </LinearLayout>
+
+                <!-- Error text -->
+                <TextView
+                    android:id="@+id/lock_error_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Incorrect password. Try again."
+                    android:textColor="#FFEF4444"
+                    android:textSize="12sp"
+                    android:visibility="invisible"
+                    android:fontFamily="sans-serif-light" />
+
+                <!-- Unlock button -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/lock_unlock_btn"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="16dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
+                    app:cardCornerRadius="10dp"
+                    app:cardElevation="4dp"
+                    app:cardBackgroundColor="#1E3A8A">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Unlock"
+                            android:textColor="#FFFFFFFF"
+                            android:textSize="15sp"
+                            android:textStyle="bold"
+                            android:fontFamily="sans-serif-medium" />
+
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:layout_marginStart="8dp"
+                            android:src="@android:drawable/ic_media_next"
+                            app:tint="#FFFFFFFF" />
+
+                    </LinearLayout>
+
+                </androidx.cardview.widget.CardView>
+
+                <!-- Forgot password link -->
+                <TextView
+                    android:id="@+id/lock_forgot_password"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:layout_marginTop="14dp"
+                    android:text="Forgot password?"
+                    android:textColor="#803B82F6"
+                    android:textSize="12sp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:padding="6dp" />
+
+            </LinearLayout>
+
+            <!-- Recovery area (hidden by default, shown after tapping Forgot) -->
+            <LinearLayout
+                android:id="@+id/lock_recovery_area"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Recovery Code"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium" />
+
+                <TextView
+                    android:id="@+id/lock_recovery_hint"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:layout_marginBottom="12dp"
+                    android:text="Contact your admin for current code"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="11sp"
+                    android:fontFamily="sans-serif-light" />
+
+                <!-- Recovery input -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:orientation="horizontal"
+                    android:background="@drawable/bg_lock_input_field"
+                    android:gravity="center_vertical">
+
+                    <EditText
+                        android:id="@+id/lock_recovery_input"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@null"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:hint="Recovery code"
+                        android:textColorHint="#60FFFFFF"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="14sp"
+                        android:inputType="text"
+                        android:imeOptions="actionDone"
+                        android:singleLine="true"
+                        android:fontFamily="sans-serif" />
+
+                </LinearLayout>
+
+                <!-- Recovery error -->
+                <TextView
+                    android:id="@+id/lock_recovery_error"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Invalid recovery code."
+                    android:textColor="#FFEF4444"
+                    android:textSize="12sp"
+                    android:visibility="invisible"
+                    android:fontFamily="sans-serif-light" />
+
+                <!-- Verify recovery button -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/lock_recovery_btn"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="14dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
+                    app:cardCornerRadius="10dp"
+                    app:cardElevation="4dp"
+                    app:cardBackgroundColor="#10B981">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:text="Verify &amp; Reset Password"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium" />
+
+                </androidx.cardview.widget.CardView>
+
+                <!-- Back to password -->
+                <TextView
+                    android:id="@+id/lock_back_to_password"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="← Back"
+                    android:textColor="#803B82F6"
+                    android:textSize="12sp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:padding="6dp" />
+
+            </LinearLayout>
+
+            <!-- Set new password area (shown after valid recovery) -->
+            <LinearLayout
+                android:id="@+id/lock_set_password_area"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Set New Password"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:layout_marginBottom="12dp" />
+
+                <!-- New password -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:orientation="horizontal"
+                    android:background="@drawable/bg_lock_input_field"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="8dp">
+
+                    <EditText
+                        android:id="@+id/lock_new_password_input"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@null"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:hint="New password"
+                        android:textColorHint="#60FFFFFF"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="15sp"
+                        android:inputType="textPassword"
+                        android:singleLine="true"
+                        android:fontFamily="sans-serif" />
+
+                </LinearLayout>
+
+                <!-- Confirm new password -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:orientation="horizontal"
+                    android:background="@drawable/bg_lock_input_field"
+                    android:gravity="center_vertical">
+
+                    <EditText
+                        android:id="@+id/lock_confirm_password_input"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@null"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:hint="Confirm new password"
+                        android:textColorHint="#60FFFFFF"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="15sp"
+                        android:inputType="textPassword"
+                        android:imeOptions="actionDone"
+                        android:singleLine="true"
+                        android:fontFamily="sans-serif" />
+
+                </LinearLayout>
+
+                <!-- Mismatch error -->
+                <TextView
+                    android:id="@+id/lock_new_pw_error"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Passwords do not match."
+                    android:textColor="#FFEF4444"
+                    android:textSize="12sp"
+                    android:visibility="invisible"
+                    android:fontFamily="sans-serif-light" />
+
+                <!-- Save button -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/lock_save_password_btn"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="14dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
+                    app:cardCornerRadius="10dp"
+                    app:cardElevation="4dp"
+                    app:cardBackgroundColor="#1E3A8A">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:text="Save &amp; Unlock"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium" />
+
+                </androidx.cardview.widget.CardView>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </androidx.cardview.widget.CardView>
+
+</FrameLayout>

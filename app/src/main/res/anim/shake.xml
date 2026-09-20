@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shake animation for wrong password — horizontal oscillation -->
+<translate xmlns:android="http://schemas.android.com/apk/res/android"
+    android:fromXDelta="-18dp"
+    android:toXDelta="18dp"
+    android:duration="450"
+    android:repeatCount="5"
+    android:repeatMode="reverse"
+    android:interpolator="@android:anim/cycle_interpolator" />

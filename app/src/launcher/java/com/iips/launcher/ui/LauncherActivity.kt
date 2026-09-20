@@ -208,20 +208,51 @@ class LauncherActivity : AppCompatActivity() {
     private fun setupDebugWipeReceiver() {
         debugWipeReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent?.action == "com.dotoid.DEBUG_WIPE") {
-                    android.util.Log.w("LauncherActivity", "DEBUG WIPE TRIGGERED VIA ADB")
-                    Toast.makeText(this@LauncherActivity, "Debug Wipe Triggered", Toast.LENGTH_SHORT).show()
-                    performSystemReset()
+                when (intent?.action) {
+                    "com.dotoid.DEBUG_WIPE" -> {
+                        android.util.Log.w("LauncherActivity", "DEBUG WIPE TRIGGERED VIA ADB")
+                        Toast.makeText(this@LauncherActivity, "Debug Wipe Triggered", Toast.LENGTH_SHORT).show()
+                        performSystemReset()
+                    }
+                    "com.iips.launcher.DEBUG_ALLOW_INSTALL" -> {
+                        // Temporarily lift install restriction so developer can sideload via ADB
+                        if (com.iips.launcher.BuildConfig.DEBUG) {
+                            try {
+                                com.iips.launcher.policy.DeviceController.setUserRestriction(
+                                    this@LauncherActivity,
+                                    android.os.UserManager.DISALLOW_INSTALL_APPS,
+                                    false
+                                )
+                                android.util.Log.w("LauncherActivity", "DEBUG: DISALLOW_INSTALL_APPS temporarily lifted for sideloading")
+                                Toast.makeText(this@LauncherActivity, "Install restriction lifted for 30s", Toast.LENGTH_SHORT).show()
+                                // Re-apply after 30 seconds
+                                Handler(Looper.getMainLooper()).postDelayed({
+                                    com.iips.launcher.policy.DeviceController.setUserRestriction(
+                                        this@LauncherActivity,
+                                        android.os.UserManager.DISALLOW_INSTALL_APPS,
+                                        true
+                                    )
+                                    android.util.Log.d("LauncherActivity", "DEBUG: DISALLOW_INSTALL_APPS re-applied")
+                                }, 30_000)
+                            } catch (e: Exception) {
+                                android.util.Log.e("LauncherActivity", "Failed to lift install restriction", e)
+                            }
+                        }
+                    }
                 }
             }
         }
-        val filter = IntentFilter("com.dotoid.DEBUG_WIPE")
+        val filter = IntentFilter().apply {
+            addAction("com.dotoid.DEBUG_WIPE")
+            addAction("com.iips.launcher.DEBUG_ALLOW_INSTALL")
+        }
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(debugWipeReceiver, filter, Context.RECEIVER_EXPORTED)
         } else {
             registerReceiver(debugWipeReceiver, filter)
         }
     }
+
 
     private fun setupScreenLock() {
         screenOffReceiver = object : BroadcastReceiver() {

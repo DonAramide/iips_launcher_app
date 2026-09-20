@@ -53,6 +53,9 @@ class DeviceEnrollmentManager @Inject constructor(
             val response = configService.enrollDevice(request)
             if (response.isSuccessful) {
                 response.body()?.let { res ->
+                    if (res.responseCode != null && res.responseCode != "00" && !res.responseMessage.isNullOrBlank()) {
+                        throw Exception(res.responseMessage)
+                    }
                     val finalDeviceId = if (!serial.isNullOrBlank()) serial else res.deviceId
                     SecurePreferences.setDeviceId(context, finalDeviceId)
                     SecurePreferences.setDeviceToken(context, res.accessToken ?: "")
@@ -60,12 +63,36 @@ class DeviceEnrollmentManager @Inject constructor(
                     return@withContext true
                 }
             } else {
-                Log.e(TAG, "Enrollment failed: ${response.code()}")
-                if (response.code() == 401 || response.code() == 403) {
-                    throw Exception("Invalid Enrollment Token. Please check the token and try again.")
-                } else {
-                    throw Exception("Enrollment failed (Server returned status ${response.code()}).")
+                val errorBodyStr = try { response.errorBody()?.string() } catch (e: Exception) { null }
+                Log.e(TAG, "Enrollment failed: ${response.code()}, body: $errorBodyStr")
+                var parsedMsg: String? = null
+                if (!errorBodyStr.isNullOrBlank()) {
+                    try {
+                        val json = org.json.JSONObject(errorBodyStr)
+                        if (json.has("responseMessage")) {
+                            val rm = json.optString("responseMessage")
+                            if (!rm.isNullOrBlank() && rm != "null") {
+                                parsedMsg = rm
+                            }
+                        }
+                        if (parsedMsg == null && json.has("message")) {
+                            val m = json.optString("message")
+                            if (!m.isNullOrBlank() && m != "null") {
+                                parsedMsg = m
+                            }
+                        }
+                        if (parsedMsg == null && json.has("error")) {
+                            val err = json.optString("error")
+                            if (!err.isNullOrBlank() && err != "null") {
+                                parsedMsg = err
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error parsing error body", e)
+                    }
                 }
+
+                throw Exception(parsedMsg ?: "Enrollment failed (Server returned status ${response.code()})")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Enrollment error", e)

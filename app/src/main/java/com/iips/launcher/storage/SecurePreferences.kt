@@ -135,10 +135,11 @@ object SecurePreferences {
     fun getConfigUrl(context: Context): String {
         val prefs = getEncryptedPrefs(context)
         val stored = prefs.getString("config_url", null)
-        return when {
-            !stored.isNullOrBlank() && !stored.contains("ngrok") -> stored
-            else -> com.iips.launcher.BuildConfig.DEFAULT_SERVER_URL
+        if (!stored.isNullOrBlank() && (stored.contains("192.168.1.134") || stored.contains("4000") || stored.contains("ngrok") || stored.contains("staging-quasar"))) {
+            prefs.edit().remove("config_url").apply()
+            return com.iips.launcher.BuildConfig.DEFAULT_SERVER_URL
         }
+        return stored ?: com.iips.launcher.BuildConfig.DEFAULT_SERVER_URL
     }
 
     fun setConfigUrl(context: Context, url: String) {
@@ -362,12 +363,20 @@ object SecurePreferences {
         prefs.edit().putString("last_command_status", status).apply()
     }
 
+    @Synchronized
     fun getNextTelemetrySeq(context: Context): Long {
         val prefs = getEncryptedPrefs(context)
+        val epochSeconds = System.currentTimeMillis() / 1000L
         val current = prefs.getLong("telemetry_seq", 0L)
-        val next = current + 1
+        val next = if (current < epochSeconds) epochSeconds else current + 1
         prefs.edit().putLong("telemetry_seq", next).apply()
         return next
+    }
+
+    fun advanceTelemetrySeq(context: Context, delta: Long = 10000L) {
+        val prefs = getEncryptedPrefs(context)
+        val current = prefs.getLong("telemetry_seq", System.currentTimeMillis() / 1000L)
+        prefs.edit().putLong("telemetry_seq", current + delta).apply()
     }
 
     fun getCurrentTelemetrySeq(context: Context): Long {
@@ -415,7 +424,12 @@ object SecurePreferences {
 
     fun getProvisioningBackendUrl(context: Context): String? {
         val prefs = getEncryptedPrefs(context)
-        return prefs.getString("provisioning_backend_url", null)
+        val stored = prefs.getString("provisioning_backend_url", null)
+        if (stored != null && (stored.contains("192.168.1.134") || stored.contains("4000"))) {
+            prefs.edit().remove("provisioning_backend_url").apply()
+            return null
+        }
+        return stored
     }
 
     fun setBackendUrl(context: Context, url: String) {
@@ -425,7 +439,12 @@ object SecurePreferences {
 
     fun getBackendUrl(context: Context): String? {
         val prefs = getEncryptedPrefs(context)
-        return prefs.getString("backend_url", null)
+        val stored = prefs.getString("backend_url", null)
+        if (stored != null && (stored.contains("192.168.1.134") || stored.contains("4000"))) {
+            prefs.edit().remove("backend_url").apply()
+            return null
+        }
+        return stored
     }
 
     fun setEnrollmentToken(context: Context, token: String) {
@@ -620,4 +639,47 @@ object SecurePreferences {
         val prefs = getEncryptedPrefs(context)
         return prefs.getString("mdm_mapping_$mdmPkg", mdmPkg) ?: mdmPkg
     }
+
+    // ── Lock Screen ─────────────────────────────────────────────────────────
+
+    /**
+     * Returns the user-set lock screen password, or null if never configured.
+     */
+    fun getLockScreenPassword(context: Context): String? {
+        val prefs = getEncryptedPrefs(context)
+        val pw = prefs.getString("lock_screen_password", null)
+        return if (pw.isNullOrBlank()) null else pw
+    }
+
+    fun setLockScreenPassword(context: Context, password: String) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit().putString("lock_screen_password", password).apply()
+    }
+
+    // ── Quasar Heartbeat Status ─────────────────────────────────────────────
+
+    fun setLastHeartbeatStatus(context: Context, isSuccess: Boolean, message: String) {
+        val prefs = getEncryptedPrefs(context)
+        prefs.edit()
+            .putBoolean("last_heartbeat_success", isSuccess)
+            .putString("last_heartbeat_message", message)
+            .putLong("last_telemetry_sync_time", System.currentTimeMillis())
+            .apply()
+    }
+
+    fun getLastHeartbeatSuccess(context: Context): Boolean {
+        val prefs = getEncryptedPrefs(context)
+        return prefs.getBoolean("last_heartbeat_success", false)
+    }
+
+    fun getLastHeartbeatMessage(context: Context): String {
+        val prefs = getEncryptedPrefs(context)
+        return prefs.getString("last_heartbeat_message", "Never Connected") ?: "Never Connected"
+    }
+
+    fun getLastHeartbeatTime(context: Context): Long {
+        val prefs = getEncryptedPrefs(context)
+        return prefs.getLong("last_telemetry_sync_time", 0L)
+    }
 }
+

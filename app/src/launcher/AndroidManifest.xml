@@ -105,17 +105,21 @@
             </intent-filter>
         </receiver>
 
-        <!-- Boot Receiver - Auto-start on boot (System App Feature) -->
+        <!-- Boot Receiver - Auto-start on boot + install callbacks + debug sideload unlock -->
         <receiver
             android:name=".core.BootReceiver"
             android:enabled="true"
-            android:exported="true"
-            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+            android:exported="true">
             <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.PACKAGE_REPLACED" />
                 <data android:scheme="package" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.iips.launcher.DEBUG_ALLOW_INSTALL" />
+                <action android:name="com.iips.launcher.INSTALL_COMPLETE" />
+                <action android:name="com.iips.launcher.UNINSTALL_COMPLETE" />
             </intent-filter>
         </receiver>
 

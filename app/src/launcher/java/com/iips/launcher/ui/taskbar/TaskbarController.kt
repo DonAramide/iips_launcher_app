@@ -23,6 +23,7 @@ import com.iips.launcher.R
 import com.iips.launcher.convergence.BroadcastRenderingEngine
 import com.iips.launcher.data.AppDatabase
 import com.iips.launcher.ui.AdminPasswordDialogFragment
+import com.iips.launcher.storage.SecurePreferences
 import com.iips.launcher.ui.LauncherPairingActivity
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
@@ -126,7 +127,7 @@ class TaskbarController(
 
         val popup = PopupWindow(
             popupView,
-            android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+            popupWidth,
             android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
             true // focusable — dismisses on outside touch
         )
@@ -178,20 +179,38 @@ class TaskbarController(
             }
         }
 
-        // Position: above the anchor icon, aligned to its left edge
-        val anchorLoc = IntArray(2)
-        anchor.getLocationOnScreen(anchorLoc)
+        popupView.findViewById<View>(R.id.popup_lock_screen).setOnClickListener {
+            popup.dismiss()
+            showLockScreen()
+        }
 
-        // Show above the taskbar icon
-        val offsetY = -(popupHeight + anchor.height + 8)   // 8dp gap above icon
-        val offsetX = 0                                      // align to left of icon
+        // Align popup to the LEFT edge of the screen, floating above the taskbar
+        val taskbarRoot = taskbarLayout
+        val taskbarLoc = IntArray(2)
+        taskbarRoot.getLocationOnScreen(taskbarLoc)
+
+        // y: appear just above the taskbar bar
+        val offsetY = taskbarLoc[1] - popupHeight - 8   // 8px gap above taskbar
+        // x: flush to the left edge of the screen (no offset)
+        val offsetX = 0
 
         popup.showAtLocation(
             anchor,
             Gravity.NO_GRAVITY,
-            anchorLoc[0] + offsetX,
-            anchorLoc[1] + offsetY
+            offsetX,
+            offsetY
         )
+    }
+
+    /**
+     * Shows the Windows-style full-screen lock screen dialog.
+     * The user must enter their password (or use the date-based recovery code) to dismiss it.
+     */
+    private fun showLockScreen() {
+        // Avoid stacking multiple instances
+        if (activity.supportFragmentManager.findFragmentByTag(com.iips.launcher.ui.LockScreenDialogFragment.TAG) != null) return
+        com.iips.launcher.ui.LockScreenDialogFragment.newInstance()
+            .show(activity.supportFragmentManager, com.iips.launcher.ui.LockScreenDialogFragment.TAG)
     }
 
     private fun showSendManagerMessageDialog() {

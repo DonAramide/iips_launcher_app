@@ -28,7 +28,23 @@ class BootReceiver : BroadcastReceiver() {
             Handler(Looper.getMainLooper()).postDelayed({
                 handleBootComplete(context)
             }, 2000) // 2 second delay
+        } else if (intent.action == "com.iips.launcher.DEBUG_ALLOW_INSTALL" &&
+                   com.iips.launcher.BuildConfig.DEBUG &&
+                   DeviceAdminReceiver.isDeviceOwner(context)) {
+            // DEBUG ONLY: Temporarily lift the DISALLOW_INSTALL_APPS restriction for ADB sideloading
+            try {
+                DeviceController.setUserRestriction(context, android.os.UserManager.DISALLOW_INSTALL_APPS, false)
+                android.util.Log.w("BootReceiver", "DEBUG: DISALLOW_INSTALL_APPS lifted for sideloading (30s window)")
+                // Re-apply after 30 seconds
+                Handler(Looper.getMainLooper()).postDelayed({
+                    DeviceController.setUserRestriction(context, android.os.UserManager.DISALLOW_INSTALL_APPS, true)
+                    android.util.Log.d("BootReceiver", "DEBUG: DISALLOW_INSTALL_APPS re-applied")
+                }, 30_000)
+            } catch (e: Exception) {
+                android.util.Log.e("BootReceiver", "Failed to lift install restriction", e)
+            }
         } else if (intent.action == "com.iips.launcher.INSTALL_COMPLETE") {
+
             val status = intent.getIntExtra(android.content.pm.PackageInstaller.EXTRA_STATUS, -1)
             val message = intent.getStringExtra(android.content.pm.PackageInstaller.EXTRA_STATUS_MESSAGE)
             val packageName = intent.getStringExtra(android.content.pm.PackageInstaller.EXTRA_PACKAGE_NAME)

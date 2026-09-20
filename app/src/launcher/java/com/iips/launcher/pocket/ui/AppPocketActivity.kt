@@ -67,6 +67,7 @@ class AppPocketActivity : AppCompatActivity() {
             triggerCatalogSync()
         }
 
+        binding.tabLayout.addTab(binding.tabLayout.newTab().setText("All Apps"))
         binding.tabLayout.addTab(binding.tabLayout.newTab().setText("Required Apps"))
         binding.tabLayout.addTab(binding.tabLayout.newTab().setText("Company Store"))
         binding.tabLayout.addTab(binding.tabLayout.newTab().setText("Installed Apps"))
@@ -114,10 +115,11 @@ class AppPocketActivity : AppCompatActivity() {
 
     private fun filterAndDisplayApps() {
         val filtered = when (currentTab) {
-            0 -> allApps.filter { it.isRequired }
-            1 -> allApps.filter { it.status != "INSTALLED" && !it.isRequired }
-            2 -> allApps.filter { it.status == "INSTALLED" }
-            3 -> allApps.filter { it.status == "AWAITING_APPROVAL" }
+            0 -> allApps
+            1 -> allApps.filter { it.isRequired }
+            2 -> allApps.filter { !it.isRequired }
+            3 -> allApps.filter { it.status == "INSTALLED" }
+            4 -> allApps.filter { it.status == "AWAITING_APPROVAL" }
             else -> allApps
         }
 

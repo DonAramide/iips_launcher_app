@@ -217,7 +217,7 @@ class OnboardingActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     actionButton?.isEnabled = true
                     actionButton?.text = "Continue"
-                    Toast.makeText(this@OnboardingActivity, "Registration failed: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@OnboardingActivity, e.message ?: "Registration failed", Toast.LENGTH_LONG).show()
                 }
             }
         }

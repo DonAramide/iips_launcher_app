@@ -521,7 +521,8 @@ object DeviceController {
             // on test/release installs when Device Owner is set.
             
             // Add additional restrictions if available (Android 6.0+)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            // Note: skip DISALLOW_INSTALL_APPS in DEBUG builds so ADB sideloading still works
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !com.iips.launcher.BuildConfig.DEBUG) {
                 try {
                     restrictions.add(android.os.UserManager.DISALLOW_INSTALL_APPS)  // Also prevents viewing app details
                 } catch (e: Exception) {
