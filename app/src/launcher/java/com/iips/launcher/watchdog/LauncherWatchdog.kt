@@ -58,6 +58,11 @@ class LauncherWatchdog @Inject constructor(
             // 4. Verify Policy enforcement
             policyManager.enforceCurrent()
             
+            // 5. Ensure Dotroid is the persistent default launcher and status bar is locked
+            if (com.iips.launcher.policy.DeviceAdminReceiver.isDeviceOwner(context)) {
+                com.iips.launcher.policy.DeviceController.ensureDefaultLauncher(context)
+                com.iips.launcher.policy.DeviceController.setStatusBarLocked(context, true)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Global health check encountered an error", e)
         }

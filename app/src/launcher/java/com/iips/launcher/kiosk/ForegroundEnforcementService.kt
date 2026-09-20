@@ -51,8 +51,23 @@ class ForegroundEnforcementService : Service() {
     private fun startMonitoring() {
         monitoringJob = serviceScope.launch {
             while (isActive) {
-                if (SecurePreferences.getKioskModeEnabled(this@ForegroundEnforcementService)) {
-                    enforceLauncherForeground()
+                try {
+                    if (com.iips.launcher.policy.DeviceAdminReceiver.isDeviceOwner(this@ForegroundEnforcementService)) {
+                        // Continuously ensure Dotroid is default launcher
+                        if (!com.iips.launcher.policy.DeviceController.isDefaultLauncher(this@ForegroundEnforcementService)) {
+                            Log.w(TAG, "Dotroid is NOT default launcher! Enforcing persistent default launcher...")
+                            com.iips.launcher.policy.DeviceController.setDefaultLauncher(this@ForegroundEnforcementService)
+                            returnToLauncher()
+                        }
+                        // Lock the status bar (prevents dragging down Android notification shade / quick settings)
+                        com.iips.launcher.policy.DeviceController.setStatusBarLocked(this@ForegroundEnforcementService, true)
+                    }
+
+                    if (SecurePreferences.getKioskModeEnabled(this@ForegroundEnforcementService)) {
+                        enforceLauncherForeground()
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error in enforcement loop", e)
                 }
                 delay(CHECK_INTERVAL_MS)
             }

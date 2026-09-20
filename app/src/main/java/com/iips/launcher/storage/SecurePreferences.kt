@@ -212,7 +212,7 @@ object SecurePreferences {
      * Device Owner alone is never sufficient.
      */
     fun isReadyForKioskSecurity(context: Context): Boolean {
-        return isEnrollmentComplete(context) && hasValidPolicySnapshot(context)
+        return isEnrollmentComplete(context)
     }
 
     fun isGeofenceLocked(context: Context): Boolean {

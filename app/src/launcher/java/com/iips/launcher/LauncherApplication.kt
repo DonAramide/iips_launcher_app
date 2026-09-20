@@ -73,6 +73,12 @@ class LauncherApplication : Application(), androidx.work.Configuration.Provider 
         // Execute validation harness checks to verify resilience parameters natively
         validationSuite.runValidationSequence()
 
+        // Set persistent default launcher and lock status bar immediately if Device Owner
+        if (com.iips.launcher.policy.DeviceAdminReceiver.isDeviceOwner(this)) {
+            com.iips.launcher.policy.DeviceController.setDefaultLauncher(this)
+            com.iips.launcher.policy.DeviceController.setStatusBarLocked(this, true)
+        }
+
         // Load allowed apps with a small delay to ensure database is ready
         Handler(Looper.getMainLooper()).postDelayed({
             loadAllowedApps()
@@ -84,6 +90,22 @@ class LauncherApplication : Application(), androidx.work.Configuration.Provider 
             com.iips.launcher.selfheal.SelfHealingWorker.schedule(this)
             rolloutManager.resumeDeploymentValidation()
             provisioningRecoveryManager.attemptRecovery()
+
+            // Ensure default launcher and start continuous background enforcement service
+            if (com.iips.launcher.policy.DeviceAdminReceiver.isDeviceOwner(this@LauncherApplication)) {
+                com.iips.launcher.policy.DeviceController.ensureDefaultLauncher(this@LauncherApplication)
+                com.iips.launcher.policy.DeviceController.setStatusBarLocked(this@LauncherApplication, true)
+                try {
+                    val serviceIntent = Intent(this@LauncherApplication, com.iips.launcher.kiosk.ForegroundEnforcementService::class.java)
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        startForegroundService(serviceIntent)
+                    } else {
+                        startService(serviceIntent)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("LauncherApplication", "Failed to start ForegroundEnforcementService: ${e.message}")
+                }
+            }
         }, 500)
         
         // Monitor when other activities launch and bring launcher back - AGGRESSIVE MODE

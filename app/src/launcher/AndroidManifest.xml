@@ -42,6 +42,7 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
     
     <!-- System App Permissions -->
 
@@ -67,6 +68,7 @@
             android:name=".ui.LauncherActivity"
             android:launchMode="singleTask"
             android:screenOrientation="portrait"
+            android:configChanges="uiMode|screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard"
             android:theme="@style/Theme.App.Starting"
             android:excludeFromRecents="true"
             android:exported="true">
@@ -82,6 +84,7 @@
             android:name=".ui.AdminActivity"
             android:launchMode="singleTask"
             android:screenOrientation="portrait"
+            android:configChanges="uiMode|screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard"
             android:theme="@style/Theme.Dotroid.NoActionBar"
             android:excludeFromRecents="true"
             android:exported="false" />
@@ -224,6 +227,13 @@
             android:foregroundServiceType="specialUse"
             tools:ignore="ForegroundServiceType" />
 
+        <service
+            android:name=".kiosk.ForegroundEnforcementService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            tools:ignore="ForegroundServiceType" />
+
         <receiver
             android:name=".apps.monitoring.PackageMonitorReceiver"
             android:enabled="true"
@@ -269,6 +279,7 @@
         <activity
             android:name=".ui.WifiSetupActivity"
             android:screenOrientation="portrait"
+            android:configChanges="uiMode|screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard"
             android:theme="@style/Theme.Dotroid.NoActionBar"
             android:excludeFromRecents="true"
             android:exported="false" />
@@ -277,6 +288,7 @@
         <activity
             android:name=".ui.HotspotSetupActivity"
             android:screenOrientation="portrait"
+            android:configChanges="uiMode|screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard"
             android:theme="@style/Theme.Dotroid.NoActionBar"
             android:excludeFromRecents="true"
             android:exported="false" />
@@ -294,6 +306,7 @@
         <activity
             android:name=".ui.LauncherPairingActivity"
             android:screenOrientation="portrait"
+            android:configChanges="uiMode|screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard"
             android:theme="@style/Theme.Dotroid.NoActionBar"
             android:excludeFromRecents="true"
             android:exported="false" />
@@ -302,6 +315,7 @@
         <activity
             android:name=".pocket.ui.AppPocketActivity"
             android:screenOrientation="portrait"
+            android:configChanges="uiMode|screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard"
             android:theme="@style/Theme.Dotroid.NoActionBar"
             android:excludeFromRecents="true"
             android:exported="false" />

@@ -34,10 +34,9 @@ object KioskController {
         val policyAvailable = SecurePreferences.hasValidPolicySnapshot(context)
         val reason = when {
             !registered || !enrollmentComplete -> "SKIPPED_REASON_NOT_ENROLLED"
-            !policyAvailable -> "SKIPPED_REASON_NO_POLICY"
             else -> "APPLY"
         }
-        val apply = enrollmentComplete && policyAvailable
+        val apply = enrollmentComplete
         Log.i(
             TAG,
             "DeviceOwner=$deviceOwner EnrollmentComplete=$enrollmentComplete " +
@@ -57,7 +56,6 @@ object KioskController {
 
     /**
      * Reads the current policy from SecurePreferences and applies its restrictions via DeviceController.
-     * Device Owner without enrollment + a valid policy snapshot must not lock the device.
      */
     fun applyPolicy(context: Context) {
         val decision = evaluateSecurityGate(context)
@@ -68,20 +66,16 @@ object KioskController {
         }
 
         val snapshot = SecurePreferences.getDevicePolicySnapshot(context)
-        if (snapshot == null) {
-            Log.i(TAG, "applyPolicy skipped: SKIPPED_REASON_NO_POLICY")
-            releasePrematureLockdown(context)
-            return
-        }
-
-        val kioskEnabled = SecurePreferences.getKioskModeEnabled(context)
-        val settingsLocked = SecurePreferences.isSettingsLocked(context)
+        val kioskEnabled = if (snapshot != null) SecurePreferences.getKioskModeEnabled(context) else true
+        val settingsLocked = if (snapshot != null) SecurePreferences.isSettingsLocked(context) else true
 
         var isExpired = false
-        val age = System.currentTimeMillis() - snapshot.lastUpdatedAt
-        if (age >= 2 * snapshot.maxPolicyAge) {
-            isExpired = true
-            Log.w(TAG, "MDM Policy EXPIRED. Forcing Lockdown Mode.")
+        if (snapshot != null) {
+            val age = System.currentTimeMillis() - snapshot.lastUpdatedAt
+            if (age >= 2 * snapshot.maxPolicyAge) {
+                isExpired = true
+                Log.w(TAG, "MDM Policy EXPIRED. Forcing Lockdown Mode.")
+            }
         }
 
         Log.i(TAG, "Applying Kiosk State: Enabled=$kioskEnabled, SettingsLocked=$settingsLocked (Expired=$isExpired)")

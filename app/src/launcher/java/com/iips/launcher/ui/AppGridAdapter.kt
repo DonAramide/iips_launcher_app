@@ -32,6 +32,7 @@ class AppGridAdapter(
         fun bind(appInfo: AppInfo) {
             iconView.setImageDrawable(appInfo.icon)
             nameView.text = appInfo.name
+            nameView.setTextColor(androidx.core.content.ContextCompat.getColor(itemView.context, R.color.text_primary))
             itemView.setOnClickListener {
                 onAppClick(appInfo)
             }

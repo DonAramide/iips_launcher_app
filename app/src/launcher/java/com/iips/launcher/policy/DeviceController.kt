@@ -5,6 +5,9 @@ import android.app.ActivityManager
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.os.Build
 import android.view.View
 import androidx.annotation.RequiresApi
@@ -178,9 +181,6 @@ object DeviceController {
     }
 
     fun enableImmersiveMode(activity: Activity) {
-        if (!isKioskSecurityReady(activity)) {
-            return
-        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             try {
                 activity.window.setDecorFitsSystemWindows(false)
@@ -234,18 +234,51 @@ object DeviceController {
         val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
         val admin = DeviceAdminReceiver.getComponentName(context)
 
-        val filter = android.content.IntentFilter(android.content.Intent.ACTION_MAIN).apply {
-            addCategory(android.content.Intent.CATEGORY_HOME)
-            addCategory(android.content.Intent.CATEGORY_DEFAULT)
+        // Clear persistent preferred activities for common OEM launchers
+        try {
+            val commonLaunchers = listOf(
+                "com.sec.android.app.launcher",
+                "com.google.android.apps.nexuslauncher",
+                "com.android.launcher3",
+                "com.android.launcher"
+            )
+            for (pkg in commonLaunchers) {
+                dpm.clearPackagePersistentPreferredActivities(admin, pkg)
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("DeviceController", "Could not clear persistent preferred for other launchers: ${e.message}")
         }
 
-        val activityName = ComponentName(context, "com.iips.launcher.ui.LauncherActivity")
+        val filter = IntentFilter(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_HOME)
+            addCategory(Intent.CATEGORY_DEFAULT)
+        }
+
+        val activityName = ComponentName(context.packageName, "com.iips.launcher.ui.LauncherActivity")
         
         try {
             dpm.addPersistentPreferredActivity(admin, filter, activityName)
-            android.util.Log.i("DeviceController", "Default launcher set to ${activityName.flattenToShortString()}")
+            android.util.Log.i("DeviceController", "Default launcher persistently set to ${activityName.flattenToShortString()}")
         } catch (e: Exception) {
             android.util.Log.e("DeviceController", "Failed to set default launcher: ${e.message}")
+        }
+    }
+
+    fun isDefaultLauncher(context: Context): Boolean {
+        return try {
+            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+            val resolveInfo = context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            val currentPkg = resolveInfo?.activityInfo?.packageName
+            currentPkg == context.packageName
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    fun ensureDefaultLauncher(context: Context) {
+        if (DeviceAdminReceiver.isDeviceOwner(context) && !isDefaultLauncher(context)) {
+            android.util.Log.w("DeviceController", "Dotroid is NOT current default launcher! Setting persistent preferred...")
+            setDefaultLauncher(context)
         }
     }
 
@@ -538,9 +571,6 @@ object DeviceController {
     fun setStatusBarLocked(context: Context, locked: Boolean) {
         try {
             if (!DeviceAdminReceiver.isDeviceOwner(context)) return
-            if (locked && !isKioskSecurityReady(context)) {
-                return
-            }
 
             val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
             val admin = DeviceAdminReceiver.getComponentName(context)

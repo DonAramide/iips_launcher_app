@@ -103,6 +103,9 @@ class WifiSetupActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         applyImmersiveMode()
+        if (com.iips.launcher.policy.DeviceAdminReceiver.isDeviceOwner(this)) {
+            com.iips.launcher.policy.DeviceController.setStatusBarLocked(this, true)
+        }
         updateWifiPowerStateUi()
         updateConnectedNetworkUi()
     }
@@ -111,7 +114,35 @@ class WifiSetupActivity : AppCompatActivity() {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
             applyImmersiveMode()
+            if (com.iips.launcher.policy.DeviceAdminReceiver.isDeviceOwner(this)) {
+                com.iips.launcher.policy.DeviceController.setStatusBarLocked(this, true)
+            }
+        } else {
+            try {
+                val statusBarService = getSystemService("statusbar")
+                val statusBarManager = Class.forName("android.app.StatusBarManager")
+                val collapse = statusBarManager.getMethod("collapsePanels")
+                collapse.invoke(statusBarService)
+            } catch (_: Exception) {}
+            try {
+                @Suppress("DEPRECATION")
+                sendBroadcast(Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS))
+            } catch (_: Exception) {}
         }
+    }
+
+    private fun returnToHome() {
+        val intent = Intent(this, LauncherActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
+        startActivity(intent)
+        finish()
+        overridePendingTransition(0, 0)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        returnToHome()
     }
 
     private fun applyImmersiveMode() {
@@ -148,8 +179,8 @@ class WifiSetupActivity : AppCompatActivity() {
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = adapter
 
-        findViewById<View>(R.id.btn_wifi_back).setOnClickListener { finish() }
-        findViewById<View>(R.id.btn_wifi_back_top).setOnClickListener { finish() }
+        findViewById<View>(R.id.btn_wifi_back).setOnClickListener { returnToHome() }
+        findViewById<View>(R.id.btn_wifi_back_top).setOnClickListener { returnToHome() }
         findViewById<View>(R.id.btn_wifi_refresh).setOnClickListener { startScan() }
     }
 

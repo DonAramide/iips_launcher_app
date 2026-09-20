@@ -182,6 +182,9 @@ class BootReceiver : BroadcastReceiver() {
                 return
             }
 
+            DeviceController.setDefaultLauncher(context)
+            DeviceController.setStatusBarLocked(context, true)
+
             val state = SecurePreferences.getDeviceState(context)
             if (state == SecurePreferences.STATE_NEW || state == SecurePreferences.STATE_ONBOARDING) {
                 return

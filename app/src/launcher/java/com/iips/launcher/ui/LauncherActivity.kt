@@ -121,6 +121,12 @@ class LauncherActivity : AppCompatActivity() {
         setContentView(binding.root)
         supportActionBar?.hide()
 
+        if (DeviceAdminReceiver.isDeviceOwner(this)) {
+            DeviceController.ensureDefaultLauncher(this)
+            DeviceController.setStatusBarLocked(this, true)
+            DeviceController.enableImmersiveMode(this)
+        }
+
         database = AppDatabase.getDatabase(this)
         fusedLocationClient = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(this)
         
@@ -371,6 +377,12 @@ class LauncherActivity : AppCompatActivity() {
 
         if (!::binding.isInitialized) {
             return
+        }
+
+        if (DeviceAdminReceiver.isDeviceOwner(this)) {
+            DeviceController.ensureDefaultLauncher(this)
+            DeviceController.setStatusBarLocked(this, true)
+            DeviceController.enableImmersiveMode(this)
         }
 
         val state = SecurePreferences.getDeviceState(this)
@@ -666,16 +678,13 @@ class LauncherActivity : AppCompatActivity() {
         if (setupState == SecurePreferences.STATE_NEW || setupState == SecurePreferences.STATE_ONBOARDING) {
             return
         }
-        if (!SecurePreferences.isReadyForKioskSecurity(this)) {
-            android.util.Log.i(
-                "LauncherActivity",
-                "onWindowFocusChanged skipped lockdown: DeviceOwner=${DeviceAdminReceiver.isDeviceOwner(this)} " +
-                    "EnrollmentComplete=${SecurePreferences.isEnrollmentComplete(this)} " +
-                    "PolicyAvailable=${SecurePreferences.hasValidPolicySnapshot(this)}"
-            )
-            return
-        }
         if (hasFocus) {
+            DeviceController.enableImmersiveMode(this)
+            if (DeviceAdminReceiver.isDeviceOwner(this)) {
+                DeviceController.setStatusBarLocked(this, true)
+                DeviceController.ensureDefaultLauncher(this)
+            }
+
             // Don't enable lock task if internal activity (AdminActivity, AppPocketActivity, etc.) is currently showing
             val isInternalActivityVisible = try {
                 val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
@@ -693,13 +702,22 @@ class LauncherActivity : AppCompatActivity() {
             // Always block system UI to prevent swipe-down access
             DeviceController.blockSystemUI(this)
             
-            // Enable immersive mode always (prevents swipe-down)
-            DeviceController.enableImmersiveMode(this)
-            
             // Only enforce lock task if Device Owner AND internal activity is NOT visible
-            if (DeviceAdminReceiver.isDeviceOwner(this) && !isInternalActivityVisible) {
+            if (DeviceAdminReceiver.isDeviceOwner(this) && !isInternalActivityVisible && SecurePreferences.isReadyForKioskSecurity(this)) {
                 com.iips.launcher.policy.KioskController.resumeLockTask(this)
             }
+        } else {
+            // If window loses focus, immediately collapse any notification shade or system dialog attempting to open
+            try {
+                val statusBarService = getSystemService("statusbar")
+                val statusBarManager = Class.forName("android.app.StatusBarManager")
+                val collapse = statusBarManager.getMethod("collapsePanels")
+                collapse.invoke(statusBarService)
+            } catch (_: Exception) {}
+            try {
+                @Suppress("DEPRECATION")
+                sendBroadcast(Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS))
+            } catch (_: Exception) {}
         }
     }
 
@@ -1102,17 +1120,7 @@ class LauncherActivity : AppCompatActivity() {
         try {
             lastLaunchedAllowedApp = "WifiSetupActivity"
             lastLaunchTime = System.currentTimeMillis()
-            if (DeviceAdminReceiver.isDeviceOwner(this)) {
-                try {
-                    DeviceController.stopLockTask(this)
-                    DeviceController.disableLockTaskMode(this)
-                } catch (e: Exception) {
-                    android.util.Log.w("DotroidQS", "Could not stop lock task: ${e.message}")
-                }
-            }
-            val intent = Intent(this, WifiSetupActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            }
+            val intent = Intent(this, WifiSetupActivity::class.java)
             startActivity(intent)
         } catch (e: Exception) {
             android.util.Log.e("DotroidQS", "Failed to start WifiSetupActivity", e)
@@ -1126,17 +1134,7 @@ class LauncherActivity : AppCompatActivity() {
         try {
             lastLaunchedAllowedApp = "HotspotSetupActivity"
             lastLaunchTime = System.currentTimeMillis()
-            if (DeviceAdminReceiver.isDeviceOwner(this)) {
-                try {
-                    DeviceController.stopLockTask(this)
-                    DeviceController.disableLockTaskMode(this)
-                } catch (e: Exception) {
-                    android.util.Log.w("DotroidQS", "Could not stop lock task: ${e.message}")
-                }
-            }
-            val intent = Intent(this, HotspotSetupActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            }
+            val intent = Intent(this, HotspotSetupActivity::class.java)
             startActivity(intent)
         } catch (e: Exception) {
             android.util.Log.e("DotroidQS", "Failed to start HotspotSetupActivity", e)
@@ -1184,15 +1182,34 @@ class LauncherActivity : AppCompatActivity() {
         AppCompatDelegate.setDefaultNightMode(
             if (enable) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
         )
+        applyThemeColors()
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        applyThemeColors()
+    }
+
+    private fun applyThemeColors() {
+        val bgColor = ContextCompat.getColor(this, R.color.background)
+        val shellBlue = ContextCompat.getColor(this, R.color.dotroid_shell_blue)
+        binding.root.setBackgroundColor(bgColor)
+        binding.statusBar.setBackgroundColor(shellBlue)
+        binding.quickSettingsPanel.setBackgroundColor(shellBlue)
+        binding.taskbarLayout.root.setBackgroundColor(shellBlue)
+        if (::appAdapter.isInitialized) {
+            appAdapter.notifyDataSetChanged()
+        }
         refreshQuickSettingsTiles()
     }
 
     private fun applySavedDarkMode() {
         val enable = qsPrefs.getBoolean("dark_mode", false)
-        val mode = if (enable) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
-        if (AppCompatDelegate.getDefaultNightMode() != mode && enable) {
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+        val mode = if (enable) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
+        if (AppCompatDelegate.getDefaultNightMode() != mode) {
+            AppCompatDelegate.setDefaultNightMode(mode)
         }
+        applyThemeColors()
     }
 
     private fun getCurrentBrightness(): Int {
@@ -1586,6 +1603,12 @@ class LauncherActivity : AppCompatActivity() {
         }
 
         binding.statusText.visibility = View.GONE
+
+        if (DeviceAdminReceiver.isDeviceOwner(this)) {
+            DeviceController.setStatusBarLocked(this, true)
+            DeviceController.enableImmersiveMode(this)
+            DeviceController.ensureDefaultLauncher(this)
+        }
 
         val decision = com.iips.launcher.policy.KioskController.evaluateSecurityGate(this)
         if (!decision.apply) {
