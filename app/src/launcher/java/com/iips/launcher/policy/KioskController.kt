@@ -66,8 +66,8 @@ object KioskController {
         }
 
         val snapshot = SecurePreferences.getDevicePolicySnapshot(context)
-        val kioskEnabled = if (snapshot != null) SecurePreferences.getKioskModeEnabled(context) else true
-        val settingsLocked = if (snapshot != null) SecurePreferences.isSettingsLocked(context) else true
+        val kioskEnabled = if (snapshot != null) SecurePreferences.getKioskModeEnabled(context) else false
+        val settingsLocked = if (snapshot != null) SecurePreferences.isSettingsLocked(context) else false
 
         var isExpired = false
         if (snapshot != null) {

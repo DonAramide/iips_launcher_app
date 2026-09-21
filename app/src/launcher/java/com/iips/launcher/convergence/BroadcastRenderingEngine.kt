@@ -107,6 +107,15 @@ class BroadcastRenderingEngine @Inject constructor(
     }
 
     /**
+     * Clears any active broadcast overlays and purges persistent lockdown banner state.
+     */
+    fun clearAllActiveBroadcasts() {
+        Log.i(TAG, "Clearing all active presentation overlays and persistent lockdown state.")
+        _activeBroadcast.value = null
+        clearPersistentBannerState()
+    }
+
+    /**
      * Resolves pending state confirmation locks safely.
      */
     fun acknowledgeBroadcast(broadcastId: String, action: String = "ACKNOWLEDGED") {

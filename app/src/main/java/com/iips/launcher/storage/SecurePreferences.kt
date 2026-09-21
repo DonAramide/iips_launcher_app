@@ -282,7 +282,8 @@ object SecurePreferences {
 
     fun getKioskModeEnabled(context: Context): Boolean {
         val prefs = getEncryptedPrefs(context)
-        return prefs.getBoolean("kiosk_mode_enabled", getDevicePolicySnapshot(context)?.kioskMode ?: true)
+        val defaultVal = getDevicePolicySnapshot(context)?.kioskMode ?: false
+        return prefs.getBoolean("kiosk_mode_enabled", defaultVal)
     }
 
     fun setKioskModeEnabled(context: Context, enabled: Boolean) {

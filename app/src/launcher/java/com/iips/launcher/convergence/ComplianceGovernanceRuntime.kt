@@ -62,6 +62,14 @@ class ComplianceGovernanceRuntime @Inject constructor(
             return
         }
 
+        // Only enforce Kiosk invariants if policy requires kiosk mode or device is explicitly locked
+        val isKioskRequired = SecurePreferences.getKioskModeEnabled(context) || state == SecurePreferences.STATE_LOCKED
+        if (!isKioskRequired) {
+            Log.d(TAG, "Kiosk mode not enforced by policy or state ($state). Skipping quarantine enforcement.")
+            broadcastEngine.clearAllActiveBroadcasts()
+            return
+        }
+
         val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
         val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val packageManager = context.packageManager
