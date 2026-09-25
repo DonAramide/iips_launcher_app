@@ -454,7 +454,7 @@ class RemoteCommandExecutionEngine @Inject constructor(
                     "disable_settings" -> {
                         val disabled = root.getAsJsonPrimitive("disabled")?.asBoolean ?: true
                         Log.i(TAG, "Setting settings disabled state to $disabled")
-                        dpm.setApplicationHidden(admin, "com.android.settings", disabled)
+                        com.iips.launcher.policy.DeviceController.blockSettingsAccess(context, disabled)
                     }
                     "restrict_app_usage" -> {
                         val packageName = root.getAsJsonPrimitive("package_name")?.asString

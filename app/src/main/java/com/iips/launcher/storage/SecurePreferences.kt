@@ -10,18 +10,34 @@ import com.iips.launcher.network.models.*
 object SecurePreferences {
     private const val PREFS_NAME = "launcher_secure_prefs"
 
-    fun getEncryptedPrefs(context: Context): SharedPreferences {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
+    @Volatile
+    private var cachedEncryptedPrefs: SharedPreferences? = null
+    private val prefsLock = Any()
 
-        return EncryptedSharedPreferences.create(
-            context,
-            PREFS_NAME,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
+    fun getEncryptedPrefs(context: Context): SharedPreferences {
+        cachedEncryptedPrefs?.let { return it }
+        synchronized(prefsLock) {
+            cachedEncryptedPrefs?.let { return it }
+            val appContext = context.applicationContext ?: context
+            val prefs = try {
+                val masterKey = MasterKey.Builder(appContext)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build()
+
+                EncryptedSharedPreferences.create(
+                    appContext,
+                    PREFS_NAME,
+                    masterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("SecurePreferences", "Failed to initialize EncryptedSharedPreferences, using fallback: ${e.message}")
+                appContext.getSharedPreferences(PREFS_NAME + "_fallback", Context.MODE_PRIVATE)
+            }
+            cachedEncryptedPrefs = prefs
+            return prefs
+        }
     }
 
     fun getAdminPassword(context: Context): String {

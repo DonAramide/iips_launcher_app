@@ -301,6 +301,45 @@ object DeviceController {
      * Note: Hardware recovery mode (button combinations) cannot be fully prevented,
      * but this blocks all software-based factory reset attempts.
      */
+    /**
+     * Unhides critical system applications that may have been mistakenly hidden.
+     * Core packages like com.samsung.android.settings and com.android.settings MUST NEVER be hidden,
+     * as doing so breaks SecSettingsProvider and causes boot deadlocks / failure to load up on restart.
+     */
+    fun unhideCriticalSystemPackages(context: Context) {
+        if (!DeviceAdminReceiver.isDeviceOwner(context)) return
+        val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as? DevicePolicyManager ?: return
+        val admin = DeviceAdminReceiver.getComponentName(context)
+        if (!dpm.isAdminActive(admin)) return
+
+        val criticalPackages = listOf(
+            "com.android.settings",
+            "com.android.settings.fallback",
+            "com.samsung.android.settings",
+            "com.miui.securitycenter",
+            "com.miui.security",
+            "com.coloros.settings",
+            "com.oneplus.settings",
+            "com.huawei.android.settings",
+            "com.android.packageinstaller",
+            "com.google.android.packageinstaller"
+        )
+        for (pkg in criticalPackages) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    dpm.setApplicationHidden(admin, pkg, false)
+                }
+            } catch (e: Exception) {
+                // Ignore if package does not exist
+            }
+        }
+    }
+
+    /**
+     * Enable factory reset protection - prevents factory reset from Settings UI
+     * Note: Hardware recovery mode (button combinations) cannot be fully prevented,
+     * but this blocks all software-based factory reset attempts.
+     */
     @RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
     fun enableFactoryResetProtection(context: Context) {
         try {
@@ -325,16 +364,6 @@ object DeviceController {
 
             // Block access to System Settings (prevents accessing reset options)
             setUserRestriction(context, android.os.UserManager.DISALLOW_FUN, true)
-
-            // Prevent users from accessing Developer Options
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                try {
-                    // Hide Settings app from launcher (Android 7.0+)
-                    hideApplication(context, "com.android.settings")
-                } catch (e: Exception) {
-                    // Some devices may have different Settings package name
-                }
-            }
 
             // Block access to Recovery Mode settings
             try {
@@ -362,21 +391,13 @@ object DeviceController {
 
         setUserRestriction(context, android.os.UserManager.DISALLOW_FACTORY_RESET, false)
         setUserRestriction(context, android.os.UserManager.DISALLOW_FUN, false)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            try {
-                unhideApplication(context, "com.android.settings")
-            } catch (e: Exception) {
-                // Settings app restore
-            }
-        }
     }
 
     /**
      * Hide an application from the launcher and app list
      */
     @RequiresApi(Build.VERSION_CODES.M)
-    private fun hideApplication(context: Context, packageName: String) {
+    fun hideApplication(context: Context, packageName: String) {
         val devicePolicyManager =
             context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
 
@@ -397,7 +418,7 @@ object DeviceController {
      * Unhide an application
      */
     @RequiresApi(Build.VERSION_CODES.M)
-    private fun unhideApplication(context: Context, packageName: String) {
+    fun unhideApplication(context: Context, packageName: String) {
         val devicePolicyManager =
             context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
 
@@ -415,7 +436,9 @@ object DeviceController {
     }
 
     /**
-     * Block Settings app completely (alternative method)
+     * Block Settings app completely using user restrictions.
+     * Note: Never hide com.android.settings or com.samsung.android.settings using setApplicationHidden,
+     * as doing so breaks critical system providers (SecSettingsProvider) and causes boot deadlocks on reboot.
      */
     @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     fun blockSettingsAccess(context: Context, block: Boolean) {
@@ -423,27 +446,19 @@ object DeviceController {
             return
         }
 
-        val settingsPackages = listOf(
-            "com.android.settings",
-            "com.android.settings.fallback",  // Some OEMs use this
-            "com.samsung.android.settings",    // Samsung
-            "com.miui.securitycenter"          // Xiaomi
+        // Ensure critical system settings packages remain unhidden
+        unhideCriticalSystemPackages(context)
+
+        // Enforce configuration restrictions
+        val restrictions = listOf(
+            android.os.UserManager.DISALLOW_FACTORY_RESET,
+            android.os.UserManager.DISALLOW_CONFIG_DATE_TIME,
+            android.os.UserManager.DISALLOW_CONFIG_TETHERING,
+            android.os.UserManager.DISALLOW_MODIFY_ACCOUNTS,
+            android.os.UserManager.DISALLOW_CONFIG_PRIVATE_DNS
         )
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            settingsPackages.forEach { packageName ->
-                try {
-                    hideApplication(context, packageName)
-                } catch (e: Exception) {
-                    // Ignore if package doesn't exist
-                }
-            }
-        }
-
-        // Additional restrictions
-        if (block) {
-            setUserRestriction(context, android.os.UserManager.DISALLOW_FACTORY_RESET, true)
-            setUserRestriction(context, android.os.UserManager.DISALLOW_CONFIG_PRIVATE_DNS, true)
+        restrictions.forEach { restriction ->
+            setUserRestriction(context, restriction, block)
         }
     }
 
@@ -460,7 +475,7 @@ object DeviceController {
     }
 
     /**
-     * Enable comprehensive security - blocks Settings, prevents uninstallation and force stop
+     * Enable comprehensive security - blocks Settings access, prevents uninstallation and force stop
      */
     @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     fun enableComprehensiveSecurity(context: Context) {
@@ -478,37 +493,17 @@ object DeviceController {
 
             // Verify component is active admin before proceeding
             if (!devicePolicyManager.isAdminActive(componentName)) {
-                // Device Owner should make admin active, but if not, skip security setup
                 return
             }
 
             // Programmatically grant all requested permissions
             grantOwnPermissions(context)
 
-            // Block Settings access completely - do this aggressively
+            // Ensure critical system packages are NOT hidden to prevent reboot brick/hang
+            unhideCriticalSystemPackages(context)
+
+            // Block Settings access via safe user restrictions
             blockSettingsAccess(context, true)
-            
-            // Hide Settings app immediately
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                val settingsPackages = listOf(
-                    "com.android.settings",
-                    "com.android.settings.fallback",
-                    "com.samsung.android.settings",
-                    "com.miui.securitycenter",
-                    "com.miui.security",
-                    "com.coloros.settings",  // Oppo/OnePlus
-                    "com.oneplus.settings",   // OnePlus
-                    "com.huawei.android.settings" // Huawei
-                )
-                
-                settingsPackages.forEach { packageName ->
-                    try {
-                        devicePolicyManager.setApplicationHidden(componentName, packageName, true)
-                    } catch (e: Exception) {
-                        // Package may not exist or permission denied
-                    }
-                }
-            }
 
             // Block access to app info/uninstall/force stop screens
             val restrictions = mutableListOf(
@@ -517,23 +512,19 @@ object DeviceController {
                 android.os.UserManager.DISALLOW_APPS_CONTROL,  // Prevents app management access - BLOCKS FORCE STOP
                 android.os.UserManager.DISALLOW_CONFIG_PRIVATE_DNS
             )
-            // Do not disable ADB, USB transfer, or safe boot here. That bricks recovery
-            // on test/release installs when Device Owner is set.
             
             // Add additional restrictions if available (Android 6.0+)
             // Note: skip DISALLOW_INSTALL_APPS in DEBUG builds so ADB sideloading still works
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !com.iips.launcher.BuildConfig.DEBUG) {
                 try {
-                    restrictions.add(android.os.UserManager.DISALLOW_INSTALL_APPS)  // Also prevents viewing app details
+                    restrictions.add(android.os.UserManager.DISALLOW_INSTALL_APPS)
                 } catch (e: Exception) {
                     // May not be available
                 }
             }
             
-            // DISALLOW_UNINSTALL_APPS may not exist on all versions, so we handle it separately
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 try {
-                    // Use reflection to check if available
                     val field = android.os.UserManager::class.java.getField("DISALLOW_UNINSTALL_APPS")
                     restrictions.add(field.get(null) as String)
                 } catch (e: Exception) {
@@ -547,13 +538,6 @@ object DeviceController {
                 } catch (e: Exception) {
                     // Some restrictions may not be available on all versions
                 }
-            }
-            
-            // Prevent force stop by blocking app info access
-            // Device Owner apps cannot be force stopped if DISALLOW_APPS_CONTROL is set
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                // Hide the app's own entry from app info (prevents force stop)
-                // Actually, we can't hide ourselves, but we block access to app info screen
             }
         } catch (e: SecurityException) {
             // Admin not yet active, skip security setup
@@ -587,7 +571,7 @@ object DeviceController {
     }
     
     /**
-     * Prevent force stop by blocking app info screen access
+     * Prevent force stop by blocking app info screen access natively
      */
     @RequiresApi(Build.VERSION_CODES.M)
     fun preventForceStop(context: Context) {
@@ -599,33 +583,11 @@ object DeviceController {
                 return
             }
             
-            val devicePolicyManager =
-                context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-            val componentName = DeviceAdminReceiver.getComponentName(context)
+            // Ensure package installer packages are not hidden
+            unhideCriticalSystemPackages(context)
             
-            // Verify component is active admin
-            if (!devicePolicyManager.isAdminActive(componentName)) {
-                return
-            }
-            
-            // Block access to app info screen which is used for force stop
-            try {
-                // Hide all package manager apps that show app info
-                val pmApps = listOf(
-                    "com.android.packageinstaller",
-                    "com.google.android.packageinstaller"
-                )
-                
-                pmApps.forEach { packageName ->
-                    try {
-                        devicePolicyManager.setApplicationHidden(componentName, packageName, true)
-                    } catch (e: Exception) {
-                        // Package may not exist
-                    }
-                }
-            } catch (e: Exception) {
-                // Handle exception
-            }
+            // DISALLOW_APPS_CONTROL natively blocks force stop and uninstallation
+            setUserRestriction(context, android.os.UserManager.DISALLOW_APPS_CONTROL, true)
         } catch (e: SecurityException) {
             // Admin not active or no permission - silently fail
             android.util.Log.w("DeviceController", "Cannot prevent force stop: ${e.message}")

@@ -124,8 +124,11 @@ class LauncherActivity : AppCompatActivity() {
         supportActionBar?.hide()
 
         if (DeviceAdminReceiver.isDeviceOwner(this)) {
+            DeviceController.unhideCriticalSystemPackages(this)
             DeviceController.ensureDefaultLauncher(this)
-            DeviceController.setStatusBarLocked(this, true)
+            if (SecurePreferences.isLockdownEnabled(this) && SecurePreferences.getDeviceState(this) == SecurePreferences.STATE_ACTIVE) {
+                DeviceController.setStatusBarLocked(this, true)
+            }
             DeviceController.enableImmersiveMode(this)
         }
 
@@ -413,8 +416,11 @@ class LauncherActivity : AppCompatActivity() {
         }
 
         if (DeviceAdminReceiver.isDeviceOwner(this)) {
+            DeviceController.unhideCriticalSystemPackages(this)
             DeviceController.ensureDefaultLauncher(this)
-            DeviceController.setStatusBarLocked(this, true)
+            if (SecurePreferences.isLockdownEnabled(this) && SecurePreferences.getDeviceState(this) == SecurePreferences.STATE_ACTIVE) {
+                DeviceController.setStatusBarLocked(this, true)
+            }
             DeviceController.enableImmersiveMode(this)
         }
 

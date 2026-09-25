@@ -50,6 +50,8 @@ class ForegroundEnforcementService : Service() {
 
     private fun startMonitoring() {
         monitoringJob = serviceScope.launch {
+            // Initial grace period after service startup to allow system/launcher to stabilize
+            delay(5000L)
             while (isActive) {
                 try {
                     if (com.iips.launcher.policy.DeviceAdminReceiver.isDeviceOwner(this@ForegroundEnforcementService)) {
@@ -57,13 +59,15 @@ class ForegroundEnforcementService : Service() {
                         if (!com.iips.launcher.policy.DeviceController.isDefaultLauncher(this@ForegroundEnforcementService)) {
                             Log.w(TAG, "Dotroid is NOT default launcher! Enforcing persistent default launcher...")
                             com.iips.launcher.policy.DeviceController.setDefaultLauncher(this@ForegroundEnforcementService)
-                            returnToLauncher()
+                            val state = SecurePreferences.getDeviceState(this@ForegroundEnforcementService)
+                            if (state != SecurePreferences.STATE_NEW && state != SecurePreferences.STATE_ONBOARDING) {
+                                returnToLauncher()
+                            }
                         }
-                        // Lock the status bar (prevents dragging down Android notification shade / quick settings)
-                        com.iips.launcher.policy.DeviceController.setStatusBarLocked(this@ForegroundEnforcementService, true)
                     }
 
                     if (SecurePreferences.getKioskModeEnabled(this@ForegroundEnforcementService)) {
+                        com.iips.launcher.policy.DeviceController.setStatusBarLocked(this@ForegroundEnforcementService, true)
                         enforceLauncherForeground()
                     }
                 } catch (e: Exception) {

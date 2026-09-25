@@ -21,6 +21,7 @@ class BootReceiver : BroadcastReceiver() {
     
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED || 
+            intent.action == Intent.ACTION_LOCKED_BOOT_COMPLETED ||
             intent.action == Intent.ACTION_MY_PACKAGE_REPLACED ||
             intent.action == Intent.ACTION_PACKAGE_REPLACED) {
             
@@ -198,8 +199,8 @@ class BootReceiver : BroadcastReceiver() {
                 return
             }
 
+            DeviceController.unhideCriticalSystemPackages(context)
             DeviceController.setDefaultLauncher(context)
-            DeviceController.setStatusBarLocked(context, true)
 
             val state = SecurePreferences.getDeviceState(context)
             if (state == SecurePreferences.STATE_NEW || state == SecurePreferences.STATE_ONBOARDING) {

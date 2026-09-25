@@ -100,9 +100,11 @@ class PolicyEnforcementEngine @Inject constructor(
 
     private fun enforceUserRestrictions(snapshot: DevicePolicySnapshot) {
         setRestriction(UserManager.DISALLOW_FACTORY_RESET, snapshot.factoryResetDisabled)
-        setRestriction(UserManager.DISALLOW_SAFE_BOOT, snapshot.safeBootDisabled)
-        setRestriction(UserManager.DISALLOW_USB_FILE_TRANSFER, snapshot.usbFileTransferDisabled)
-        setRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES, snapshot.adbDisabled)
+        if (!com.iips.launcher.BuildConfig.DEBUG) {
+            setRestriction(UserManager.DISALLOW_SAFE_BOOT, snapshot.safeBootDisabled)
+            setRestriction(UserManager.DISALLOW_USB_FILE_TRANSFER, snapshot.usbFileTransferDisabled)
+            setRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES, snapshot.adbDisabled)
+        }
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             setRestriction(UserManager.DISALLOW_ADD_USER, true)

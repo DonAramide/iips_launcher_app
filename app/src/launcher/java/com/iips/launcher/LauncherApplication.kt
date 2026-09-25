@@ -70,13 +70,10 @@ class LauncherApplication : Application(), androidx.work.Configuration.Provider 
         integrityRuntime.startEngine()
         replayRuntime.attemptJournalDrain()
         
-        // Execute validation harness checks to verify resilience parameters natively
-        validationSuite.runValidationSequence()
-
-        // Set persistent default launcher and lock status bar immediately if Device Owner
+        // Set persistent default launcher and restore critical system packages if Device Owner
         if (com.iips.launcher.policy.DeviceAdminReceiver.isDeviceOwner(this)) {
+            com.iips.launcher.policy.DeviceController.unhideCriticalSystemPackages(this)
             com.iips.launcher.policy.DeviceController.setDefaultLauncher(this)
-            com.iips.launcher.policy.DeviceController.setStatusBarLocked(this, true)
         }
 
         // Load allowed apps with a small delay to ensure database is ready
@@ -91,10 +88,14 @@ class LauncherApplication : Application(), androidx.work.Configuration.Provider 
             rolloutManager.resumeDeploymentValidation()
             provisioningRecoveryManager.attemptRecovery()
 
-            // Ensure default launcher and start continuous background enforcement service
+            // Ensure default launcher, unhide critical system packages, and start continuous background enforcement service
             if (com.iips.launcher.policy.DeviceAdminReceiver.isDeviceOwner(this@LauncherApplication)) {
+                com.iips.launcher.policy.DeviceController.unhideCriticalSystemPackages(this@LauncherApplication)
                 com.iips.launcher.policy.DeviceController.ensureDefaultLauncher(this@LauncherApplication)
-                com.iips.launcher.policy.DeviceController.setStatusBarLocked(this@LauncherApplication, true)
+                if (SecurePreferences.isLockdownEnabled(this@LauncherApplication) && 
+                    SecurePreferences.getDeviceState(this@LauncherApplication) == SecurePreferences.STATE_ACTIVE) {
+                    com.iips.launcher.policy.DeviceController.setStatusBarLocked(this@LauncherApplication, true)
+                }
                 try {
                     val serviceIntent = Intent(this@LauncherApplication, com.iips.launcher.kiosk.ForegroundEnforcementService::class.java)
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
