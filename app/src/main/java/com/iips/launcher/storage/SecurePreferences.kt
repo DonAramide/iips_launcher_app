@@ -540,14 +540,33 @@ object SecurePreferences {
     }
 
     fun getOfflineTelemetryQueue(context: Context): List<String> {
-        val prefs = getEncryptedPrefs(context)
-        val set = prefs.getStringSet("offline_telemetry_queue", emptySet()) ?: emptySet()
-        return set.toList()
+        return try {
+            val prefs = context.getSharedPreferences("offline_telemetry_cache", Context.MODE_PRIVATE)
+            val set = prefs.getStringSet("offline_telemetry_queue", emptySet()) ?: emptySet()
+            set.toList()
+        } catch (e: Exception) {
+            android.util.Log.e("SecurePreferences", "Error reading offline telemetry queue", e)
+            emptyList()
+        }
     }
 
     fun setOfflineTelemetryQueue(context: Context, queue: List<String>) {
-        val prefs = getEncryptedPrefs(context)
-        prefs.edit().putStringSet("offline_telemetry_queue", queue.toSet()).apply()
+        try {
+            // Keep at most 25 items to prevent unbounded memory growth
+            val bounded = if (queue.size > 25) queue.takeLast(25) else queue
+            val prefs = context.getSharedPreferences("offline_telemetry_cache", Context.MODE_PRIVATE)
+            prefs.edit().putStringSet("offline_telemetry_queue", bounded.toSet()).apply()
+
+            // Purge bloated key from EncryptedSharedPreferences if it was previously set
+            try {
+                val encPrefs = getEncryptedPrefs(context)
+                if (encPrefs.contains("offline_telemetry_queue")) {
+                    encPrefs.edit().remove("offline_telemetry_queue").apply()
+                }
+            } catch (_: Exception) {}
+        } catch (e: Exception) {
+            android.util.Log.e("SecurePreferences", "Error saving offline telemetry queue", e)
+        }
     }
 
     fun normalizeBackendUrl(url: String): String {

@@ -40,7 +40,10 @@ class RemoteCommandExecutionEngine @Inject constructor(
     private val otaCoordinator: Lazy<OtaRuntimeCoordinator>,
     private val telemetryEngine: Lazy<DeviceTelemetryEngine>,
     private val apkInstallManager: ApkInstallManager,
-    private val broadcastRenderingEngine: BroadcastRenderingEngine
+    private val broadcastRenderingEngine: BroadcastRenderingEngine,
+    private val scanner: com.iips.launcher.apps.inventory.InstalledAppsScanner,
+    private val appInventoryDao: com.iips.launcher.apps.inventory.data.AppInventoryDao,
+    private val appInventoryUploader: Lazy<com.iips.launcher.apps.inventory.AppInventoryUploader>
 ) {
     companion object {
         private const val TAG = "RemoteCmdExecEngine"
@@ -120,7 +123,7 @@ class RemoteCommandExecutionEngine @Inject constructor(
                     }
                 } else if (app.status == "DOWNLOADING" && app.downloadUrl != null) {
                     Log.i(TAG, "Auto-resuming interrupted download/install for package: ${app.packageName} from: ${app.downloadUrl}")
-                    downloadAndInstallApk(app.downloadUrl, app.packageName, "autoresume_${System.currentTimeMillis()}", null)
+                    downloadAndInstallApk(app.downloadUrl, app.packageName, "autoresume_${System.currentTimeMillis()}", null, appName = app.appName)
                 }
             }
         }
@@ -131,7 +134,7 @@ class RemoteCommandExecutionEngine @Inject constructor(
             val db = com.iips.launcher.data.AppDatabase.getDatabase(context)
             val app = db.appPocketDao().getApp(packageName)
             if (app != null && app.downloadUrl != null) {
-                downloadAndInstallApk(app.downloadUrl, app.packageName, "manual_resume_${System.currentTimeMillis()}", null)
+                downloadAndInstallApk(app.downloadUrl, app.packageName, "manual_resume_${System.currentTimeMillis()}", null, appName = app.appName)
             }
         }
     }
@@ -172,7 +175,7 @@ class RemoteCommandExecutionEngine @Inject constructor(
             return
         }
 
-        if (type == "error" || type == "state.changed" || type == "pong" || type.contains(".ack") || type == "command.sync") {
+        if (type == "error" || type == "state.changed" || type == "pong" || type.contains(".ack") || type.contains("_ack") || type.contains("ack_ok") || type == "command.sync") {
             Log.d(TAG, "Skipping control message: $type")
             return
         }
@@ -330,8 +333,90 @@ class RemoteCommandExecutionEngine @Inject constructor(
                     }
                     "app_refresh", "list_apps" -> {
                         Log.i(TAG, "Requesting immediate App Inventory reconciliation workers.")
+                        val inventory = withContext(Dispatchers.IO) {
+                            try {
+                                val scanned = scanner.scanAllApps()
+                                appInventoryDao.insertAll(scanned)
+                                scanned
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Failed scanning apps during refresh", e)
+                                emptyList()
+                            }
+                        }
+
+                        val formattedApps = inventory.map { app ->
+                            mapOf(
+                                "packageName" to app.packageName,
+                                "package_name" to app.packageName,
+                                "appName" to app.appName,
+                                "app_name" to app.appName,
+                                "name" to app.appName,
+                                "label" to app.appName,
+                                "versionName" to app.versionName,
+                                "version_name" to app.versionName,
+                                "version" to app.versionName,
+                                "versionCode" to app.versionCode,
+                                "version_code" to app.versionCode,
+                                "isSystemApp" to app.isSystemApp,
+                                "is_system_app" to app.isSystemApp,
+                                "systemApp" to app.isSystemApp,
+                                "installTime" to app.installTime,
+                                "install_time" to app.installTime,
+                                "lastUpdateTime" to app.lastUpdateTime,
+                                "last_update_time" to app.lastUpdateTime,
+                                "signatureHash" to app.signatureHash,
+                                "signature_hash" to app.signatureHash,
+                                "permissions" to app.permissions,
+                                "accessibilityEnabled" to app.accessibilityEnabled,
+                                "riskScore" to app.riskScore,
+                                "classification" to app.classification
+                            )
+                        }
+
+                        // Upload via HTTP immediately to POST /api/v1/device/inventory
+                        withContext(Dispatchers.IO) {
+                            try {
+                                appInventoryUploader.get().syncInventory()
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Failed uploading inventory via HTTP", e)
+                            }
+                        }
+
+                        // Transmit dedicated APP_INVENTORY frame via WebSocket
+                        val deviceId = SecurePreferences.getDeviceId(context) ?: "UNKNOWN_DEVICE"
+                        val tenantId = SecurePreferences.getTenantId(context) ?: "default"
+                        val inventoryPayload = mapOf(
+                            "apps" to formattedApps,
+                            "inventory" to formattedApps,
+                            "installed_apps" to formattedApps,
+                            "packages" to inventory.map { it.packageName },
+                            "count" to formattedApps.size
+                        )
+                        val inventoryFrame = gson.toJson(mapOf(
+                            "type" to "APP_INVENTORY",
+                            "command_id" to commandId,
+                            "commandId" to commandId,
+                            "request_id" to (requestId ?: ""),
+                            "requestId" to (requestId ?: ""),
+                            "edgeNodeId" to deviceId,
+                            "deviceId" to deviceId,
+                            "tenantId" to tenantId,
+                            "clientEpoch" to (System.currentTimeMillis() / 1000L),
+                            "timestamp" to (System.currentTimeMillis() / 1000L),
+                            "count" to formattedApps.size,
+                            "data" to inventoryPayload,
+                            "payload" to inventoryPayload,
+                            "apps" to formattedApps,
+                            "inventory" to formattedApps,
+                            "installed_apps" to formattedApps
+                        ))
+                        connectionManager.transmitFrame(inventoryFrame)
+
+                        // Enqueue periodic schedule as well
                         com.iips.launcher.apps.inventory.AppInventoryWorker.schedule(context)
-                        resultPayload = mapOf("apps" to getInstalledPackageNames())
+
+                        resultPayload = inventoryPayload
+                        finalMessage = "App inventory refreshed successfully (${formattedApps.size} apps found)"
                     }
                     "remote_diagnostics" -> {
                         Log.i(TAG, "Discharging immediate Telemetry batch diagnostics capture.")
@@ -394,6 +479,10 @@ class RemoteCommandExecutionEngine @Inject constructor(
                         val packageName = root.getAsJsonPrimitive("package_name")?.asString
                         val appId = root.getAsJsonPrimitive("app_id")?.asString
                         val version = root.getAsJsonPrimitive("version")?.asString
+                        val appName = root.getAsJsonPrimitive("app_name")?.asString
+                            ?: root.getAsJsonPrimitive("title")?.asString
+                            ?: root.getAsJsonPrimitive("name")?.asString
+                            ?: root.getAsJsonPrimitive("appName")?.asString
                         if (apkUrl.isNotEmpty()) {
                             val resolvedPkg = com.iips.launcher.storage.SecurePreferences.resolveMdmPackage(context, packageName ?: "")
                             var alreadyInstalled = false
@@ -410,7 +499,7 @@ class RemoteCommandExecutionEngine @Inject constructor(
                                 return@launch
                             }
 
-                            downloadAndInstallApk(apkUrl, packageName, commandId, requestId, appId, version)
+                            downloadAndInstallApk(apkUrl, packageName, commandId, requestId, appId, version, appName)
                             return@launch // downloadAndInstallApk handles its own success/fail ACKs asynchronously
                         } else {
                             successStatus = "FAILED"
@@ -513,13 +602,28 @@ class RemoteCommandExecutionEngine @Inject constructor(
             return com.iips.launcher.security.SecurityUtils.verifyHmacSignature(canonicalString, signature, secret)
         }
         
-        val flatData = "$commandId|${type.uppercase()}"
-        val verified = com.iips.launcher.security.SecurityUtils.verifyHmacSignature(flatData, signature, secret)
-        if (verified) return true
+        val candidateSecrets = listOfNotNull(
+            secret,
+            SecurePreferences.getEnrollmentToken(context),
+            "iips_mdm_hardened_secret_2026",
+            "iips_mdm_salt_2026"
+        )
 
-        if (commandId != null) {
-            val verifiedIdOnly = com.iips.launcher.security.SecurityUtils.verifyHmacSignature(commandId, signature, secret)
-            if (verifiedIdOnly) return true
+        for (candSecret in candidateSecrets) {
+            val candidateStrings = listOfNotNull(
+                "$commandId|${type.uppercase()}",
+                "${type.uppercase()}|$commandId",
+                "$commandId|${type.lowercase()}",
+                commandId,
+                "$commandId|$deviceId|${type.uppercase()}",
+                "$commandId|$deviceId"
+            )
+            for (candStr in candidateStrings) {
+                if (com.iips.launcher.security.SecurityUtils.verifyHmacSignature(candStr, signature, candSecret)) {
+                    Log.i(TAG, "Signature verified for commandId: $commandId")
+                    return true
+                }
+            }
         }
 
         Log.w(TAG, "Signature verification failed for commandId: $commandId, signature: $signature")
@@ -596,32 +700,48 @@ class RemoteCommandExecutionEngine @Inject constructor(
         resultPayload: Any? = null
     ) {
         val secret = SecurePreferences.getDeviceToken(context) ?: "iips_mdm_hardened_secret_2026"
-        val resultData = resultPayload ?: if (status == "SUCCESS") "SUCCESS" else (errorCode ?: "ERR_FAILED")
-        val payloadData = mapOf(
-            "id" to commandId,
-            "status" to status,
-            "note" to auditMessage,
-            "result" to resultData,
-            "execution_result" to resultData
-        )
-        val payloadStr = gson.toJson(payloadData)
+        val resultData = resultPayload ?: when (status) {
+            "SUCCESS" -> "SUCCESS"
+            "EXECUTING" -> "EXECUTING"
+            "RECEIVED" -> "RECEIVED"
+            else -> errorCode ?: "ERR_FAILED"
+        }
         val timestamp = (System.currentTimeMillis() / 1000).toString()
         val nonce = java.util.UUID.randomUUID().toString()
-        
-        // Sign the payload using same Hmac logic
+
+        val dataMap = mutableMapOf<String, Any>(
+            "id" to commandId,
+            "command_id" to commandId,
+            "commandId" to commandId,
+            "status" to status,
+            "note" to auditMessage,
+            "message" to auditMessage,
+            "result" to resultData,
+            "execution_result" to resultData,
+            "timestamp" to timestamp,
+            "nonce" to nonce
+        )
+        if (errorCode != null) {
+            dataMap["error_code"] = errorCode
+        }
+
+        val payloadStr = gson.toJson(dataMap)
         val signature = com.iips.launcher.security.TelemetryHmacSigner().signPayload(payloadStr, secret, timestamp, nonce)
+        dataMap["signature"] = signature
 
         val ackFrame = gson.toJson(mapOf(
             "type" to "command.ack",
+            "command_id" to commandId,
+            "commandId" to commandId,
+            "status" to status,
             "request_id" to (requestId ?: ""),
-            "data" to mapOf(
-                "id" to commandId,
-                "status" to status,
-                "signature" to signature,
-                "note" to auditMessage,
-                "result" to resultData,
-                "execution_result" to resultData
-            )
+            "requestId" to (requestId ?: ""),
+            "signature" to signature,
+            "timestamp" to timestamp,
+            "nonce" to nonce,
+            "result" to resultData,
+            "execution_result" to resultData,
+            "data" to dataMap
         ))
 
         val sent = connectionManager.transmitFrame(ackFrame)
@@ -639,7 +759,8 @@ class RemoteCommandExecutionEngine @Inject constructor(
         commandId: String,
         requestId: String?,
         appId: String? = null,
-        version: String? = null
+        version: String? = null,
+        appName: String? = null
     ) {
         scope.launch(Dispatchers.IO) {
             val resolvedPkg = packageName ?: "com.iips.download_" + apkUrl.hashCode().toString()
@@ -654,7 +775,17 @@ class RemoteCommandExecutionEngine @Inject constructor(
             try {
                 // Register/Update AppPocketEntity immediately
                 val existing = dao.getApp(resolvedPkg)
-                val initialAppName = existing?.appName ?: apkUrl.substringAfterLast("/").substringBefore(".apk")
+                val rawUrlName = apkUrl.substringBefore("?").substringAfterLast("/")
+                var cleanUrlName = rawUrlName
+                if (cleanUrlName.endsWith(".apk", ignoreCase = true)) {
+                    cleanUrlName = cleanUrlName.substringBeforeLast(".")
+                }
+                val initialAppName = when {
+                    !appName.isNullOrEmpty() -> appName
+                    existing?.appName != null && !existing.appName.startsWith("http") && !existing.appName.contains("?") && !existing.appName.startsWith("download?") -> existing.appName
+                    cleanUrlName.isNotEmpty() && cleanUrlName != "download" -> cleanUrlName
+                    else -> resolvedPkg.substringAfterLast(".")
+                }
                 val appEntity = com.iips.launcher.pocket.data.AppPocketEntity(
                     packageName = resolvedPkg,
                     appName = initialAppName,
@@ -691,6 +822,16 @@ class RemoteCommandExecutionEngine @Inject constructor(
                     downloadedBytes = tempApkFile.length()
                 }
 
+                // If already completely downloaded and valid, skip download phase and proceed to install
+                var success = false
+                if (tempApkFile.exists() && downloadedBytes > 0) {
+                    val archive = context.packageManager.getPackageArchiveInfo(tempApkFile.absolutePath, 0)
+                    if (archive != null) {
+                        Log.i(TAG, "Existing APK is valid and complete (${tempApkFile.length()} bytes). Proceeding to install without redownloading.")
+                        success = true
+                    }
+                }
+
                 val okHttpClient = okhttp3.OkHttpClient.Builder()
                     .connectTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
                     .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
@@ -699,7 +840,6 @@ class RemoteCommandExecutionEngine @Inject constructor(
 
                 var attempt = 0
                 val maxAttempts = 5
-                var success = false
                 var lastProgressUpdateTimestamp = 0L
 
                 while (attempt < maxAttempts && !success) {
@@ -716,9 +856,15 @@ class RemoteCommandExecutionEngine @Inject constructor(
                         val response = okHttpClient.newCall(requestBuilder.build()).execute()
                         val code = response.code
 
-                        // If server returns 416 (Range Not Satisfiable), range is invalid. Reset and redownload.
+                        // If server returns 416 (Range Not Satisfiable), range is invalid or download was already complete.
                         if (code == 416) {
                             response.close()
+                            val archive = context.packageManager.getPackageArchiveInfo(tempApkFile.absolutePath, 0)
+                            if (archive != null) {
+                                Log.i(TAG, "Server returned 416 and APK is valid and complete. Proceeding to install.")
+                                success = true
+                                break
+                            }
                             downloadedBytes = 0L
                             if (tempApkFile.exists()) tempApkFile.delete()
                             continue
@@ -798,24 +944,38 @@ class RemoteCommandExecutionEngine @Inject constructor(
 
                 Log.d(TAG, "Download finished. Triggering native apk install sequence...")
                 
+                var resolvedVersion = version
+                var resolvedAppName: String? = null
+                try {
+                    val pm = context.packageManager
+                    val packageInfo = pm.getPackageArchiveInfo(tempApkFile.absolutePath, 0)
+                    if (packageInfo != null) {
+                        if (resolvedVersion.isNullOrEmpty() || resolvedVersion == "unknown") {
+                            resolvedVersion = packageInfo.versionName
+                        }
+                        packageInfo.applicationInfo?.let { appInfo ->
+                            appInfo.sourceDir = tempApkFile.absolutePath
+                            appInfo.publicSourceDir = tempApkFile.absolutePath
+                            val label = pm.getApplicationLabel(appInfo)?.toString()
+                            if (!label.isNullOrEmpty() && !label.startsWith("http") && !label.contains("?") && label != resolvedPkg) {
+                                resolvedAppName = label
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to resolve archive info from APK", e)
+                }
+
                 // Update status to COMPLETED before starting install
                 val finalApp = dao.getApp(resolvedPkg)
                 if (finalApp != null) {
+                    val bestName = resolvedAppName ?: if (!finalApp.appName.startsWith("download?")) finalApp.appName else resolvedPkg.substringAfterLast(".")
                     dao.insertApp(finalApp.copy(
+                        appName = bestName,
                         downloadProgress = 100,
                         downloadStatus = "COMPLETED",
                         status = "DOWNLOADING"
                     ))
-                }
-
-                var resolvedVersion = version
-                if (resolvedVersion.isNullOrEmpty() || resolvedVersion == "unknown") {
-                    try {
-                        val packageInfo = context.packageManager.getPackageArchiveInfo(tempApkFile.absolutePath, 0)
-                        resolvedVersion = packageInfo?.versionName
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed to resolve version name from APK archive", e)
-                    }
                 }
 
                 withContext(Dispatchers.Main) {

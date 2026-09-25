@@ -519,6 +519,32 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/qs_tile_bluetooth"
+                android:layout_width="0dp"
+                android:layout_height="72dp"
+                android:layout_columnWeight="1"
+                android:layout_margin="4dp"
+                android:background="@drawable/bg_qs_tile"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:clickable="true"
+                android:focusable="true">
+                <ImageView
+                    android:id="@+id/qs_tile_bluetooth_icon"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:src="@drawable/ic_qs_bluetooth" />
+                <TextView
+                    android:id="@+id/qs_tile_bluetooth_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Bluetooth"
+                    android:textColor="@color/white"
+                    android:textSize="10sp" />
+            </LinearLayout>
+
+            <LinearLayout
                 android:id="@+id/qs_tile_hotspot"
                 android:layout_width="0dp"
                 android:layout_height="72dp"

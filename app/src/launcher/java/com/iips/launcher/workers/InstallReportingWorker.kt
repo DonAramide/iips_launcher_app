@@ -56,14 +56,14 @@ class InstallReportingWorker @AssistedInject constructor(
         )
 
         try {
-            Log.d(TAG, "Reporting install event for \$appId: \$eventType")
-            val response = configService.sendEvent("Bearer \$token", request)
+            Log.d(TAG, "Reporting install event for $appId: $eventType")
+            val response = configService.sendEvent("Bearer $token", request)
 
             if (response.isSuccessful) {
                 Log.d(TAG, "Successfully reported install event.")
                 Result.success()
             } else {
-                Log.e(TAG, "Failed to report install event: \${response.code()}")
+                Log.e(TAG, "Failed to report install event: ${response.code()}")
                 if (response.code() in 500..599 || response.code() == 429) {
                     Result.retry()
                 } else {

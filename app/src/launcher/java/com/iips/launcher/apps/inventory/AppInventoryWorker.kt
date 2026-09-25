@@ -5,7 +5,6 @@ import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.*
 import com.iips.launcher.apps.inventory.data.AppInventoryDao
-import com.iips.launcher.storage.SecurePreferences
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
@@ -17,12 +16,14 @@ class AppInventoryWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted workerParams: WorkerParameters,
     private val scanner: InstalledAppsScanner,
-    private val appInventoryDao: AppInventoryDao
+    private val appInventoryDao: AppInventoryDao,
+    private val uploader: AppInventoryUploader
 ) : CoroutineWorker(context, workerParams) {
 
     companion object {
         private const val TAG = "AppInventoryWorker"
         private const val WORK_NAME = "com.iips.launcher.work.APP_INVENTORY_SYNC"
+        private const val ONE_TIME_WORK_NAME = "com.iips.launcher.work.APP_INVENTORY_SYNC_NOW"
 
         fun schedule(context: Context) {
             val constraints = Constraints.Builder()
@@ -39,6 +40,22 @@ class AppInventoryWorker @AssistedInject constructor(
                 request
             )
         }
+
+        fun syncNow(context: Context) {
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build()
+
+            val request = OneTimeWorkRequestBuilder<AppInventoryWorker>()
+                .setConstraints(constraints)
+                .build()
+
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                ONE_TIME_WORK_NAME,
+                ExistingWorkPolicy.REPLACE,
+                request
+            )
+        }
     }
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -47,10 +64,9 @@ class AppInventoryWorker @AssistedInject constructor(
             val inventory = scanner.scanAllApps()
             appInventoryDao.insertAll(inventory)
             
-            // In a real implementation, we would call an uploader here.
-            // uploader.syncInventory(inventory)
+            uploader.syncInventory()
             
-            Log.d(TAG, "Inventory scan complete. Found ${inventory.size} apps.")
+            Log.d(TAG, "Inventory scan and upload complete. Found ${inventory.size} apps.")
             Result.success()
         } catch (e: Exception) {
             Log.e(TAG, "Inventory worker failed", e)

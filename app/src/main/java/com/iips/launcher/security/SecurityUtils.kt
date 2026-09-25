@@ -58,16 +58,22 @@ object SecurityUtils {
     fun verifyHmacSignature(data: String, signature: String?, secret: String): Boolean {
         if (signature == null) return false
         return try {
-            val hmacKey = javax.crypto.spec.SecretKeySpec(secret.toByteArray(), "HmacSHA256")
+            val serverSalt = "iips_mdm_salt_2026"
+            val derivedKey = sha256(secret + serverSalt)
+            checkHmac(data, signature, secret) || checkHmac(data, signature, derivedKey)
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun checkHmac(data: String, signature: String, keyStr: String): Boolean {
+        return try {
+            val hmacKey = javax.crypto.spec.SecretKeySpec(keyStr.toByteArray(), "HmacSHA256")
             val mac = javax.crypto.Mac.getInstance("HmacSHA256")
             mac.init(hmacKey)
             val computedHash = mac.doFinal(data.toByteArray())
-            // Convert to base64 or hex? The user suggested Base64 for X-Signature: <base64_hmac>
             val expectedBase64 = android.util.Base64.encodeToString(computedHash, android.util.Base64.NO_WRAP)
-            
-            // Fallback to hex if backend uses hex
             val hexString = computedHash.joinToString("") { "%02x".format(it) }
-            
             secureCompare(expectedBase64, signature) || secureCompare(hexString, signature)
         } catch (e: Exception) {
             false

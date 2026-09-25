@@ -54,6 +54,8 @@ interface ConfigService {
     suspend fun reportInventory(
         @Header("Authorization") authHeader: String,
         @Header("X-IIPS-Signature") signature: String,
+        @Header("X-IIPS-Timestamp") timestamp: String? = null,
+        @Header("X-IIPS-Nonce") nonce: String? = null,
         @Body inventory: Map<String, Any>
     ): Response<okhttp3.ResponseBody>
 

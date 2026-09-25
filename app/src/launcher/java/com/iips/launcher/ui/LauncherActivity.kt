@@ -1,5 +1,7 @@
 package com.iips.launcher.ui
 
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -1036,6 +1038,11 @@ class LauncherActivity : AppCompatActivity() {
             openWifiSetup()
             true
         }
+        binding.qsTileBluetooth.setOnClickListener { toggleBluetooth() }
+        binding.qsTileBluetooth.setOnLongClickListener {
+            openBluetoothSettings()
+            true
+        }
         binding.qsTileHotspot.setOnClickListener { openHotspotSetup() }
         binding.qsTileHotspot.setOnLongClickListener {
             openHotspotSetup()
@@ -1060,6 +1067,20 @@ class LauncherActivity : AppCompatActivity() {
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
+
+        if (settingsReceiver == null) {
+            settingsReceiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    refreshQuickSettingsTiles()
+                }
+            }
+            val filter = IntentFilter().apply {
+                addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
+                addAction(WifiManager.WIFI_STATE_CHANGED_ACTION)
+                addAction(Intent.ACTION_AIRPLANE_MODE_CHANGED)
+            }
+            registerReceiver(settingsReceiver, filter)
+        }
 
         applySavedOrientation()
         applySavedDarkMode()
@@ -1104,6 +1125,9 @@ class LauncherActivity : AppCompatActivity() {
             false
         }
         setTileSelected(binding.qsTileWifi, binding.qsTileWifiIcon, binding.qsTileWifiLabel, wifiOn)
+
+        val btOn = isBluetoothEnabled()
+        setTileSelected(binding.qsTileBluetooth, binding.qsTileBluetoothIcon, binding.qsTileBluetoothLabel, btOn)
 
         val hotspotOn = isHotspotActive()
         setTileSelected(binding.qsTileHotspot, binding.qsTileHotspotIcon, binding.qsTileHotspotLabel, hotspotOn)
@@ -1306,6 +1330,60 @@ class LauncherActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Toast.makeText(this, "Settings unavailable", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun isBluetoothEnabled(): Boolean {
+        return try {
+            val bm = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+            bm?.adapter?.isEnabled == true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun toggleBluetooth() {
+        try {
+            val bm = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+            val adapter = bm?.adapter
+            if (adapter == null) {
+                Toast.makeText(this, "Bluetooth not supported on this device", Toast.LENGTH_SHORT).show()
+                return
+            }
+            if (adapter.isEnabled) {
+                val disabled = try {
+                    @Suppress("DEPRECATION")
+                    adapter.disable()
+                } catch (_: Exception) {
+                    false
+                }
+                if (!disabled) {
+                    openBluetoothSettings()
+                }
+            } else {
+                val enabled = try {
+                    @Suppress("DEPRECATION")
+                    adapter.enable()
+                } catch (_: Exception) {
+                    false
+                }
+                if (!enabled) {
+                    try {
+                        startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+                    } catch (_: Exception) {
+                        openBluetoothSettings()
+                    }
+                }
+            }
+            binding.quickSettingsPanel.postDelayed({ refreshQuickSettingsTiles() }, 600)
+        } catch (e: Exception) {
+            android.util.Log.e("DotroidQS", "Failed to toggle Bluetooth", e)
+            openBluetoothSettings()
+        }
+    }
+
+    private fun openBluetoothSettings() {
+        animateQuickSettings(false)
+        openSystemSettings(Settings.ACTION_BLUETOOTH_SETTINGS)
     }
 
     private fun setupGeofenceOverlay() {
