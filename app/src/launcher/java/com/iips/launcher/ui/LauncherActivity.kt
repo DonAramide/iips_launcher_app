@@ -10,6 +10,7 @@ import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
+import android.location.LocationManager
 import android.net.wifi.WifiManager
 import android.os.BatteryManager
 import android.os.Build
@@ -1049,6 +1050,11 @@ class LauncherActivity : AppCompatActivity() {
             openBluetoothSettings()
             true
         }
+        binding.qsTileLocation.setOnClickListener { toggleLocation() }
+        binding.qsTileLocation.setOnLongClickListener {
+            openLocationSettings()
+            true
+        }
         binding.qsTileHotspot.setOnClickListener { openHotspotSetup() }
         binding.qsTileHotspot.setOnLongClickListener {
             openHotspotSetup()
@@ -1084,6 +1090,7 @@ class LauncherActivity : AppCompatActivity() {
                 addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
                 addAction(WifiManager.WIFI_STATE_CHANGED_ACTION)
                 addAction(Intent.ACTION_AIRPLANE_MODE_CHANGED)
+                addAction(LocationManager.PROVIDERS_CHANGED_ACTION)
             }
             registerReceiver(settingsReceiver, filter)
         }
@@ -1134,6 +1141,9 @@ class LauncherActivity : AppCompatActivity() {
 
         val btOn = isBluetoothEnabled()
         setTileSelected(binding.qsTileBluetooth, binding.qsTileBluetoothIcon, binding.qsTileBluetoothLabel, btOn)
+
+        val locOn = isLocationEnabled()
+        setTileSelected(binding.qsTileLocation, binding.qsTileLocationIcon, binding.qsTileLocationLabel, locOn)
 
         val hotspotOn = isHotspotActive()
         setTileSelected(binding.qsTileHotspot, binding.qsTileHotspotIcon, binding.qsTileHotspotLabel, hotspotOn)
@@ -1390,6 +1400,59 @@ class LauncherActivity : AppCompatActivity() {
     private fun openBluetoothSettings() {
         animateQuickSettings(false)
         openSystemSettings(Settings.ACTION_BLUETOOTH_SETTINGS)
+    }
+
+    private fun isLocationEnabled(): Boolean {
+        return try {
+            val lm = getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                lm?.isLocationEnabled == true
+            } else {
+                @Suppress("DEPRECATION")
+                val mode = Settings.Secure.getInt(
+                    contentResolver,
+                    Settings.Secure.LOCATION_MODE,
+                    Settings.Secure.LOCATION_MODE_OFF
+                )
+                mode != Settings.Secure.LOCATION_MODE_OFF
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun toggleLocation() {
+        try {
+            val currentlyEnabled = isLocationEnabled()
+            val targetState = !currentlyEnabled
+
+            var toggled = false
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && DeviceAdminReceiver.isDeviceOwner(this)) {
+                try {
+                    val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as? android.app.admin.DevicePolicyManager
+                    val admin = DeviceAdminReceiver.getComponentName(this)
+                    dpm?.setLocationEnabled(admin, targetState)
+                    toggled = true
+                } catch (e: Exception) {
+                    android.util.Log.w("DotroidQS", "DPM setLocationEnabled failed: ${e.message}")
+                }
+            }
+
+            if (!toggled) {
+                openLocationSettings()
+            } else {
+                Toast.makeText(this, if (targetState) "Location enabled" else "Location disabled", Toast.LENGTH_SHORT).show()
+            }
+            binding.quickSettingsPanel.postDelayed({ refreshQuickSettingsTiles() }, 600)
+        } catch (e: Exception) {
+            android.util.Log.e("DotroidQS", "Failed to toggle Location", e)
+            openLocationSettings()
+        }
+    }
+
+    private fun openLocationSettings() {
+        animateQuickSettings(false)
+        openSystemSettings(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
     }
 
     private fun setupGeofenceOverlay() {
