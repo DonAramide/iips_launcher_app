@@ -49,11 +49,7 @@ class PackageSignatureValidator @Inject constructor(
                 }
             }
 
-            Log.e(TAG, "APK signature mismatch! Found: ${calculateSha256(signatures[0].toByteArray())}")
-            if (com.iips.launcher.BuildConfig.DEBUG) {
-                Log.w(TAG, "DEVELOPMENT FALLBACK: Allowing signature mismatch in debug mode.")
-                return true
-            }
+            Log.e(TAG, "APK signature mismatch! Found: ${calculateSha256(signatures[0].toByteArray())}. Failing closed.")
             return false
         } catch (e: Exception) {
             Log.e(TAG, "Signature validation error", e)
