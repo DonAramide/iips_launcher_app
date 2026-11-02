@@ -8,6 +8,13 @@ import android.util.Log
 import com.iips.launcher.network.models.EnrollmentRequest
 import com.iips.launcher.network.models.LocationInfo
 import com.iips.launcher.security.SecurityUtils
+import com.iips.launcher.security.pds.PdsDeviceKeyManager
+import com.iips.launcher.security.pds.PdsEnrollmentCoordinator
+import com.iips.launcher.security.pds.PdsEnrollmentCrypto
+import com.iips.launcher.security.pds.PdsEnrollmentIdentityPolicy
+import com.iips.launcher.security.pds.PdsEnrollmentStateStore
+import com.iips.launcher.security.pds.PdsHttpEnrollmentTransport
+import com.iips.launcher.security.pds.PdsOnboardingEnrollmentFlow
 import com.iips.launcher.storage.SecurePreferences
 import com.iips.launcher.policy.DeviceAdminReceiver
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -16,6 +23,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.tasks.await
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,9 +34,19 @@ class DeviceEnrollmentManager @Inject constructor(
 ) {
 
     suspend fun enrollIfNeeded(enrollmentToken: String? = null, agentCode: String? = null): Boolean = withContext(Dispatchers.IO) {
-        if (SecurePreferences.isRegistered(context)) return@withContext true
+        if (SecurePreferences.isRegistered(context)) {
+            val storedId = SecurePreferences.getDeviceId(context)
+            if (!storedId.isNullOrBlank() && PdsEnrollmentIdentityPolicy.isLegacyCompatibilityIdentity(storedId)) {
+                Log.w(TAG, "Existing device uses a legacy non-UUID identity; leaving operational path unchanged")
+            }
+            return@withContext true
+        }
 
         val token = enrollmentToken ?: SecurePreferences.getEnrollmentToken(context) ?: return@withContext false
+        val tenantId = SecurePreferences.getTenantId(context)
+        if (tenantId.isNullOrBlank()) {
+            throw SecurityException("PDS enrollment requires tenant_id; refusing serial-number identity fallback")
+        }
 
         try {
             val manufacturer = Build.MANUFACTURER
@@ -37,36 +55,68 @@ class DeviceEnrollmentManager @Inject constructor(
             val fingerprintHash = com.iips.launcher.security.SecurityUtils.calculateFingerprintHash(context, serial)
 
             val locInfo = fetchCurrentLocation(context)
-            val request = EnrollmentRequest(
+            val hardware = PdsEnrollmentCrypto.HardwareAttributes(
+                manufacturer = manufacturer,
+                model = model,
+                hardwareId = fingerprintHash,
+                serialNumber = serial,
+                androidVersion = Build.VERSION.RELEASE ?: "",
+                sdkInt = Build.VERSION.SDK_INT.toLong(),
+                buildFingerprint = Build.FINGERPRINT ?: "",
+                pdsVersion = "1.0.0",
+                vendor = manufacturer
+            )
+            val outcome = PdsOnboardingEnrollmentFlow.execute(
+                tenantId = tenantId,
                 enrollmentToken = token,
                 manufacturer = manufacturer,
                 model = model,
-                serialNumber = serial,
+                serial = serial,
                 fingerprintHash = fingerprintHash,
                 agentCode = agentCode,
                 businessName = SecurePreferences.getBusinessName(context),
-                latitude = locInfo?.lat,
-                longitude = locInfo?.lng,
-                location = locInfo
+                hardware = hardware,
+                pdsEnroll = { enrollToken, enrollTenant, hw ->
+                    val keyManager = PdsDeviceKeyManager()
+                    keyManager.ensureDeviceKey(context, enrollToken)
+                    val stateStore = PdsEnrollmentStateStore(File(context.filesDir, "pds_enrollment.state"))
+                    val coordinator = PdsEnrollmentCoordinator(
+                        signer = keyManager,
+                        stateStore = stateStore,
+                        transport = PdsHttpEnrollmentTransport(configService)
+                    )
+                    coordinator.enroll(enrollToken, enrollTenant, hw)
+                },
+                legacyRegister = { req ->
+                    val response = kotlinx.coroutines.runBlocking {
+                        configService.enrollDevice(
+                            EnrollmentRequest(
+                                enrollmentToken = req.enrollmentToken,
+                                manufacturer = req.manufacturer,
+                                model = req.model,
+                                serialNumber = req.serialNumber,
+                                fingerprintHash = req.fingerprintHash,
+                                agentCode = req.agentCode,
+                                knownDeviceId = req.knownDeviceId,
+                                businessName = req.businessName,
+                                latitude = locInfo?.lat,
+                                longitude = locInfo?.lng,
+                                location = locInfo
+                            )
+                        )
+                    }
+                    PdsOnboardingEnrollmentFlow.LegacyRegisterResult(
+                        success = response.isSuccessful && response.body() != null,
+                        httpCode = response.code(),
+                        deviceId = response.body()?.deviceId,
+                        accessToken = response.body()?.accessToken
+                    )
+                }
             )
-
-            val response = configService.enrollDevice(request)
-            if (response.isSuccessful) {
-                response.body()?.let { res ->
-                    val finalDeviceId = if (!serial.isNullOrBlank()) serial else res.deviceId
-                    SecurePreferences.setDeviceId(context, finalDeviceId)
-                    SecurePreferences.setDeviceToken(context, res.accessToken ?: "")
-                    Log.i(TAG, "Enrollment successful: $finalDeviceId")
-                    return@withContext true
-                }
-            } else {
-                Log.e(TAG, "Enrollment failed: ${response.code()}")
-                if (response.code() == 401 || response.code() == 403) {
-                    throw Exception("Invalid Enrollment Token. Please check the token and try again.")
-                } else {
-                    throw Exception("Enrollment failed (Server returned status ${response.code()}).")
-                }
-            }
+            SecurePreferences.setDeviceId(context, outcome.persistedDeviceId)
+            SecurePreferences.setDeviceToken(context, outcome.accessToken)
+            Log.i(TAG, "Enrollment successful: ${outcome.persistedDeviceId}")
+            return@withContext true
         } catch (e: Exception) {
             Log.e(TAG, "Enrollment error", e)
             when (e) {
@@ -144,6 +194,7 @@ class DeviceEnrollmentManager @Inject constructor(
                 }
 
                 val tenantId = extras.getString(DeviceAdminReceiver.EXTRA_TENANT_ID)
+                    ?: extras.getString("tenant_id")
                     ?: extras.getString("tenantId")
                 if (!tenantId.isNullOrBlank()) {
                     SecurePreferences.setTenantId(context, tenantId)

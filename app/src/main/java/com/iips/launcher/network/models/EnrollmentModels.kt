@@ -17,6 +17,7 @@ data class EnrollmentRequest(
     @SerializedName("serial_number")     val serialNumber: String?,
     @SerializedName("fingerprint_hash")  val fingerprintHash: String,
     @SerializedName("agent_code")        val agentCode: String? = null,
+    @SerializedName("known_device_id")   val knownDeviceId: String? = null,
     @SerializedName("business_name")     val businessName: String? = null,
     @SerializedName("latitude")          val latitude: Double? = null,
     @SerializedName("longitude")         val longitude: Double? = null,

@@ -179,6 +179,10 @@ class PdsCommandVerifier(
 
     fun getAcceptedKeySetVersion(): Long = acceptedKeySetVersion
 
+    fun getRegisteredKey(kid: String): TrustedCommandPublicKey? = keyRegistry[kid]?.first
+
+    fun getRegisteredPublicKey(kid: String): PublicKey? = keyRegistry[kid]?.second
+
     /**
      * Verifies and applies a root-signed key-set JWS (`SPEC-01` §4).
      * Enforces anti-rollback (`version >= acceptedKeySetVersion`).

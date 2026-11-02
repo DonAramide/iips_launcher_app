@@ -47,6 +47,7 @@ class OnboardingActivity : AppCompatActivity() {
         if (result.resultCode == RESULT_OK) {
             val token      = result.data?.getStringExtra(QrScannerActivity.EXTRA_TOKEN)
             val backendUrl = result.data?.getStringExtra(QrScannerActivity.EXTRA_BACKEND_URL)
+            val tenantId   = result.data?.getStringExtra(QrScannerActivity.EXTRA_TENANT_ID)
 
             if (!token.isNullOrBlank()) {
                 val inputEnrollmentToken = findViewById<TextInputEditText>(R.id.input_enrollment_token)
@@ -58,6 +59,9 @@ class OnboardingActivity : AppCompatActivity() {
                 val normalized = com.iips.launcher.policy.DeviceAdminReceiver.normalizeBackendUrl(backendUrl)
                 SecurePreferences.setProvisioningBackendUrl(this, normalized)
                 SecurePreferences.setBackendUrl(this, normalized)
+            }
+            if (!tenantId.isNullOrBlank()) {
+                SecurePreferences.setTenantId(this, tenantId.trim())
             }
         }
     }

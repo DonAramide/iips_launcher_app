@@ -24,7 +24,7 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.iips.launcher.R
-import org.json.JSONObject
+import com.iips.launcher.security.pds.QrProvisioningPayloadParser
 import java.util.concurrent.Executors
 
 /**
@@ -33,17 +33,20 @@ import java.util.concurrent.Executors
  * Decodes QR codes. If the payload is JSON it extracts:
  *   - "enrollment_token"
  *   - "backend_url"
+ *   - "tenant_id"
  * Otherwise the raw string is returned as the token.
  *
  * RESULT_OK extras:
  *   [EXTRA_TOKEN]       — enrollment token
  *   [EXTRA_BACKEND_URL] — backend URL (may be empty)
+ *   [EXTRA_TENANT_ID]   — tenant UUID (may be empty)
  */
 class QrScannerActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_TOKEN       = "scanned_value"
         const val EXTRA_BACKEND_URL = "scanned_backend_url"
+        const val EXTRA_TENANT_ID   = "scanned_tenant_id"
         private const val TAG = "QrScanner"
         private const val REQUEST_CAMERA = 1001
     }
@@ -77,12 +80,14 @@ class QrScannerActivity : AppCompatActivity() {
                 override fun onReceive(context: android.content.Context?, intent: Intent?) {
                     val token = intent?.getStringExtra("token")
                     val backendUrl = intent?.getStringExtra("backend_url")
-                    Log.i(TAG, "Simulating QR Scan via Debug Broadcast: token=$token, backendUrl=$backendUrl")
+                    val tenantId = intent?.getStringExtra("tenant_id")
+                    Log.i(TAG, "Simulating QR Scan via Debug Broadcast: token=$token, backendUrl=$backendUrl, tenant=${!tenantId.isNullOrBlank()}")
                     if (!resultDelivered && !token.isNullOrBlank()) {
                         resultDelivered = true
                         setResult(RESULT_OK, Intent().apply {
                             putExtra(EXTRA_TOKEN, token)
                             putExtra(EXTRA_BACKEND_URL, backendUrl ?: "")
+                            putExtra(EXTRA_TENANT_ID, tenantId ?: "")
                         })
                         finish()
                     }
@@ -194,53 +199,19 @@ class QrScannerActivity : AppCompatActivity() {
 
     private fun handleScannedValue(rawValue: String) {
         Log.i(TAG, "Scanned raw length=${rawValue.length}")
-        var token: String? = null
-        var backendUrl: String? = null
-
-        if (rawValue.trimStart().startsWith("{")) {
-            try {
-                val json = JSONObject(rawValue)
-                token      = json.optString("enrollment_token").takeIf { it.isNotBlank() }
-                backendUrl = json.optString("backend_url").takeIf { it.isNotBlank() }
-                
-                // If not found, check inside Android Enterprise extras bundle
-                if (token == null && json.has("android.app.extra.PROVISIONING_ADMIN_EXTRAS_BUNDLE")) {
-                    val extras = json.optJSONObject("android.app.extra.PROVISIONING_ADMIN_EXTRAS_BUNDLE")
-                    if (extras != null) {
-                        token = extras.optString("enrollment_token").takeIf { it.isNotBlank() }
-                        if (backendUrl == null) {
-                            backendUrl = extras.optString("backend_url").takeIf { it.isNotBlank() }
-                        }
-                    } else {
-                        // Sometimes the bundle is encoded as a string
-                        val extrasStr = json.optString("android.app.extra.PROVISIONING_ADMIN_EXTRAS_BUNDLE")
-                        if (extrasStr.isNotBlank() && extrasStr.trimStart().startsWith("{")) {
-                            val extrasJson = JSONObject(extrasStr)
-                            token = extrasJson.optString("enrollment_token").takeIf { it.isNotBlank() }
-                            if (backendUrl == null) {
-                                backendUrl = extrasJson.optString("backend_url").takeIf { it.isNotBlank() }
-                            }
-                        }
-                    }
-                }
-                Log.i(TAG, "JSON QR — token=${token != null}, backend=$backendUrl")
-            } catch (e: Exception) {
-                Log.w(TAG, "Not valid JSON, using raw value: ${e.message}")
-            }
-        }
-
-        if (token.isNullOrBlank()) token = rawValue.trim()
-
+        val parsed = QrProvisioningPayloadParser.parse(rawValue)
+        val token = parsed.enrollmentToken
         if (token.isBlank()) {
             Log.w(TAG, "Empty token after parse — allowing rescan")
             resultDelivered = false
             showStatus("Could not read token. Try again.", error = true)
             return
         }
-
+        Log.i(TAG, "JSON QR — token=true, backend=${parsed.backendUrl != null}, tenant=${parsed.tenantId != null}")
         setResult(RESULT_OK, Intent().apply {
             putExtra(EXTRA_TOKEN, token)
-            putExtra(EXTRA_BACKEND_URL, backendUrl ?: "")
+            putExtra(EXTRA_BACKEND_URL, parsed.backendUrl ?: "")
+            putExtra(EXTRA_TENANT_ID, parsed.tenantId ?: "")
         })
         finish()
     }

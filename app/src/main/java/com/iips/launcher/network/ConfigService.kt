@@ -16,6 +16,16 @@ interface ConfigService {
     @POST("device/register")
     suspend fun enrollDevice(@Body request: EnrollmentRequest): Response<EnrollmentResponse>
 
+    @POST("device/pds/enroll/challenge")
+    suspend fun pdsEnrollmentChallenge(
+        @Body request: PdsEnrollmentChallengeRequest
+    ): Response<PdsEnrollmentChallengeResponse>
+
+    @POST("device/pds/enroll/verify")
+    suspend fun pdsEnrollmentVerify(
+        @Body request: PdsEnrollmentVerifyRequest
+    ): Response<PdsEnrollmentVerifyResponse>
+
     @GET("device/policy")
     suspend fun fetchPolicy(
         @Header("Authorization") authHeader: String
