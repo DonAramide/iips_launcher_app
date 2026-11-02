@@ -1,0 +1,391 @@
+{
+  "suiteVersion": 1,
+  "generatedBy": "Quasar Phase 1B CommandSigningService",
+  "evaluationTimeIso": "2026-11-02T12:00:00Z",
+  "targetDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+  "targetDeviceIdentityRef": "devkey:pds-key-550e8400",
+  "targetTenantId": "11111111-2222-3333-4444-555555555555",
+  "keySetDistribution": {
+    "version": 1,
+    "root_kid": "root-2026-v1",
+    "root_public_key_spki_b64": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAExCTtYPAwt+CNMKHp8rpeuPpAzGC1CdN89qsr7VA5VRxggiXKxb8PatRzikOgUpXBi3wSivHqH+h53YfAEN8jcg==",
+    "root_fingerprint_sha256": "32c6ed029c20a61e3d7ce6d8f27f148d9e8fd0ee9b9f93dea33cd8558cb18281",
+    "keyset_jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6InJvb3QtMjAyNi12MSIsInR5cCI6ImRvdHJvaWQta2V5c2V0K2p3cyIsInYiOjF9.eyJleHBpcmVzX2F0IjoiMjAyNi0xMS0wOVQxMjowMDowMFoiLCJpc3N1ZWRfYXQiOiIyMDI2LTExLTAyVDEyOjAwOjAwWiIsImlzc3VlciI6InF1YXNhcjp0ZXN0Iiwia2V5cyI6W3siYWxnIjoiRVMyNTYiLCJmaW5nZXJwcmludF9zaGEyNTYiOiIzMmM2ZWQwMjljMjBhNjFlM2Q3Y2U2ZDhmMjdmMTQ4ZDllOGZkMGVlOWI5ZjkzZGVhMzNjZDg1NThjYjE4MjgxIiwia2lkIjoicm9vdC0yMDI2LXYxIiwibm90X2FmdGVyIjoiMjAzMS0wMS0wMVQwMDowMDowMFoiLCJub3RfYmVmb3JlIjoiMjAyNi0wMS0wMVQwMDowMDowMFoiLCJwdWJsaWNfandrIjp7ImFsZyI6IkVTMjU2IiwiY3J2IjoiUC0yNTYiLCJraWQiOiJyb290LTIwMjYtdjEiLCJrdHkiOiJFQyIsInVzZSI6InNpZyIsIngiOiJ4Q1R0WVBBd3QtQ05NS0hwOHJwZXVQcEF6R0MxQ2ROODlxc3I3VkE1VlJ3IiwieSI6IllJSWx5c1dfRDJyVWM0cERvRktWd1l0OEVvcng2aF9vZWQySHdCRGZJM0kifSwicHVibGljX2tleV9zcGtpX2I2NCI6Ik1Ga3dFd1lIS29aSXpqMENBUVlJS29aSXpqMERBUWNEUWdBRXhDVHRZUEF3dCtDTk1LSHA4cnBldVBwQXpHQzFDZE44OXFzcjdWQTVWUnhnZ2lYS3hiOFBhdFJ6aWtPZ1VwWEJpM3dTaXZIcUgraDUzWWZBRU44amNnPT0iLCJwdXJwb3NlIjoicm9vdCIsInN0YXR1cyI6ImFjdGl2ZSJ9LHsiYWxnIjoiRVMyNTYiLCJmaW5nZXJwcmludF9zaGEyNTYiOiJlN2I3ODg3OGI3NTc2ODllNGVhNGE3MWIzNTBiODI0NmNkOWU0N2ZiNzMyOGU0NGRhNzU5YTc0ZDc1M2Y0ZTg4Iiwia2lkIjoiY21kLTIwMjYtMTEtYWN0aXZlIiwibm90X2FmdGVyIjoiMjAyNy0xMS0wMVQwMDowMDowMFoiLCJub3RfYmVmb3JlIjoiMjAyNi0xMC0wMVQwMDowMDowMFoiLCJwdWJsaWNfandrIjp7ImFsZyI6IkVTMjU2IiwiY3J2IjoiUC0yNTYiLCJraWQiOiJjbWQtMjAyNi0xMS1hY3RpdmUiLCJrdHkiOiJFQyIsInVzZSI6InNpZyIsIngiOiI4MEp3bHBFYkRXanZBQXRLMnhySUpEdkZ5UUd4ajFFRGpyTi1HeTJGMmdzIiwieSI6IkxPaWZkZFlsUFRQWDN2ekY0VDJIaUx1QXp3eGRIWkdvU0tsZ19Kdk43WjQifSwicHVibGljX2tleV9zcGtpX2I2NCI6Ik1Ga3dFd1lIS29aSXpqMENBUVlJS29aSXpqMERBUWNEUWdBRTgwSndscEViRFdqdkFBdEsyeHJJSkR2RnlRR3hqMUVEanJOK0d5MkYyZ3NzNko5MTFpVTlNOWZlL01YaFBZZUl1NERQREYwZGthaElxV0Q4bTgzdG5nPT0iLCJwdXJwb3NlIjoiY29tbWFuZCIsInN0YXR1cyI6ImFjdGl2ZSJ9LHsiYWxnIjoiRVMyNTYiLCJmaW5nZXJwcmludF9zaGEyNTYiOiIwYzg2NjAyNDIwMjZjNjVlZjBmMDExNGJlZWJmYTMzYmU0NWM1ZTA4NjczZTU4ZmUyMGZhNjM3ODlmOTViYmU2Iiwia2lkIjoiY21kLTIwMjYtMTItbmV4dCIsIm5vdF9hZnRlciI6IjIwMjctMTItMDFUMDA6MDA6MDBaIiwibm90X2JlZm9yZSI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwicHVibGljX2p3ayI6eyJhbGciOiJFUzI1NiIsImNydiI6IlAtMjU2Iiwia2lkIjoiY21kLTIwMjYtMTItbmV4dCIsImt0eSI6IkVDIiwidXNlIjoic2lnIiwieCI6IkpYNzFKbUp5cVluN3ZxZkNSRS1xdk1UaXdkeGMtVEpIYmx1V3ZFTmlYMkEiLCJ5IjoiUVhqbjVSQjhtR3R1d1ZGNVFyT1JySmZvMlduRy1sZlRBZWFEQlNObjVmTSJ9LCJwdWJsaWNfa2V5X3Nwa2lfYjY0IjoiTUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFRY0RRZ0FFSlg3MUptSnlxWW43dnFmQ1JFK3F2TVRpd2R4YytUSkhibHVXdkVOaVgyQkJlT2ZsRUh5WWEyN0JVWGxDczVHc2wralphY2I2VjlNQjVvTUZJMmZsOHc9PSIsInB1cnBvc2UiOiJjb21tYW5kIiwic3RhdHVzIjoibmV4dCJ9LHsiYWxnIjoiRVMyNTYiLCJmaW5nZXJwcmludF9zaGEyNTYiOiI0MmFkMWI1NmJkMTg2MmI1MTkyMDExMDcxYzIzZmViMGJmOTE2ZDRlMTlkMWMwM2Y2NTgwNDY5Zjc5Y2FkODFiIiwia2lkIjoiY21kLTIwMjYtMDUtcmV0aXJpbmciLCJub3RfYWZ0ZXIiOiIyMDI2LTEyLTMxVDIzOjU5OjU5WiIsIm5vdF9iZWZvcmUiOiIyMDI2LTA1LTAxVDAwOjAwOjAwWiIsInB1YmxpY19qd2siOnsiYWxnIjoiRVMyNTYiLCJjcnYiOiJQLTI1NiIsImtpZCI6ImNtZC0yMDI2LTA1LXJldGlyaW5nIiwia3R5IjoiRUMiLCJ1c2UiOiJzaWciLCJ4IjoiZF9qb1g0OFZPZ2FtRDQtUHUtMVpqMFZkUlRSa2FWWHdkTW5seGVud1NZQSIsInkiOiJ4U2FNSnVLTkZBMkNBS3dMelRIM2ZNWUR5SndEVEdWUENuV1h4Qk9UTkdZIn0sInB1YmxpY19rZXlfc3BraV9iNjQiOiJNRmt3RXdZSEtvWkl6ajBDQVFZSUtvWkl6ajBEQVFjRFFnQUVkL2pvWDQ4Vk9nYW1ENCtQdSsxWmowVmRSVFJrYVZYd2RNbmx4ZW53U1lERkpvd200bzBVRFlJQXJBdk5NZmQ4eGdQSW5BTk1aVThLZFpmRUU1TTBaZz09IiwicHVycG9zZSI6ImNvbW1hbmQiLCJzdGF0dXMiOiJyZXRpcmluZyJ9LHsiYWxnIjoiRVMyNTYiLCJmaW5nZXJwcmludF9zaGEyNTYiOiI4NmFmZTAxNTI3OWQ3YTZhYWMxZmIyZGM4MDgzNWE1YzdjYjA2MzI5NGExMTBkMjY0ZjE3ZWU2MTRkNjkwNTEzIiwia2lkIjoiY21kLTIwMjYtMDEtcmV2b2tlZCIsIm5vdF9hZnRlciI6IjIwMjYtMDYtMDFUMDA6MDA6MDBaIiwibm90X2JlZm9yZSI6IjIwMjYtMDEtMDFUMDA6MDA6MDBaIiwicHVibGljX2p3ayI6eyJhbGciOiJFUzI1NiIsImNydiI6IlAtMjU2Iiwia2lkIjoiY21kLTIwMjYtMDEtcmV2b2tlZCIsImt0eSI6IkVDIiwidXNlIjoic2lnIiwieCI6IldKMkhLM1pWamVwY0dGaUVYck9RSVIxZ2ZGdU1hUWJ6YllHSEtPYnI1MWciLCJ5IjoiaExUakVMUkZoclltX0t1TnV4UmVFYlNUZERiejlGcnJ4aTI3UnZTTTgzWSJ9LCJwdWJsaWNfa2V5X3Nwa2lfYjY0IjoiTUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFRY0RRZ0FFV0oySEszWlZqZXBjR0ZpRVhyT1FJUjFnZkZ1TWFRYnpiWUdIS09icjUxaUV0T01RdEVXR3RpYjhxNDI3RkY0UnRKTjBOdlAwV3V2R0xidEc5SXp6ZGc9PSIsInB1cnBvc2UiOiJjb21tYW5kIiwic3RhdHVzIjoicmV2b2tlZCJ9LHsiYWxnIjoiRVMyNTYiLCJmaW5nZXJwcmludF9zaGEyNTYiOiJlYmE5NmZiOWVmMzliMDI3NmI4MDRkOGIyMGQ2Y2U2OWNmNDgyZWUwYjliYzBhMjdlNmU4MjUwYWU1NGU5NzdiIiwia2lkIjoibWZzLTIwMjYtMTEtYWN0aXZlIiwibm90X2FmdGVyIjoiMjAyNy0xMS0wMVQwMDowMDowMFoiLCJub3RfYmVmb3JlIjoiMjAyNi0xMC0wMVQwMDowMDowMFoiLCJwdWJsaWNfandrIjp7ImFsZyI6IkVTMjU2IiwiY3J2IjoiUC0yNTYiLCJraWQiOiJtZnMtMjAyNi0xMS1hY3RpdmUiLCJrdHkiOiJFQyIsInVzZSI6InNpZyIsIngiOiJUUTBmbk9hMWpWUUxtc2V1V244OWFsUzBhNTBMbkhFT3NZSGZNNW15cy1RIiwieSI6InlfTkdjbm1OZFdUeUdXN3BwMFBYN0tlM2FXNXhKOXNZZ0pxVFQ0U1RRZ3cifSwicHVibGljX2tleV9zcGtpX2I2NCI6Ik1Ga3dFd1lIS29aSXpqMENBUVlJS29aSXpqMERBUWNEUWdBRVRRMGZuT2ExalZRTG1zZXVXbjg5YWxTMGE1MExuSEVPc1lIZk01bXlzK1RMODBaeWVZMTFaUElaYnVtblE5ZnNwN2RwYm5FbjJ4aUFtcE5QaEpOQ0RBPT0iLCJwdXJwb3NlIjoibWFuaWZlc3QiLCJzdGF0dXMiOiJhY3RpdmUifV0sInZlcnNpb24iOjF9.O4dTWUqM__Hn5sduLzXGluwAy2YAK7wsB5nO-EVkUsPku7wM-31Ezb9_upTfBSMMu3g8idEgUyZH1U4rnAeoGQ",
+    "payload": {
+      "version": 1,
+      "issued_at": "2026-11-02T12:00:00Z",
+      "expires_at": "2026-11-09T12:00:00Z",
+      "issuer": "quasar:test",
+      "keys": [
+        {
+          "kid": "root-2026-v1",
+          "purpose": "root",
+          "alg": "ES256",
+          "status": "active",
+          "not_before": "2026-01-01T00:00:00Z",
+          "not_after": "2031-01-01T00:00:00Z",
+          "public_jwk": {
+            "kty": "EC",
+            "crv": "P-256",
+            "x": "xCTtYPAwt-CNMKHp8rpeuPpAzGC1CdN89qsr7VA5VRw",
+            "y": "YIIlysW_D2rUc4pDoFKVwYt8Eorx6h_oed2HwBDfI3I",
+            "kid": "root-2026-v1",
+            "use": "sig",
+            "alg": "ES256"
+          },
+          "public_key_spki_b64": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAExCTtYPAwt+CNMKHp8rpeuPpAzGC1CdN89qsr7VA5VRxggiXKxb8PatRzikOgUpXBi3wSivHqH+h53YfAEN8jcg==",
+          "fingerprint_sha256": "32c6ed029c20a61e3d7ce6d8f27f148d9e8fd0ee9b9f93dea33cd8558cb18281"
+        },
+        {
+          "kid": "cmd-2026-11-active",
+          "purpose": "command",
+          "alg": "ES256",
+          "status": "active",
+          "not_before": "2026-10-01T00:00:00Z",
+          "not_after": "2027-11-01T00:00:00Z",
+          "public_jwk": {
+            "kty": "EC",
+            "crv": "P-256",
+            "x": "80JwlpEbDWjvAAtK2xrIJDvFyQGxj1EDjrN-Gy2F2gs",
+            "y": "LOifddYlPTPX3vzF4T2HiLuAzwxdHZGoSKlg_JvN7Z4",
+            "kid": "cmd-2026-11-active",
+            "use": "sig",
+            "alg": "ES256"
+          },
+          "public_key_spki_b64": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE80JwlpEbDWjvAAtK2xrIJDvFyQGxj1EDjrN+Gy2F2gss6J911iU9M9fe/MXhPYeIu4DPDF0dkahIqWD8m83tng==",
+          "fingerprint_sha256": "e7b78878b757689e4ea4a71b350b8246cd9e47fb7328e44da759a74d753f4e88"
+        },
+        {
+          "kid": "cmd-2026-12-next",
+          "purpose": "command",
+          "alg": "ES256",
+          "status": "next",
+          "not_before": "2026-11-01T00:00:00Z",
+          "not_after": "2027-12-01T00:00:00Z",
+          "public_jwk": {
+            "kty": "EC",
+            "crv": "P-256",
+            "x": "JX71JmJyqYn7vqfCRE-qvMTiwdxc-TJHbluWvENiX2A",
+            "y": "QXjn5RB8mGtuwVF5QrORrJfo2WnG-lfTAeaDBSNn5fM",
+            "kid": "cmd-2026-12-next",
+            "use": "sig",
+            "alg": "ES256"
+          },
+          "public_key_spki_b64": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEJX71JmJyqYn7vqfCRE+qvMTiwdxc+TJHbluWvENiX2BBeOflEHyYa27BUXlCs5Gsl+jZacb6V9MB5oMFI2fl8w==",
+          "fingerprint_sha256": "0c8660242026c65ef0f0114beebfa33be45c5e08673e58fe20fa63789f95bbe6"
+        },
+        {
+          "kid": "cmd-2026-05-retiring",
+          "purpose": "command",
+          "alg": "ES256",
+          "status": "retiring",
+          "not_before": "2026-05-01T00:00:00Z",
+          "not_after": "2026-12-31T23:59:59Z",
+          "public_jwk": {
+            "kty": "EC",
+            "crv": "P-256",
+            "x": "d_joX48VOgamD4-Pu-1Zj0VdRTRkaVXwdMnlxenwSYA",
+            "y": "xSaMJuKNFA2CAKwLzTH3fMYDyJwDTGVPCnWXxBOTNGY",
+            "kid": "cmd-2026-05-retiring",
+            "use": "sig",
+            "alg": "ES256"
+          },
+          "public_key_spki_b64": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEd/joX48VOgamD4+Pu+1Zj0VdRTRkaVXwdMnlxenwSYDFJowm4o0UDYIArAvNMfd8xgPInANMZU8KdZfEE5M0Zg==",
+          "fingerprint_sha256": "42ad1b56bd1862b5192011071c23feb0bf916d4e19d1c03f6580469f79cad81b"
+        },
+        {
+          "kid": "cmd-2026-01-revoked",
+          "purpose": "command",
+          "alg": "ES256",
+          "status": "revoked",
+          "not_before": "2026-01-01T00:00:00Z",
+          "not_after": "2026-06-01T00:00:00Z",
+          "public_jwk": {
+            "kty": "EC",
+            "crv": "P-256",
+            "x": "WJ2HK3ZVjepcGFiEXrOQIR1gfFuMaQbzbYGHKObr51g",
+            "y": "hLTjELRFhrYm_KuNuxReEbSTdDbz9Frrxi27RvSM83Y",
+            "kid": "cmd-2026-01-revoked",
+            "use": "sig",
+            "alg": "ES256"
+          },
+          "public_key_spki_b64": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEWJ2HK3ZVjepcGFiEXrOQIR1gfFuMaQbzbYGHKObr51iEtOMQtEWGtib8q427FF4RtJN0NvP0WuvGLbtG9Izzdg==",
+          "fingerprint_sha256": "86afe015279d7a6aac1fb2dc80835a5c7cb063294a110d264f17ee614d690513"
+        },
+        {
+          "kid": "mfs-2026-11-active",
+          "purpose": "manifest",
+          "alg": "ES256",
+          "status": "active",
+          "not_before": "2026-10-01T00:00:00Z",
+          "not_after": "2027-11-01T00:00:00Z",
+          "public_jwk": {
+            "kty": "EC",
+            "crv": "P-256",
+            "x": "TQ0fnOa1jVQLmseuWn89alS0a50LnHEOsYHfM5mys-Q",
+            "y": "y_NGcnmNdWTyGW7pp0PX7Ke3aW5xJ9sYgJqTT4STQgw",
+            "kid": "mfs-2026-11-active",
+            "use": "sig",
+            "alg": "ES256"
+          },
+          "public_key_spki_b64": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETQ0fnOa1jVQLmseuWn89alS0a50LnHEOsYHfM5mys+TL80ZyeY11ZPIZbumnQ9fsp7dpbnEn2xiAmpNPhJNCDA==",
+          "fingerprint_sha256": "eba96fb9ef39b0276b804d8b20d6ce69cf482ee0b9bc0a27e6e8250ae54e977b"
+        }
+      ]
+    }
+  },
+  "vectors": [
+    {
+      "id": "POS-01",
+      "category": "positive",
+      "description": "Valid signed REBOOT command with current active key",
+      "expectedValid": true,
+      "expectedErrorCode": null,
+      "verificationNowIso": "2026-11-02T12:00:00Z",
+      "expectedDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+      "expectedDeviceIdentityRef": "devkey:pds-key-550e8400",
+      "expectedTenantId": "11111111-2222-3333-4444-555555555555",
+      "commandJws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsInR5cCI6ImRvdHJvaWQtY21kK2p3cyIsInYiOjF9.eyJhbGciOiJFUzI1NiIsImFwcHJvdmFsX3JlZiI6ImFwci0yMDI2LTExMDItMDAxIiwiY29tbWFuZF9pZCI6ImNtZC12ZWMtcG9zLTAxIiwiZGV2aWNlX2lkIjoiNTUwZTg0MDAtZTI5Yi00MWQ0LWE3MTYtNDQ2NjU1NDQwMDAxIiwiZGV2aWNlX2lkZW50aXR5X3JlZiI6ImRldmtleTpwZHMta2V5LTU1MGU4NDAwIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMDJUMTI6MTM6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0xMS0wMlQxMTo1ODowMFoiLCJpc3N1ZXIiOiJxdWFzYXI6c3RhZ2luZyIsImtleV9pZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsIm5vbmNlIjoiYm05dVkyVXRjRzl6TFRBeE1EQXdNQSIsIm5vdF9iZWZvcmUiOiIyMDI2LTExLTAyVDExOjU4OjAwWiIsInBheWxvYWQiOnsicmVhc29uIjoic2NoZWR1bGVkX21haW50ZW5hbmNlIn0sInByb3RvY29sX3ZlcnNpb24iOjEsInRlbmFudF9pZCI6IjExMTExMTExLTIyMjItMzMzMy00NDQ0LTU1NTU1NTU1NTU1NSIsInR5cGUiOiJSRUJPT1QifQ.rR6oDHoahn6Z-gsbAEQ_SA9sW_pN0tS6TN_S0_fUUyh_2VuyrGYwf4YZUQ7HcAl5uY7-rvH8NWMVxFrZ5kjjTA"
+    },
+    {
+      "id": "POS-02",
+      "category": "positive",
+      "description": "Valid signed INSTALL_APK command with approval_ref",
+      "expectedValid": true,
+      "expectedErrorCode": null,
+      "verificationNowIso": "2026-11-02T12:00:00Z",
+      "expectedDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+      "expectedDeviceIdentityRef": "devkey:pds-key-550e8400",
+      "expectedTenantId": "11111111-2222-3333-4444-555555555555",
+      "commandJws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsInR5cCI6ImRvdHJvaWQtY21kK2p3cyIsInYiOjF9.eyJhbGciOiJFUzI1NiIsImFwcHJvdmFsX3JlZiI6ImFwci0yMDI2LTExMDItaW5zdGFsbC0wMSIsImNvbW1hbmRfaWQiOiJjbWQtdmVjLXBvcy0wMiIsImRldmljZV9pZCI6IjU1MGU4NDAwLWUyOWItNDFkNC1hNzE2LTQ0NjY1NTQ0MDAwMSIsImRldmljZV9pZGVudGl0eV9yZWYiOiJkZXZrZXk6cGRzLWtleS01NTBlODQwMCIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTAyVDEyOjEwOjAwWiIsImlzc3VlZF9hdCI6IjIwMjYtMTEtMDJUMTE6NTk6MDBaIiwiaXNzdWVyIjoicXVhc2FyOnN0YWdpbmciLCJrZXlfaWQiOiJjbWQtMjAyNi0xMS1hY3RpdmUiLCJub25jZSI6ImJtOXVZMlV0Y0c5ekxUQXlNREF3TUEiLCJub3RfYmVmb3JlIjoiMjAyNi0xMS0wMlQxMTo1OTowMFoiLCJwYXlsb2FkIjp7ImFwcF9pZCI6ImFwcC10b3B3aXNlLWFkYXB0ZXIiLCJjaGVja3N1bSI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJwYWNrYWdlX25hbWUiOiJjb20uZG90cm9pZC5lZS5hZGFwdGVyLnRvcHdpc2UiLCJzaXplX2J5dGVzIjoxMDQ4NTc2LCJ1cmwiOiJodHRwczovL2FwaS1xdWFzYXIuaWlwcy5hcHAvYXBpL3YxL2RldmljZS9hcHBzL2FwcC10b3B3aXNlLWFkYXB0ZXIvZG93bmxvYWQifSwicHJvdG9jb2xfdmVyc2lvbiI6MSwidGVuYW50X2lkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwidHlwZSI6IklOU1RBTExfQVBLIn0.NGJgIOigX1K_bAe3qOLnRXZ63w-BT_j1SbrkXeT5RlmXvejQufVNOvLyK25f_Q7jVPo1HPgM6thxNOtlu3YNKQ"
+    },
+    {
+      "id": "POS-03",
+      "category": "positive",
+      "description": "Valid signed command during authorized key transition (next key)",
+      "expectedValid": true,
+      "expectedErrorCode": null,
+      "verificationNowIso": "2026-11-02T12:00:00Z",
+      "expectedDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+      "expectedDeviceIdentityRef": "devkey:pds-key-550e8400",
+      "expectedTenantId": "11111111-2222-3333-4444-555555555555",
+      "commandJws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNtZC0yMDI2LTEyLW5leHQiLCJ0eXAiOiJkb3Ryb2lkLWNtZCtqd3MiLCJ2IjoxfQ.eyJhbGciOiJFUzI1NiIsImFwcHJvdmFsX3JlZiI6bnVsbCwiY29tbWFuZF9pZCI6ImNtZC12ZWMtcG9zLTAzIiwiZGV2aWNlX2lkIjoiNTUwZTg0MDAtZTI5Yi00MWQ0LWE3MTYtNDQ2NjU1NDQwMDAxIiwiZGV2aWNlX2lkZW50aXR5X3JlZiI6ImRldmtleTpwZHMta2V5LTU1MGU4NDAwIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMDJUMTI6MTU6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0xMS0wMlQxMTo1OTowMFoiLCJpc3N1ZXIiOiJxdWFzYXI6c3RhZ2luZyIsImtleV9pZCI6ImNtZC0yMDI2LTEyLW5leHQiLCJub25jZSI6ImJtOXVZMlV0Y0c5ekxUQXpNREF3TUEiLCJub3RfYmVmb3JlIjoiMjAyNi0xMS0wMlQxMTo1OTowMFoiLCJwYXlsb2FkIjp7InJlYXNvbiI6ImtleV90cmFuc2l0aW9uX3N5bmMifSwicHJvdG9jb2xfdmVyc2lvbiI6MSwidGVuYW50X2lkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwidHlwZSI6IlBPTElDWV9TWU5DIn0.kmIpCOrd3m8uLY8sa0OviRWhO-37YQGEIo6Ml7ioXePBu7Db6LIuBGCHteiP5K-2sYIRNAEFvZZNFNTE9y0UhA"
+    },
+    {
+      "id": "POS-04",
+      "category": "positive",
+      "description": "Valid signed command during authorized key transition (retiring key)",
+      "expectedValid": true,
+      "expectedErrorCode": null,
+      "verificationNowIso": "2026-11-02T12:00:00Z",
+      "expectedDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+      "expectedDeviceIdentityRef": "devkey:pds-key-550e8400",
+      "expectedTenantId": "11111111-2222-3333-4444-555555555555",
+      "commandJws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNtZC0yMDI2LTA1LXJldGlyaW5nIiwidHlwIjoiZG90cm9pZC1jbWQrandzIiwidiI6MX0.eyJhbGciOiJFUzI1NiIsImFwcHJvdmFsX3JlZiI6bnVsbCwiY29tbWFuZF9pZCI6ImNtZC12ZWMtcG9zLTA0IiwiZGV2aWNlX2lkIjoiNTUwZTg0MDAtZTI5Yi00MWQ0LWE3MTYtNDQ2NjU1NDQwMDAxIiwiZGV2aWNlX2lkZW50aXR5X3JlZiI6ImRldmtleTpwZHMta2V5LTU1MGU4NDAwIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMDJUMTI6MTU6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0xMS0wMlQxMTo1NzowMFoiLCJpc3N1ZXIiOiJxdWFzYXI6c3RhZ2luZyIsImtleV9pZCI6ImNtZC0yMDI2LTA1LXJldGlyaW5nIiwibm9uY2UiOiJibTl1WTJVdGNHOXpMVEEwTURBd01BIiwibm90X2JlZm9yZSI6IjIwMjYtMTEtMDJUMTE6NTc6MDBaIiwicGF5bG9hZCI6eyJsb2NrX21lc3NhZ2UiOiJUZXJtaW5hbCBsb2NrZWQgYnkgc3VwZXJ2aXNvciJ9LCJwcm90b2NvbF92ZXJzaW9uIjoxLCJ0ZW5hbnRfaWQiOiIxMTExMTExMS0yMjIyLTMzMzMtNDQ0NC01NTU1NTU1NTU1NTUiLCJ0eXBlIjoiTE9DSyJ9.IGgNo7aamJZ5q9FZrNM05XRuuH81H1V7gjHCli2xHFVhODjxShaX1Y8Lgf4S9UrQXKBHFQvozM96ehi1VmGsLQ"
+    },
+    {
+      "id": "POS-05",
+      "category": "positive",
+      "description": "Valid signed command after application restart with persistent replay state",
+      "expectedValid": true,
+      "expectedErrorCode": null,
+      "verificationNowIso": "2026-11-02T12:00:00Z",
+      "expectedDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+      "expectedDeviceIdentityRef": "devkey:pds-key-550e8400",
+      "expectedTenantId": "11111111-2222-3333-4444-555555555555",
+      "commandJws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsInR5cCI6ImRvdHJvaWQtY21kK2p3cyIsInYiOjF9.eyJhbGciOiJFUzI1NiIsImFwcHJvdmFsX3JlZiI6ImFwci0yMDI2LTExMDItMDAxIiwiY29tbWFuZF9pZCI6ImNtZC12ZWMtcG9zLTA1IiwiZGV2aWNlX2lkIjoiNTUwZTg0MDAtZTI5Yi00MWQ0LWE3MTYtNDQ2NjU1NDQwMDAxIiwiZGV2aWNlX2lkZW50aXR5X3JlZiI6ImRldmtleTpwZHMta2V5LTU1MGU4NDAwIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMDJUMTI6MTQ6MzBaIiwiaXNzdWVkX2F0IjoiMjAyNi0xMS0wMlQxMTo1OTozMFoiLCJpc3N1ZXIiOiJxdWFzYXI6c3RhZ2luZyIsImtleV9pZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsIm5vbmNlIjoiYm05dVkyVXRjRzl6TFRBMU1EQXdNQSIsIm5vdF9iZWZvcmUiOiIyMDI2LTExLTAyVDExOjU5OjMwWiIsInBheWxvYWQiOnsiaW5jbHVkZV9zeXN0ZW0iOmZhbHNlfSwicHJvdG9jb2xfdmVyc2lvbiI6MSwidGVuYW50X2lkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwidHlwZSI6IkxJU1RfQVBQUyJ9.iK5_z9Aurjq6brj8mPxawd5z7Uvd8W67oJJh079iiU6uOpLaG1F1jMhSqA3xH0knDmwAtuGL1UCzgRvD2r_l7w"
+    },
+    {
+      "id": "NEG-01",
+      "category": "negative",
+      "description": "Invalid signature (bit flipped in ES256 signature)",
+      "expectedValid": false,
+      "expectedErrorCode": "SIG_INVALID",
+      "verificationNowIso": "2026-11-02T12:00:00Z",
+      "expectedDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+      "expectedDeviceIdentityRef": "devkey:pds-key-550e8400",
+      "expectedTenantId": "11111111-2222-3333-4444-555555555555",
+      "commandJws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsInR5cCI6ImRvdHJvaWQtY21kK2p3cyIsInYiOjF9.eyJhbGciOiJFUzI1NiIsImFwcHJvdmFsX3JlZiI6ImFwci0yMDI2LTExMDItMDAxIiwiY29tbWFuZF9pZCI6ImNtZC12ZWMtcG9zLTAxIiwiZGV2aWNlX2lkIjoiNTUwZTg0MDAtZTI5Yi00MWQ0LWE3MTYtNDQ2NjU1NDQwMDAxIiwiZGV2aWNlX2lkZW50aXR5X3JlZiI6ImRldmtleTpwZHMta2V5LTU1MGU4NDAwIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMDJUMTI6MTM6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0xMS0wMlQxMTo1ODowMFoiLCJpc3N1ZXIiOiJxdWFzYXI6c3RhZ2luZyIsImtleV9pZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsIm5vbmNlIjoiYm05dVkyVXRjRzl6TFRBeE1EQXdNQSIsIm5vdF9iZWZvcmUiOiIyMDI2LTExLTAyVDExOjU4OjAwWiIsInBheWxvYWQiOnsicmVhc29uIjoic2NoZWR1bGVkX21haW50ZW5hbmNlIn0sInByb3RvY29sX3ZlcnNpb24iOjEsInRlbmFudF9pZCI6IjExMTExMTExLTIyMjItMzMzMy00NDQ0LTU1NTU1NTU1NTU1NSIsInR5cGUiOiJSRUJPT1QifQ.rR6oDHoahn6Z-gobAEQ_SA9sW_pN0tS6TN_S0_fUUyh_2VuyrGYwf4YZUQ7HcAl5uY7-rvH8NWMVxFrZ5kjjTA"
+    },
+    {
+      "id": "NEG-02",
+      "category": "negative",
+      "description": "Modified command payload after signing",
+      "expectedValid": false,
+      "expectedErrorCode": "SIG_INVALID",
+      "verificationNowIso": "2026-11-02T12:00:00Z",
+      "expectedDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+      "expectedDeviceIdentityRef": "devkey:pds-key-550e8400",
+      "expectedTenantId": "11111111-2222-3333-4444-555555555555",
+      "commandJws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsInR5cCI6ImRvdHJvaWQtY21kK2p3cyIsInYiOjF9.eyJhbGciOiJFUzI1NiIsImFwcHJvdmFsX3JlZiI6bnVsbCwiY29tbWFuZF9pZCI6ImNtZC12ZWMtbmVnLTAyIiwiZGV2aWNlX2lkIjoiNTUwZTg0MDAtZTI5Yi00MWQ0LWE3MTYtNDQ2NjU1NDQwMDAxIiwiZGV2aWNlX2lkZW50aXR5X3JlZiI6ImRldmtleTpwZHMta2V5LTU1MGU4NDAwIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMDJUMTI6MTU6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0xMS0wMlQxMTo1OTowMFoiLCJpc3N1ZXIiOiJxdWFzYXI6c3RhZ2luZyIsImtleV9pZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsIm5vbmNlIjoiYm05dVkyVXRibVZuTFRBeU1EQXdNQSIsIm5vdF9iZWZvcmUiOiIyMDI2LTExLTAyVDExOjU5OjAwWiIsInBheWxvYWQiOnsicmVhc29uIjoidGFtcGVyZWRfYnlfYXR0YWNrZXIifSwicHJvdG9jb2xfdmVyc2lvbiI6MSwidGVuYW50X2lkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwidHlwZSI6IlJFQk9PVCJ9.rR6oDHoahn6Z-gsbAEQ_SA9sW_pN0tS6TN_S0_fUUyh_2VuyrGYwf4YZUQ7HcAl5uY7-rvH8NWMVxFrZ5kjjTA"
+    },
+    {
+      "id": "NEG-03",
+      "category": "negative",
+      "description": "Wrong device ID",
+      "expectedValid": false,
+      "expectedErrorCode": "WRONG_DEVICE",
+      "verificationNowIso": "2026-11-02T12:00:00Z",
+      "expectedDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+      "expectedDeviceIdentityRef": "devkey:pds-key-550e8400",
+      "expectedTenantId": "11111111-2222-3333-4444-555555555555",
+      "commandJws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsInR5cCI6ImRvdHJvaWQtY21kK2p3cyIsInYiOjF9.eyJhbGciOiJFUzI1NiIsImFwcHJvdmFsX3JlZiI6ImFwci0yMDI2LTExMDItMDAxIiwiY29tbWFuZF9pZCI6ImNtZC12ZWMtbmVnLTAzIiwiZGV2aWNlX2lkIjoiOTk5OTk5OTktOTk5OS00OTk5LTg5OTktOTk5OTk5OTk5OTk5IiwiZGV2aWNlX2lkZW50aXR5X3JlZiI6ImRldmtleTpvdGhlci1kZXZpY2UiLCJleHBpcmVzX2F0IjoiMjAyNi0xMS0wMlQxMjoxMzowMFoiLCJpc3N1ZWRfYXQiOiIyMDI2LTExLTAyVDExOjU4OjAwWiIsImlzc3VlciI6InF1YXNhcjp0ZXN0Iiwia2V5X2lkIjoiY21kLTIwMjYtMTEtYWN0aXZlIiwibm9uY2UiOiJibTl1WTJVdGJtVm5MVEF6TURBd01BIiwibm90X2JlZm9yZSI6IjIwMjYtMTEtMDJUMTE6NTg6MDBaIiwicGF5bG9hZCI6e30sInByb3RvY29sX3ZlcnNpb24iOjEsInRlbmFudF9pZCI6IjExMTExMTExLTIyMjItMzMzMy00NDQ0LTU1NTU1NTU1NTU1NSIsInR5cGUiOiJSRUJPT1QifQ.06U3EIMuYAFX2JmQp8vvAiPdpEYy-oMCHVH-XRey7HHv8SpD_f8Q7QpeM1jsn4PBqLEgg2kFkGrzKZGbzepabQ"
+    },
+    {
+      "id": "NEG-04",
+      "category": "negative",
+      "description": "Expired command",
+      "expectedValid": false,
+      "expectedErrorCode": "EXPIRED",
+      "verificationNowIso": "2026-11-02T12:00:00Z",
+      "expectedDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+      "expectedDeviceIdentityRef": "devkey:pds-key-550e8400",
+      "expectedTenantId": "11111111-2222-3333-4444-555555555555",
+      "commandJws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsInR5cCI6ImRvdHJvaWQtY21kK2p3cyIsInYiOjF9.eyJhbGciOiJFUzI1NiIsImFwcHJvdmFsX3JlZiI6ImFwci0yMDI2LTExMDItMDAxIiwiY29tbWFuZF9pZCI6ImNtZC12ZWMtbmVnLTA0IiwiZGV2aWNlX2lkIjoiNTUwZTg0MDAtZTI5Yi00MWQ0LWE3MTYtNDQ2NjU1NDQwMDAxIiwiZGV2aWNlX2lkZW50aXR5X3JlZiI6ImRldmtleTpwZHMta2V5LTU1MGU4NDAwIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMDJUMTE6MTU6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0xMS0wMlQxMTowMDowMFoiLCJpc3N1ZXIiOiJxdWFzYXI6dGVzdCIsImtleV9pZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsIm5vbmNlIjoiYm05dVkyVXRibVZuTFRBME1EQXdNQSIsIm5vdF9iZWZvcmUiOiIyMDI2LTExLTAyVDExOjAwOjAwWiIsInBheWxvYWQiOnt9LCJwcm90b2NvbF92ZXJzaW9uIjoxLCJ0ZW5hbnRfaWQiOiIxMTExMTExMS0yMjIyLTMzMzMtNDQ0NC01NTU1NTU1NTU1NTUiLCJ0eXBlIjoiUkVCT09UIn0.k4LUqZ-mW-ojWdZ-7wbtXS6iM4lqj1raHAlGmugvWLUJxSiM0wM9a3eVOCZInpyogp00JouKkyYkVyUrlCoXyg"
+    },
+    {
+      "id": "NEG-05",
+      "category": "negative",
+      "description": "Future-issued command beyond allowed clock skew",
+      "expectedValid": false,
+      "expectedErrorCode": "FUTURE_ISSUED",
+      "verificationNowIso": "2026-11-02T12:00:00Z",
+      "expectedDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+      "expectedDeviceIdentityRef": "devkey:pds-key-550e8400",
+      "expectedTenantId": "11111111-2222-3333-4444-555555555555",
+      "commandJws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsInR5cCI6ImRvdHJvaWQtY21kK2p3cyIsInYiOjF9.eyJhbGciOiJFUzI1NiIsImFwcHJvdmFsX3JlZiI6ImFwci0yMDI2LTExMDItMDAxIiwiY29tbWFuZF9pZCI6ImNtZC12ZWMtbmVnLTA1IiwiZGV2aWNlX2lkIjoiNTUwZTg0MDAtZTI5Yi00MWQ0LWE3MTYtNDQ2NjU1NDQwMDAxIiwiZGV2aWNlX2lkZW50aXR5X3JlZiI6ImRldmtleTpwZHMta2V5LTU1MGU4NDAwIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMDJUMTI6MjU6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0xMS0wMlQxMjoxMDowMFoiLCJpc3N1ZXIiOiJxdWFzYXI6dGVzdCIsImtleV9pZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsIm5vbmNlIjoiYm05dVkyVXRibVZuTFRBMU1EQXdNQSIsIm5vdF9iZWZvcmUiOiIyMDI2LTExLTAyVDEyOjEwOjAwWiIsInBheWxvYWQiOnt9LCJwcm90b2NvbF92ZXJzaW9uIjoxLCJ0ZW5hbnRfaWQiOiIxMTExMTExMS0yMjIyLTMzMzMtNDQ0NC01NTU1NTU1NTU1NTUiLCJ0eXBlIjoiUkVCT09UIn0.m3MHuIZDLxGCw_Gju8EMMDnYUiCWOzsha8RCNaiq65gPWsSHtyL7Cila9ZSiylp7co26uAyBnfS4UDPH6Kyt6w"
+    },
+    {
+      "id": "NEG-06",
+      "category": "negative",
+      "description": "Replayed nonce (reuses POS-01 nonce)",
+      "expectedValid": false,
+      "expectedErrorCode": "REPLAY_NONCE",
+      "verificationNowIso": "2026-11-02T12:00:00Z",
+      "expectedDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+      "expectedDeviceIdentityRef": "devkey:pds-key-550e8400",
+      "expectedTenantId": "11111111-2222-3333-4444-555555555555",
+      "commandJws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsInR5cCI6ImRvdHJvaWQtY21kK2p3cyIsInYiOjF9.eyJhbGciOiJFUzI1NiIsImFwcHJvdmFsX3JlZiI6ImFwci0yMDI2LTExMDItMDAxIiwiY29tbWFuZF9pZCI6ImNtZC12ZWMtbmVnLTA2LW5ldy1pZCIsImRldmljZV9pZCI6IjU1MGU4NDAwLWUyOWItNDFkNC1hNzE2LTQ0NjY1NTQ0MDAwMSIsImRldmljZV9pZGVudGl0eV9yZWYiOiJkZXZrZXk6cGRzLWtleS01NTBlODQwMCIsImV4cGlyZXNfYXQiOiIyMDI2LTExLTAyVDEyOjE0OjAwWiIsImlzc3VlZF9hdCI6IjIwMjYtMTEtMDJUMTE6NTk6MDBaIiwiaXNzdWVyIjoicXVhc2FyOnRlc3QiLCJrZXlfaWQiOiJjbWQtMjAyNi0xMS1hY3RpdmUiLCJub25jZSI6ImJtOXVZMlV0Y0c5ekxUQXhNREF3TUEiLCJub3RfYmVmb3JlIjoiMjAyNi0xMS0wMlQxMTo1OTowMFoiLCJwYXlsb2FkIjp7fSwicHJvdG9jb2xfdmVyc2lvbiI6MSwidGVuYW50X2lkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwidHlwZSI6IkxPQ0sifQ.DbOMXYVGum-Zra5eK93vVdsshLvTu-lDKbVDlxemAUczfhQdbhfFNwHsojqM-FcGhAk6H3hZOlhtACZtlA7ddA"
+    },
+    {
+      "id": "NEG-07",
+      "category": "negative",
+      "description": "Duplicate command ID (reuses POS-01 command_id)",
+      "expectedValid": false,
+      "expectedErrorCode": "REPLAY_COMMAND_ID",
+      "verificationNowIso": "2026-11-02T12:00:00Z",
+      "expectedDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+      "expectedDeviceIdentityRef": "devkey:pds-key-550e8400",
+      "expectedTenantId": "11111111-2222-3333-4444-555555555555",
+      "commandJws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsInR5cCI6ImRvdHJvaWQtY21kK2p3cyIsInYiOjF9.eyJhbGciOiJFUzI1NiIsImFwcHJvdmFsX3JlZiI6ImFwci0yMDI2LTExMDItMDAxIiwiY29tbWFuZF9pZCI6ImNtZC12ZWMtcG9zLTAxIiwiZGV2aWNlX2lkIjoiNTUwZTg0MDAtZTI5Yi00MWQ0LWE3MTYtNDQ2NjU1NDQwMDAxIiwiZGV2aWNlX2lkZW50aXR5X3JlZiI6ImRldmtleTpwZHMta2V5LTU1MGU4NDAwIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMDJUMTI6MTQ6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0xMS0wMlQxMTo1OTowMFoiLCJpc3N1ZXIiOiJxdWFzYXI6dGVzdCIsImtleV9pZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsIm5vbmNlIjoiYm05dVkyVXRibVZuTFRBM01EQXdNQSIsIm5vdF9iZWZvcmUiOiIyMDI2LTExLTAyVDExOjU5OjAwWiIsInBheWxvYWQiOnt9LCJwcm90b2NvbF92ZXJzaW9uIjoxLCJ0ZW5hbnRfaWQiOiIxMTExMTExMS0yMjIyLTMzMzMtNDQ0NC01NTU1NTU1NTU1NTUiLCJ0eXBlIjoiTE9DSyJ9.UO68tzIJDPCLD26ny8qpJxTxQSugkp66h3cMCL0rgZGZwnPEApXbwfa38FBzhzcylvhegQ1eV6dwvDRYn-welA"
+    },
+    {
+      "id": "NEG-08",
+      "category": "negative",
+      "description": "Unknown signing key identifier",
+      "expectedValid": false,
+      "expectedErrorCode": "KID_UNKNOWN",
+      "verificationNowIso": "2026-11-02T12:00:00Z",
+      "expectedDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+      "expectedDeviceIdentityRef": "devkey:pds-key-550e8400",
+      "expectedTenantId": "11111111-2222-3333-4444-555555555555",
+      "commandJws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNtZC0yMDk5LTk5LXVua25vd24iLCJ0eXAiOiJkb3Ryb2lkLWNtZCtqd3MiLCJ2IjoxfQ.eyJhbGciOiJFUzI1NiIsImFwcHJvdmFsX3JlZiI6bnVsbCwiY29tbWFuZF9pZCI6ImNtZC12ZWMtbmVnLTA4IiwiZGV2aWNlX2lkIjoiNTUwZTg0MDAtZTI5Yi00MWQ0LWE3MTYtNDQ2NjU1NDQwMDAxIiwiZGV2aWNlX2lkZW50aXR5X3JlZiI6ImRldmtleTpwZHMta2V5LTU1MGU4NDAwIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMDJUMTI6MTU6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0xMS0wMlQxMTo1OTowMFoiLCJpc3N1ZXIiOiJxdWFzYXI6c3RhZ2luZyIsImtleV9pZCI6ImNtZC0yMDk5LTk5LXVua25vd24iLCJub25jZSI6ImJtOXVZMlV0Ym1WbkxUQTRNREF3TUEiLCJub3RfYmVmb3JlIjoiMjAyNi0xMS0wMlQxMTo1OTowMFoiLCJwYXlsb2FkIjp7InJlYXNvbiI6ImtleV90cmFuc2l0aW9uX3N5bmMifSwicHJvdG9jb2xfdmVyc2lvbiI6MSwidGVuYW50X2lkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwidHlwZSI6IlBPTElDWV9TWU5DIn0.2tN9j-YZ9RBNMFpvwGfzDWkdlXiWLcGy0Y3JPHX19DnsQusdkElfMc-lIcXVvqMrZGxzqIKhjJsglGOpgyZITg"
+    },
+    {
+      "id": "NEG-09",
+      "category": "negative",
+      "description": "Revoked signing key identifier",
+      "expectedValid": false,
+      "expectedErrorCode": "KID_REVOKED",
+      "verificationNowIso": "2026-11-02T12:00:00Z",
+      "expectedDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+      "expectedDeviceIdentityRef": "devkey:pds-key-550e8400",
+      "expectedTenantId": "11111111-2222-3333-4444-555555555555",
+      "commandJws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNtZC0yMDI2LTAxLXJldm9rZWQiLCJ0eXAiOiJkb3Ryb2lkLWNtZCtqd3MiLCJ2IjoxfQ.eyJhbGciOiJFUzI1NiIsImFwcHJvdmFsX3JlZiI6bnVsbCwiY29tbWFuZF9pZCI6ImNtZC12ZWMtbmVnLTA5IiwiZGV2aWNlX2lkIjoiNTUwZTg0MDAtZTI5Yi00MWQ0LWE3MTYtNDQ2NjU1NDQwMDAxIiwiZGV2aWNlX2lkZW50aXR5X3JlZiI6ImRldmtleTpwZHMta2V5LTU1MGU4NDAwIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMDJUMTI6MTU6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0xMS0wMlQxMTo1OTowMFoiLCJpc3N1ZXIiOiJxdWFzYXI6c3RhZ2luZyIsImtleV9pZCI6ImNtZC0yMDI2LTAxLXJldm9rZWQiLCJub25jZSI6ImJtOXVZMlV0Ym1WbkxUQTVNREF3TUEiLCJub3RfYmVmb3JlIjoiMjAyNi0xMS0wMlQxMTo1OTowMFoiLCJwYXlsb2FkIjp7InJlYXNvbiI6ImtleV90cmFuc2l0aW9uX3N5bmMifSwicHJvdG9jb2xfdmVyc2lvbiI6MSwidGVuYW50X2lkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwidHlwZSI6IlBPTElDWV9TWU5DIn0.8M-GCQH2j13EctzCsgHcD0Z7EG_MBQoVKeQoQ2tgM-tR1Jj3ePvuHbQTQkrzWN1ab6JZ8G8Ur66PeYMU4aQrUA"
+    },
+    {
+      "id": "NEG-10",
+      "category": "negative",
+      "description": "Malformed envelope (duplicate JSON key in payload)",
+      "expectedValid": false,
+      "expectedErrorCode": "MALFORMED_ENVELOPE",
+      "verificationNowIso": "2026-11-02T12:00:00Z",
+      "expectedDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+      "expectedDeviceIdentityRef": "devkey:pds-key-550e8400",
+      "expectedTenantId": "11111111-2222-3333-4444-555555555555",
+      "commandJws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsInR5cCI6ImRvdHJvaWQtY21kK2p3cyIsInYiOjF9.eyJhbGciOiJFUzI1NiIsImFwcHJvdmFsX3JlZiI6bnVsbCwiY29tbWFuZF9pZCI6ImNtZC12ZWMtbmVnLTEwIiwiZGV2aWNlX2lkIjoiNTUwZTg0MDAtZTI5Yi00MWQ0LWE3MTYtNDQ2NjU1NDQwMDAxIiwiZGV2aWNlX2lkZW50aXR5X3JlZiI6ImRldmtleTpwZHMta2V5LTU1MGU4NDAwIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMDJUMTI6MTU6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0xMS0wMlQxMTo1OTowMFoiLCJpc3N1ZXIiOiJxdWFzYXI6c3RhZ2luZyIsImtleV9pZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsIm5vbmNlIjoiYm05dVkyVXRibVZuTFRFd01EQXdNQSIsIm5vdF9iZWZvcmUiOiIyMDI2LTExLTAyVDExOjU5OjAwWiIsInBheWxvYWQiOnsiYSI6MSwiYSI6Mn0sInByb3RvY29sX3ZlcnNpb24iOjEsInRlbmFudF9pZCI6IjExMTExMTExLTIyMjItMzMzMy00NDQ0LTU1NTU1NTU1NTU1NSIsInR5cGUiOiJSRUJPT1QifQ.rR6oDHoahn6Z-gsbAEQ_SA9sW_pN0tS6TN_S0_fUUyh_2VuyrGYwf4YZUQ7HcAl5uY7-rvH8NWMVxFrZ5kjjTA"
+    },
+    {
+      "id": "NEG-11",
+      "category": "negative",
+      "description": "Invalid Base64url encoding in JWS payload",
+      "expectedValid": false,
+      "expectedErrorCode": "MALFORMED_ENVELOPE",
+      "verificationNowIso": "2026-11-02T12:00:00Z",
+      "expectedDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+      "expectedDeviceIdentityRef": "devkey:pds-key-550e8400",
+      "expectedTenantId": "11111111-2222-3333-4444-555555555555",
+      "commandJws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsInR5cCI6ImRvdHJvaWQtY21kK2p3cyIsInYiOjF9.!!!not-valid-base64url!!!.rR6oDHoahn6Z-gsbAEQ_SA9sW_pN0tS6TN_S0_fUUyh_2VuyrGYwf4YZUQ7HcAl5uY7-rvH8NWMVxFrZ5kjjTA"
+    },
+    {
+      "id": "NEG-12",
+      "category": "negative",
+      "description": "Unsupported algorithm (HS256 confusion attempt)",
+      "expectedValid": false,
+      "expectedErrorCode": "UNSUPPORTED_ALG",
+      "verificationNowIso": "2026-11-02T12:00:00Z",
+      "expectedDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+      "expectedDeviceIdentityRef": "devkey:pds-key-550e8400",
+      "expectedTenantId": "11111111-2222-3333-4444-555555555555",
+      "commandJws": "eyJhbGciOiJIUzI1NiIsImtpZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsInR5cCI6ImRvdHJvaWQtY21kK2p3cyIsInYiOjF9.eyJhbGciOiJFUzI1NiIsImFwcHJvdmFsX3JlZiI6ImFwci0yMDI2LTExMDItMDAxIiwiY29tbWFuZF9pZCI6ImNtZC12ZWMtcG9zLTAxIiwiZGV2aWNlX2lkIjoiNTUwZTg0MDAtZTI5Yi00MWQ0LWE3MTYtNDQ2NjU1NDQwMDAxIiwiZGV2aWNlX2lkZW50aXR5X3JlZiI6ImRldmtleTpwZHMta2V5LTU1MGU4NDAwIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMDJUMTI6MTM6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0xMS0wMlQxMTo1ODowMFoiLCJpc3N1ZXIiOiJxdWFzYXI6c3RhZ2luZyIsImtleV9pZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsIm5vbmNlIjoiYm05dVkyVXRjRzl6TFRBeE1EQXdNQSIsIm5vdF9iZWZvcmUiOiIyMDI2LTExLTAyVDExOjU4OjAwWiIsInBheWxvYWQiOnsicmVhc29uIjoic2NoZWR1bGVkX21haW50ZW5hbmNlIn0sInByb3RvY29sX3ZlcnNpb24iOjEsInRlbmFudF9pZCI6IjExMTExMTExLTIyMjItMzMzMy00NDQ0LTU1NTU1NTU1NTU1NSIsInR5cGUiOiJSRUJPT1QifQ.rR6oDHoahn6Z-gsbAEQ_SA9sW_pN0tS6TN_S0_fUUyh_2VuyrGYwf4YZUQ7HcAl5uY7-rvH8NWMVxFrZ5kjjTA"
+    },
+    {
+      "id": "NEG-13",
+      "category": "negative",
+      "description": "Missing signature segment in JWS",
+      "expectedValid": false,
+      "expectedErrorCode": "MALFORMED_ENVELOPE",
+      "verificationNowIso": "2026-11-02T12:00:00Z",
+      "expectedDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+      "expectedDeviceIdentityRef": "devkey:pds-key-550e8400",
+      "expectedTenantId": "11111111-2222-3333-4444-555555555555",
+      "commandJws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsInR5cCI6ImRvdHJvaWQtY21kK2p3cyIsInYiOjF9.eyJhbGciOiJFUzI1NiIsImFwcHJvdmFsX3JlZiI6ImFwci0yMDI2LTExMDItMDAxIiwiY29tbWFuZF9pZCI6ImNtZC12ZWMtcG9zLTAxIiwiZGV2aWNlX2lkIjoiNTUwZTg0MDAtZTI5Yi00MWQ0LWE3MTYtNDQ2NjU1NDQwMDAxIiwiZGV2aWNlX2lkZW50aXR5X3JlZiI6ImRldmtleTpwZHMta2V5LTU1MGU4NDAwIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMDJUMTI6MTM6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0xMS0wMlQxMTo1ODowMFoiLCJpc3N1ZXIiOiJxdWFzYXI6c3RhZ2luZyIsImtleV9pZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsIm5vbmNlIjoiYm05dVkyVXRjRzl6TFRBeE1EQXdNQSIsIm5vdF9iZWZvcmUiOiIyMDI2LTExLTAyVDExOjU4OjAwWiIsInBheWxvYWQiOnsicmVhc29uIjoic2NoZWR1bGVkX21haW50ZW5hbmNlIn0sInByb3RvY29sX3ZlcnNpb24iOjEsInRlbmFudF9pZCI6IjExMTExMTExLTIyMjItMzMzMy00NDQ0LTU1NTU1NTU1NTU1NSIsInR5cGUiOiJSRUJPT1QifQ."
+    },
+    {
+      "id": "NEG-14",
+      "category": "negative",
+      "description": "Missing key identifier (kid) in JWS protected header",
+      "expectedValid": false,
+      "expectedErrorCode": "KID_MISSING",
+      "verificationNowIso": "2026-11-02T12:00:00Z",
+      "expectedDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+      "expectedDeviceIdentityRef": "devkey:pds-key-550e8400",
+      "expectedTenantId": "11111111-2222-3333-4444-555555555555",
+      "commandJws": "eyJhbGciOiJFUzI1NiIsInR5cCI6ImRvdHJvaWQtY21kK2p3cyIsInYiOjF9.eyJhbGciOiJFUzI1NiIsImFwcHJvdmFsX3JlZiI6ImFwci0yMDI2LTExMDItMDAxIiwiY29tbWFuZF9pZCI6ImNtZC12ZWMtcG9zLTAxIiwiZGV2aWNlX2lkIjoiNTUwZTg0MDAtZTI5Yi00MWQ0LWE3MTYtNDQ2NjU1NDQwMDAxIiwiZGV2aWNlX2lkZW50aXR5X3JlZiI6ImRldmtleTpwZHMta2V5LTU1MGU4NDAwIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMDJUMTI6MTM6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0xMS0wMlQxMTo1ODowMFoiLCJpc3N1ZXIiOiJxdWFzYXI6c3RhZ2luZyIsImtleV9pZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsIm5vbmNlIjoiYm05dVkyVXRjRzl6TFRBeE1EQXdNQSIsIm5vdF9iZWZvcmUiOiIyMDI2LTExLTAyVDExOjU4OjAwWiIsInBheWxvYWQiOnsicmVhc29uIjoic2NoZWR1bGVkX21haW50ZW5hbmNlIn0sInByb3RvY29sX3ZlcnNpb24iOjEsInRlbmFudF9pZCI6IjExMTExMTExLTIyMjItMzMzMy00NDQ0LTU1NTU1NTU1NTU1NSIsInR5cGUiOiJSRUJPT1QifQ.rR6oDHoahn6Z-gsbAEQ_SA9sW_pN0tS6TN_S0_fUUyh_2VuyrGYwf4YZUQ7HcAl5uY7-rvH8NWMVxFrZ5kjjTA"
+    },
+    {
+      "id": "NEG-15",
+      "category": "negative",
+      "description": "Wrong public key (signed by attacker rogue P-256 key claiming active kid)",
+      "expectedValid": false,
+      "expectedErrorCode": "SIG_INVALID",
+      "verificationNowIso": "2026-11-02T12:00:00Z",
+      "expectedDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+      "expectedDeviceIdentityRef": "devkey:pds-key-550e8400",
+      "expectedTenantId": "11111111-2222-3333-4444-555555555555",
+      "commandJws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsInR5cCI6ImRvdHJvaWQtY21kK2p3cyIsInYiOjF9.eyJhbGciOiJFUzI1NiIsImFwcHJvdmFsX3JlZiI6bnVsbCwiY29tbWFuZF9pZCI6ImNtZC12ZWMtbmVnLTE1IiwiZGV2aWNlX2lkIjoiNTUwZTg0MDAtZTI5Yi00MWQ0LWE3MTYtNDQ2NjU1NDQwMDAxIiwiZGV2aWNlX2lkZW50aXR5X3JlZiI6ImRldmtleTpwZHMta2V5LTU1MGU4NDAwIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMDJUMTI6MTU6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0xMS0wMlQxMTo1OTowMFoiLCJpc3N1ZXIiOiJxdWFzYXI6c3RhZ2luZyIsImtleV9pZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsIm5vbmNlIjoiYm05dVkyVXRibVZuTFRFMU1EQXdNQSIsIm5vdF9iZWZvcmUiOiIyMDI2LTExLTAyVDExOjU5OjAwWiIsInBheWxvYWQiOnsicmVhc29uIjoia2V5X3RyYW5zaXRpb25fc3luYyJ9LCJwcm90b2NvbF92ZXJzaW9uIjoxLCJ0ZW5hbnRfaWQiOiIxMTExMTExMS0yMjIyLTMzMzMtNDQ0NC01NTU1NTU1NTU1NTUiLCJ0eXBlIjoiUE9MSUNZX1NZTkMifQ.0FQ6YmY647eN8eBV37YPSXtwxPBufqzoXgFIU-mmjGGKRoM75Z09qZucCFopO8K0utxQfVfaApCCu5um3P6-fQ"
+    },
+    {
+      "id": "NEG-16",
+      "category": "negative",
+      "description": "Sensitive FACTORY_RESET command missing approval_ref",
+      "expectedValid": false,
+      "expectedErrorCode": "APPROVAL_REQUIRED",
+      "verificationNowIso": "2026-11-02T12:00:00Z",
+      "expectedDeviceId": "550e8400-e29b-41d4-a716-446655440001",
+      "expectedDeviceIdentityRef": "devkey:pds-key-550e8400",
+      "expectedTenantId": "11111111-2222-3333-4444-555555555555",
+      "commandJws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsInR5cCI6ImRvdHJvaWQtY21kK2p3cyIsInYiOjF9.eyJhbGciOiJFUzI1NiIsImFwcHJvdmFsX3JlZiI6bnVsbCwiY29tbWFuZF9pZCI6ImNtZC12ZWMtbmVnLTE2IiwiZGV2aWNlX2lkIjoiNTUwZTg0MDAtZTI5Yi00MWQ0LWE3MTYtNDQ2NjU1NDQwMDAxIiwiZGV2aWNlX2lkZW50aXR5X3JlZiI6ImRldmtleTpwZHMta2V5LTU1MGU4NDAwIiwiZXhwaXJlc19hdCI6IjIwMjYtMTEtMDJUMTI6MTA6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0xMS0wMlQxMTo1OTowMFoiLCJpc3N1ZXIiOiJxdWFzYXI6c3RhZ2luZyIsImtleV9pZCI6ImNtZC0yMDI2LTExLWFjdGl2ZSIsIm5vbmNlIjoiYm05dVkyVXRibVZuTFRFMk1EQXdNQSIsIm5vdF9iZWZvcmUiOiIyMDI2LTExLTAyVDExOjU5OjAwWiIsInBheWxvYWQiOnsicmVhc29uIjoia2V5X3RyYW5zaXRpb25fc3luYyJ9LCJwcm90b2NvbF92ZXJzaW9uIjoxLCJ0ZW5hbnRfaWQiOiIxMTExMTExMS0yMjIyLTMzMzMtNDQ0NC01NTU1NTU1NTU1NTUiLCJ0eXBlIjoiRkFDVE9SWV9SRVNFVCJ9.vaio5YN2FRmBd2itbGHFxWg6M3OeOmmP-oVKW6IaGlvVbhO04RDyub9V904l8x50TXc-R3Q3VW-3iiqm2JZFBA"
+    }
+  ]
+}

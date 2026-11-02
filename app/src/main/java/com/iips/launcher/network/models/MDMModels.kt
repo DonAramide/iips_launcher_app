@@ -83,7 +83,8 @@ data class MdmCommand(
     @SerializedName("timestamp") val timestamp: Long, // Unix seconds
     @SerializedName("nonce") val nonce: String,
     @SerializedName("expires_at") val expiresAt: Long, // Unix seconds
-    @SerializedName("signature") val signature: String
+    @SerializedName("signature") val signature: String,
+    @SerializedName("command_jws") val commandJws: String? = null
 )
 
 /**

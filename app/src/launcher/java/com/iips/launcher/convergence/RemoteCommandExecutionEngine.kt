@@ -12,6 +12,10 @@ import com.iips.launcher.network.models.MdmCommand
 import com.iips.launcher.ota.ApkInstallManager
 import com.iips.launcher.policy.DeviceAdminReceiver
 import com.iips.launcher.policy.KioskController
+import com.iips.launcher.security.pds.PdsCommandAuthorizer
+import com.iips.launcher.security.pds.PdsCommandGate
+import com.iips.launcher.security.pds.PdsCommandVerifier
+import com.iips.launcher.security.pds.PersistentCommandReplayStore
 import com.iips.launcher.storage.SecurePreferences
 import com.iips.launcher.ui.LauncherActivity
 import com.iips.launcher.workers.PolicySyncWorker
@@ -56,6 +60,15 @@ class RemoteCommandExecutionEngine @Inject constructor(
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val gson = Gson()
     private val activeDownloads = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val pdsCommandGate: PdsCommandGate by lazy {
+        PdsCommandGate(
+            verifier = PdsCommandVerifier(),
+            authorizer = PdsCommandAuthorizer(),
+            replayStore = PersistentCommandReplayStore(
+                File(context.noBackupFilesDir, "pds_command_replay.ledger")
+            )
+        )
+    }
 
     init {
         startListening()
@@ -177,11 +190,25 @@ class RemoteCommandExecutionEngine @Inject constructor(
             return
         }
 
+        if (type == "keyset.update" && root.has("keyset_jws")) {
+            val keysetJws = root.getAsJsonPrimitive("keyset_jws")?.asString
+            if (!keysetJws.isNullOrBlank()) {
+                try {
+                    val newVer = pdsCommandGate.verifier.applySignedKeySetJws(keysetJws)
+                    Log.i(TAG, "Applied root-signed PDS keyset version $newVer")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Rejected invalid or rolled-back keyset_jws: ${e.message}")
+                }
+            }
+            return
+        }
+
         if (type == "command" && root.has("command")) {
             val cmdObj = root.getAsJsonObject("command")
             val commandId = root.getAsJsonPrimitive("command_id")?.asString 
                 ?: root.getAsJsonPrimitive("commandId")?.asString
             val signature = root.getAsJsonPrimitive("signature")?.asString
+            val commandJws = root.getAsJsonPrimitive("command_jws")?.asString
             val requestId = root.getAsJsonPrimitive("request_id")?.asString 
                 ?: root.getAsJsonPrimitive("requestId")?.asString
 
@@ -191,6 +218,9 @@ class RemoteCommandExecutionEngine @Inject constructor(
             if (signature != null && !cmdObj.has("signature")) {
                 cmdObj.addProperty("signature", signature)
             }
+            if (commandJws != null && !cmdObj.has("command_jws")) {
+                cmdObj.addProperty("command_jws", commandJws)
+            }
             if (requestId != null && !cmdObj.has("request_id")) {
                 cmdObj.addProperty("request_id", requestId)
             }
@@ -199,40 +229,8 @@ class RemoteCommandExecutionEngine @Inject constructor(
             return
         }
 
-        // Direct interception for fire-and-forget push frames that don't have a command_id
-        if (type == "custom_notification" || type == "payment_notification") {
-            scope.launch {
-                if (type == "custom_notification") {
-                    val title = root.getAsJsonPrimitive("title")?.asString ?: "Notification"
-                    val message = root.getAsJsonPrimitive("message")?.asString ?: ""
-                    val broadcastPayload = BroadcastPayload(
-                        broadcastId = "notify-${System.currentTimeMillis()}",
-                        tenantId = SecurePreferences.getTenantId(context),
-                        severity = "info",
-                        launcherMode = BroadcastRenderingEngine.MODE_BANNER,
-                        title = title,
-                        message = message,
-                        requiresAcknowledgement = true
-                    )
-                    broadcastRenderingEngine.dispatchBroadcast(gson.toJson(broadcastPayload))
-                } else if (type == "payment_notification") {
-                    val appName = root.getAsJsonPrimitive("app_name")?.asString ?: "Payment Service"
-                    val paymentPayload = root.get("payment_payload")?.toString() ?: "{}"
-                    val broadcastPayload = BroadcastPayload(
-                        broadcastId = "pay-${System.currentTimeMillis()}",
-                        tenantId = SecurePreferences.getTenantId(context),
-                        severity = "success",
-                        launcherMode = BroadcastRenderingEngine.MODE_BLOCKING,
-                        title = "Payment Confirmed - $appName",
-                        message = "Transaction Details:\n$paymentPayload",
-                        requiresAcknowledgement = true
-                    )
-                    broadcastRenderingEngine.dispatchBroadcast(gson.toJson(broadcastPayload))
-                }
-            }
-            return
-        }
-
+        // Phase 1B remediation: removed unauthenticated custom_notification / payment_notification bypass.
+        // All frames must pass through routeCommandObject -> PdsCommandGate.
         routeCommandObject(root)
     }
 
@@ -259,28 +257,30 @@ class RemoteCommandExecutionEngine @Inject constructor(
         val signature = root.getAsJsonPrimitive("signature")?.asString
         val requestId = root.getAsJsonPrimitive("request_id")?.asString 
             ?: root.getAsJsonPrimitive("requestId")?.asString
+        val commandJws = extractCommandJws(root, signature)
 
-        // 1. Send intermediate REQUEST_ACK immediately on receipt
+        // 1. Mandatory fail-closed ES256 verification + authorization + atomic replay reservation
+        // BEFORE sending any REQUEST_ACK (which harvests installed apps) or executing any action.
+        val gateDecision = verifyAndAuthorizeCommand(commandJws)
+        if (!gateDecision.allowed) {
+            Log.e(
+                TAG,
+                "Rejected commandId=$commandId code=${gateDecision.errorCode}: ${gateDecision.errorMessage}"
+            )
+            scope.launch {
+                acknowledgeExecution(
+                    commandId,
+                    "REJECTED",
+                    gateDecision.errorMessage ?: "Command verification failed",
+                    requestId,
+                    errorCode = gateDecision.errorCode ?: "SIG_INVALID"
+                )
+            }
+            return
+        }
+
+        // 2. Send intermediate REQUEST_ACK only after command authenticity is verified
         sendRequestAck(commandId, signature, requestId, type)
-
-        // 2. Idempotency validation guard
-        if (SecurePreferences.isCommandExecuted(context, commandId)) {
-            Log.w(TAG, "Duplicate command processing suppression triggered. Skipping execution for ID: $commandId")
-            scope.launch {
-                acknowledgeExecution(commandId, "DUPLICATE_SUPPRESSED", "Command already mapped in transaction log.", requestId)
-            }
-            sendCommandSync()
-            return
-        }
-
-        // 3. Signature validation
-        if (!verifyCommandSignature(type, commandId, signature, root)) {
-            Log.e(TAG, "Signature validation failed for commandId: $commandId")
-            scope.launch {
-                acknowledgeExecution(commandId, "FAILED", "Invalid command signature", requestId, errorCode = "ERR_SIG_INVALID")
-            }
-            return
-        }
 
         // Execute command based on type
         scope.launch {
@@ -455,17 +455,22 @@ class RemoteCommandExecutionEngine @Inject constructor(
                         PolicySyncWorker.syncNow(context)
                     }
                     "parameter_request" -> {
-                        val appPackage = root.getAsJsonPrimitive("app_package")?.asString ?: ""
-                        val parameters = root.get("parameters")
-                        val decryptKeys = root.get("decrypt_keys")
-                        if (appPackage.isNotEmpty()) {
-                            val configMap = mapOf(
-                                "parameters" to parameters,
-                                "decrypt_keys" to decryptKeys
-                            )
-                            val prefs = context.getSharedPreferences("app_params_prefs", Context.MODE_PRIVATE)
-                            prefs.edit().putString(appPackage, gson.toJson(configMap)).apply()
-                            Log.i(TAG, "Parameters persisted for app package $appPackage")
+                        if (root.has("decrypt_keys") && !root.get("decrypt_keys").isJsonNull) {
+                            successStatus = "FAILED"
+                            finalMessage = "Rejected parameter_request containing prohibited decrypt_keys (SPEC-04 §3)"
+                            errorCode = "PROHIBITED_PAYLOAD"
+                            Log.e(TAG, finalMessage)
+                        } else {
+                            val appPackage = root.getAsJsonPrimitive("app_package")?.asString ?: ""
+                            val parameters = root.get("parameters")
+                            if (appPackage.isNotEmpty()) {
+                                val configMap = mapOf(
+                                    "parameters" to parameters
+                                )
+                                val prefs = context.getSharedPreferences("app_params_prefs", Context.MODE_PRIVATE)
+                                prefs.edit().putString(appPackage, gson.toJson(configMap)).apply()
+                                Log.i(TAG, "Parameters persisted for app package $appPackage (no key material)")
+                            }
                         }
                     }
                     else -> {
@@ -487,43 +492,37 @@ class RemoteCommandExecutionEngine @Inject constructor(
         }
     }
 
-    private fun verifyCommandSignature(
-        type: String,
-        commandId: String?,
-        signature: String?,
-        root: JsonObject
-    ): Boolean {
-        if (signature.isNullOrEmpty()) {
-            Log.w(TAG, "No signature present in command frame.")
-            return false
-        }
-        val secret = SecurePreferences.getDeviceToken(context) ?: "iips_mdm_hardened_secret_2026"
-        
-        val deviceId = root.getAsJsonPrimitive("device_id")?.asString 
-            ?: root.getAsJsonPrimitive("deviceId")?.asString 
-            ?: SecurePreferences.getDeviceId(context) ?: ""
-        val timestamp = root.getAsJsonPrimitive("timestamp")?.asString
-        val nonce = root.getAsJsonPrimitive("nonce")?.asString
-        val expiresAt = root.getAsJsonPrimitive("expires_at")?.asString ?: root.getAsJsonPrimitive("expiresAt")?.asString
-        
-        if (timestamp != null && nonce != null && expiresAt != null && commandId != null) {
-            val payload = root.get("payload")?.toString() ?: "none"
-            val payloadHash = com.iips.launcher.security.SecurityUtils.sha256(payload)
-            val canonicalString = "$commandId|$deviceId|${type.uppercase()}|$payloadHash|$timestamp|$nonce|$expiresAt"
-            return com.iips.launcher.security.SecurityUtils.verifyHmacSignature(canonicalString, signature, secret)
-        }
-        
-        val flatData = "$commandId|${type.uppercase()}"
-        val verified = com.iips.launcher.security.SecurityUtils.verifyHmacSignature(flatData, signature, secret)
-        if (verified) return true
+    private fun extractCommandJws(root: JsonObject, fallbackSignature: String?): String? {
+        val direct = root.getAsJsonPrimitive("command_jws")?.asString
+        if (!direct.isNullOrBlank()) return direct
+        val envObj = root.get("command_envelope")?.takeIf { it.isJsonObject }?.asJsonObject
+        val fromEnv = envObj?.getAsJsonPrimitive("command_jws")?.asString
+        if (!fromEnv.isNullOrBlank()) return fromEnv
+        return fallbackSignature?.takeIf { it.count { ch -> ch == '.' } == 2 }
+    }
 
-        if (commandId != null) {
-            val verifiedIdOnly = com.iips.launcher.security.SecurityUtils.verifyHmacSignature(commandId, signature, secret)
-            if (verifiedIdOnly) return true
-        }
+    private fun verifyAndAuthorizeCommand(commandJws: String?): PdsCommandGate.GateDecision {
+        val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        val admin = DeviceAdminReceiver.getComponentName(context)
+        val assignedDeviceId = SecurePreferences.getDeviceId(context)
+        val assignedTenantId = SecurePreferences.getTenantId(context)
+        val deviceState = SecurePreferences.getDeviceState(context)
+        val isEnrolled = !assignedDeviceId.isNullOrBlank() && !SecurePreferences.getDeviceToken(context).isNullOrBlank()
 
-        Log.w(TAG, "Signature verification failed for commandId: $commandId, signature: $signature")
-        return true // Development fallback
+        val authContext = PdsCommandAuthorizer.DeviceAuthorizationContext(
+            isEnrolled = isEnrolled,
+            lifecycleState = deviceState,
+            assignedDeviceId = assignedDeviceId,
+            assignedDeviceIdentityRef = null,
+            assignedTenantId = assignedTenantId,
+            isDeviceOwner = DeviceAdminReceiver.isDeviceOwner(context),
+            isDeviceAdminActive = try { dpm.isAdminActive(admin) } catch (_: Exception) { false }
+        )
+
+        return pdsCommandGate.verifyAuthorizeAndReserve(
+            commandJws = commandJws,
+            deviceContext = authContext
+        )
     }
 
     private fun sendRequestAck(commandId: String, signature: String?, requestId: String?, type: String) {
@@ -595,7 +594,7 @@ class RemoteCommandExecutionEngine @Inject constructor(
         errorCode: String? = null,
         resultPayload: Any? = null
     ) {
-        val secret = SecurePreferences.getDeviceToken(context) ?: "iips_mdm_hardened_secret_2026"
+        val secret = SecurePreferences.getDeviceToken(context) ?: ""
         val resultData = resultPayload ?: if (status == "SUCCESS") "SUCCESS" else (errorCode ?: "ERR_FAILED")
         val payloadData = mapOf(
             "id" to commandId,

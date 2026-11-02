@@ -105,9 +105,11 @@ object SecurityUtils {
             return false
         }
         
-        // 3. Key Derivation to prevent token leakage
-        val serverSalt = "iips_mdm_salt_2026" // Fixed server salt for derivation
-        val derivedKey = sha256(secret + serverSalt)
+        if (secret.isBlank()) {
+            android.util.Log.e("SecurityUtils", "Empty secret supplied to verifyHmac; failing closed")
+            return false
+        }
+        val derivedKey = sha256(secret)
         
         // 4. HMAC Verification over payload + timestamp + nonce
         val dataToHash = payload + timestamp + nonce
