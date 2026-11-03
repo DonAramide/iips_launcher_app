@@ -26,6 +26,17 @@ interface ConfigService {
         @Body request: PdsEnrollmentVerifyRequest
     ): Response<PdsEnrollmentVerifyResponse>
 
+    /**
+     * Quasar 1D.2 identity probe. 1C HEAD does not implement this path.
+     * Only an explicit `device_not_registered` error_code is treated as missing.
+     */
+    @GET("device/pds/identity/{deviceId}")
+    suspend fun pdsDeviceIdentityStatus(
+        @Path("deviceId") deviceId: String,
+        @Query("tenant_id") tenantId: String,
+        @Header("X-Enrollment-Token") enrollmentToken: String
+    ): Response<PdsDeviceIdentityStatusResponse>
+
     @GET("device/policy")
     suspend fun fetchPolicy(
         @Header("Authorization") authHeader: String

@@ -1,5 +1,6 @@
 package com.iips.launcher.security.pds
 
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -41,7 +42,7 @@ class PdsPhase1C3OnboardingFlowTest {
     @Test
     fun `onboarding flow persists PDS UUID passes known_device_id and keeps JWT`() {
         var knownSent: String? = null
-        val outcome = PdsOnboardingEnrollmentFlow.execute(
+        val outcome = runBlocking { PdsOnboardingEnrollmentFlow.execute(
             tenantId = tenant,
             enrollmentToken = "tok-abcdefgh",
             manufacturer = "Topwise",
@@ -76,6 +77,7 @@ class PdsPhase1C3OnboardingFlowTest {
                 )
             }
         )
+        }
         assertEquals(uuid, knownSent)
         assertEquals(uuid, outcome.persistedDeviceId)
         assertEquals("mdm-jwt-test", outcome.accessToken)
@@ -86,7 +88,7 @@ class PdsPhase1C3OnboardingFlowTest {
     fun `missing tenant and failed crypto enrollment fail closed`() {
         var tenantThrew = false
         try {
-            PdsOnboardingEnrollmentFlow.execute(
+            runBlocking { PdsOnboardingEnrollmentFlow.execute(
                 tenantId = null,
                 enrollmentToken = "tok",
                 manufacturer = "Topwise",
@@ -98,7 +100,7 @@ class PdsPhase1C3OnboardingFlowTest {
                 hardware = hardware,
                 pdsEnroll = { _, _, _ -> error("must not enroll") },
                 legacyRegister = { error("must not register") }
-            )
+            ) }
         } catch (_: SecurityException) {
             tenantThrew = true
         }
@@ -106,7 +108,7 @@ class PdsPhase1C3OnboardingFlowTest {
 
         var cryptoThrew = false
         try {
-            PdsOnboardingEnrollmentFlow.execute(
+            runBlocking { PdsOnboardingEnrollmentFlow.execute(
                 tenantId = tenant,
                 enrollmentToken = "tok",
                 manufacturer = "Topwise",
@@ -118,7 +120,7 @@ class PdsPhase1C3OnboardingFlowTest {
                 hardware = hardware,
                 pdsEnroll = { _, _, _ -> throw SecurityException("keystore failed") },
                 legacyRegister = { error("must not register") }
-            )
+            ) }
         } catch (_: SecurityException) {
             cryptoThrew = true
         }

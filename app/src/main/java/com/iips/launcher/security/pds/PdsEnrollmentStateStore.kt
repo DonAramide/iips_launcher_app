@@ -30,7 +30,10 @@ class PdsEnrollmentStateStore(
         val enrolledAtIso: String,
         val lastAppliedManifestVersion: Long,
         val lastAppliedManifestId: String?,
-        val lastAppliedManifestJwsSha256: String?
+        val lastAppliedManifestJwsSha256: String?,
+        val pdsEnrollmentComplete: Boolean = false,
+        val mdmRegistrationComplete: Boolean = false,
+        val lastChallengeId: String? = null
     ) {
         fun isEnrolled(): Boolean {
             return lifecycleState in setOf("REGISTERED", "ACTIVE", "LOCKED")
@@ -44,6 +47,8 @@ class PdsEnrollmentStateStore(
     private val lock = Any()
     @Volatile
     private var state: EnrollmentState? = null
+    @Volatile
+    private var integrityFailure: PdsEnrollmentStateIntegrityException? = null
 
     init {
         synchronized(lock) {
@@ -53,6 +58,7 @@ class PdsEnrollmentStateStore(
 
     fun current(): EnrollmentState? {
         synchronized(lock) {
+            integrityFailure?.let { throw it }
             return state
         }
     }
@@ -84,31 +90,85 @@ class PdsEnrollmentStateStore(
         }
     }
 
+    fun markMdmRegistered() {
+        synchronized(lock) {
+            val current = state ?: throw IllegalStateException("Cannot complete MDM registration before PDS enrollment")
+            if (!current.pdsEnrollmentComplete) {
+                throw SecurityException("PDS enrollment is not complete")
+            }
+            val next = current.copy(mdmRegistrationComplete = true)
+            state = next
+            persistToDiskLocked(next)
+        }
+    }
+
     fun clear() {
         synchronized(lock) {
             state = null
+            integrityFailure = null
             if (storageFile.exists()) {
                 storageFile.delete()
             }
         }
     }
 
+    fun hasIntegrityFailure(): Boolean = integrityFailure != null
+
+    private fun failIntegrity(reason: String): EnrollmentState? {
+        quarantineDamagedRecord()
+        val error = PdsEnrollmentStateIntegrityException(
+            "PDS enrollment state is damaged ($reason); operator recovery required. Keystore alias was not deleted."
+        )
+        integrityFailure = error
+        throw error
+    }
+
+    private fun quarantineDamagedRecord() {
+        try {
+            if (!storageFile.exists()) return
+            val quarantine = File(
+                storageFile.parentFile,
+                "${storageFile.name}.quarantine.${System.currentTimeMillis()}"
+            )
+            Files.copy(storageFile.toPath(), quarantine.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        } catch (_: Exception) {
+            // Preserve the original file even if quarantine copy fails.
+        }
+    }
+
     private fun loadFromDiskLocked(): EnrollmentState? {
         if (!storageFile.exists()) return null
-        val map = LinkedHashMap<String, String>()
-        for (line in storageFile.readLines(StandardCharsets.UTF_8)) {
-            val trimmed = line.trim()
-            if (trimmed.isEmpty() || trimmed.startsWith("#")) continue
-            val eq = trimmed.indexOf('=')
-            if (eq <= 0) continue
-            map[trimmed.substring(0, eq)] = trimmed.substring(eq + 1)
+        val raw = try {
+            storageFile.readText(StandardCharsets.UTF_8)
+        } catch (e: Exception) {
+            return failIntegrity("unreadable: ${e.message}")
         }
-        val deviceId = map["device_id"] ?: return null
-        val tenantId = map["tenant_id"] ?: return null
+        if (raw.isBlank()) {
+            return failIntegrity("empty file")
+        }
+        val map = LinkedHashMap<String, String>()
+        try {
+            for (line in raw.split('\n')) {
+                val trimmed = line.trim()
+                if (trimmed.isEmpty() || trimmed.startsWith("#")) continue
+                val eq = trimmed.indexOf('=')
+                if (eq <= 0) continue
+                map[trimmed.substring(0, eq)] = trimmed.substring(eq + 1)
+            }
+        } catch (e: Exception) {
+            return failIntegrity("truncated or unreadable: ${e.message}")
+        }
+        val required = listOf("device_id", "tenant_id", "device_identity_ref", "device_key_id")
+        val missing = required.filter { map[it].isNullOrBlank() }
+        if (missing.isNotEmpty()) {
+            return failIntegrity("missing ${missing.joinToString(",")}")
+        }
+        val deviceId = map["device_id"]!!
+        val tenantId = map["tenant_id"]!!
         return EnrollmentState(
             deviceId = deviceId,
-            deviceIdentityRef = map["device_identity_ref"] ?: return null,
-            deviceKeyId = map["device_key_id"] ?: return null,
+            deviceIdentityRef = map["device_identity_ref"]!!,
+            deviceKeyId = map["device_key_id"]!!,
             tenantId = tenantId,
             keyVersion = map["key_version"]?.toLongOrNull() ?: 1L,
             publicKeyFingerprintSha256 = map["public_key_fingerprint_sha256"] ?: "",
@@ -119,7 +179,13 @@ class PdsEnrollmentStateStore(
             enrolledAtIso = map["enrolled_at"] ?: "",
             lastAppliedManifestVersion = map["last_applied_manifest_version"]?.toLongOrNull() ?: 0L,
             lastAppliedManifestId = map["last_applied_manifest_id"]?.takeIf { it.isNotBlank() },
-            lastAppliedManifestJwsSha256 = map["last_applied_manifest_jws_sha256"]?.takeIf { it.isNotBlank() }
+            lastAppliedManifestJwsSha256 = map["last_applied_manifest_jws_sha256"]?.takeIf { it.isNotBlank() },
+            pdsEnrollmentComplete = parseBool(
+                map["pds_enrollment_complete"],
+                map["lifecycle_state"] in setOf("REGISTERED", "ACTIVE", "LOCKED")
+            ),
+            mdmRegistrationComplete = parseBool(map["mdm_registration_complete"], false),
+            lastChallengeId = map["last_challenge_id"]?.takeIf { it.isNotBlank() }
         )
     }
 
@@ -147,6 +213,9 @@ class PdsEnrollmentStateStore(
         line("last_applied_manifest_version", next.lastAppliedManifestVersion.toString())
         line("last_applied_manifest_id", next.lastAppliedManifestId ?: "")
         line("last_applied_manifest_jws_sha256", next.lastAppliedManifestJwsSha256 ?: "")
+        line("pds_enrollment_complete", next.pdsEnrollmentComplete.toString())
+        line("mdm_registration_complete", next.mdmRegistrationComplete.toString())
+        line("last_challenge_id", next.lastChallengeId ?: "")
         FileOutputStream(tmpFile).use { fos ->
             fos.write(sb.toString().toByteArray(StandardCharsets.UTF_8))
             fos.flush()
@@ -158,6 +227,14 @@ class PdsEnrollmentStateStore(
             StandardCopyOption.REPLACE_EXISTING,
             StandardCopyOption.ATOMIC_MOVE
         )
+    }
+
+    private fun parseBool(raw: String?, default: Boolean): Boolean {
+        return when (raw?.trim()?.lowercase()) {
+            "true" -> true
+            "false" -> false
+            else -> default
+        }
     }
 
     private fun splitList(raw: String?): List<String> {

@@ -5,7 +5,7 @@ import com.google.gson.annotations.SerializedName
 data class PdsEnrollmentChallengeRequest(
     @SerializedName("enrollment_token") val enrollmentToken: String,
     @SerializedName("tenant_id") val tenantId: String,
-    @SerializedName("device_public_key_spki_b64") val devicePublicKeySpkiB64: String,
+    @SerializedName("device_public_key_spki_b64") val devicePublicKeySpkiB64: String? = null,
     @SerializedName("hardware") val hardware: PdsHardwareWire
 )
 
@@ -27,7 +27,7 @@ data class PdsEnrollmentChallengeResponse(
     @SerializedName("challenge_nonce") val challengeNonce: String,
     @SerializedName("attestation_challenge_b64") val attestationChallengeB64: String,
     @SerializedName("tenant_id") val tenantId: String,
-    @SerializedName("public_key_fingerprint_sha256") val publicKeyFingerprintSha256: String,
+    @SerializedName("public_key_fingerprint_sha256") val publicKeyFingerprintSha256: String? = null,
     @SerializedName("hardware_fingerprint_sha256") val hardwareFingerprintSha256: String,
     @SerializedName("issued_at") val issuedAt: String,
     @SerializedName("expires_at") val expiresAt: String
@@ -40,7 +40,17 @@ data class PdsEnrollmentVerifyRequest(
     @SerializedName("device_public_key_spki_b64") val devicePublicKeySpkiB64: String,
     @SerializedName("hardware") val hardware: PdsHardwareWire,
     @SerializedName("challenge_signature_b64url") val challengeSignatureB64Url: String,
-    @SerializedName("attestation") val attestation: Map<String, Any?>? = null
+    @SerializedName("attestation") val attestation: Map<String, Any?>? = null,
+    @SerializedName("recovery_nonce") val recoveryNonce: String? = null,
+    @SerializedName("recovery_signature_b64url") val recoverySignatureB64Url: String? = null,
+    @SerializedName("claimed_device_id") val claimedDeviceId: String? = null
+)
+
+data class PdsDeviceIdentityStatusResponse(
+    @SerializedName("device_id") val deviceId: String,
+    @SerializedName("tenant_id") val tenantId: String? = null,
+    @SerializedName("pds_lifecycle_state") val lifecycleState: String? = null,
+    @SerializedName("error_code") val errorCode: String? = null
 )
 
 data class PdsEnrollmentVerifyResponse(

@@ -1,8 +1,10 @@
 package com.iips.launcher.security.pds
 
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -296,28 +298,32 @@ class PdsPhase1CEnrollmentAndManifestTest {
                 pdsVersion = "1.0.0",
                 vendor = "topwise"
             )
-            val coordinator = PdsEnrollmentCoordinator(
+            val coordinator = testCoordinator(
                 signer = signer,
-                stateStore = store,
+                store = store,
+                tempDir = tempDir,
                 transport = object : PdsEnrollmentCoordinator.PdsEnrollmentTransport {
-                    override fun requestChallenge(
+                    override suspend fun requestChallenge(
                         enrollmentToken: String,
                         tenantId: String,
-                        devicePublicKeySpkiB64: String,
+                        devicePublicKeySpkiB64: String?,
                         hardware: PdsEnrollmentCrypto.HardwareAttributes
                     ): PdsEnrollmentCoordinator.ChallengeResponse {
                         fail("challenge must not be requested for ANDROID_ID serial")
                         throw IllegalStateException("unreachable")
                     }
 
-                    override fun verifyEnrollment(
+                    override suspend fun verifyEnrollment(
                         challengeId: String,
                         enrollmentToken: String,
                         tenantId: String,
                         devicePublicKeySpkiB64: String,
                         hardware: PdsEnrollmentCrypto.HardwareAttributes,
                         challengeSignatureB64Url: String,
-                        attestation: PdsAttestationCollector.CollectedEvidence?
+                        attestation: PdsAttestationCollector.CollectedEvidence?,
+                        recoveryNonce: String?,
+                        recoverySignatureB64Url: String?,
+                        claimedDeviceId: String?
                     ): PdsEnrollmentCoordinator.EnrollmentResult {
                         fail("verify must not run for ANDROID_ID serial")
                         throw IllegalStateException("unreachable")
@@ -326,7 +332,7 @@ class PdsPhase1CEnrollmentAndManifestTest {
             )
             var androidIdRejected = false
             try {
-                coordinator.enroll("tok", "tenant-a", hw)
+                runBlocking { coordinator.enroll("tok", "tenant-a", hw) }
             } catch (_: SecurityException) {
                 androidIdRejected = true
             }
@@ -334,44 +340,53 @@ class PdsPhase1CEnrollmentAndManifestTest {
 
             val okHw = hw.copy(serialNumber = "TW202611020001")
             var capturedSig: String? = null
-            val okCoordinator = PdsEnrollmentCoordinator(
+            var challengeSpki: String? = "unset"
+            val provisioner = NoopIfKeyPresentProvisioner(signer)
+            val okCoordinator = testCoordinator(
                 signer = signer,
-                stateStore = store,
+                store = store,
+                provisioner = provisioner,
+                tempDir = tempDir,
                 transport = object : PdsEnrollmentCoordinator.PdsEnrollmentTransport {
-                    override fun requestChallenge(
+                    override suspend fun requestChallenge(
                         enrollmentToken: String,
                         tenantId: String,
-                        devicePublicKeySpkiB64: String,
+                        devicePublicKeySpkiB64: String?,
                         hardware: PdsEnrollmentCrypto.HardwareAttributes
                     ): PdsEnrollmentCoordinator.ChallengeResponse {
+                        challengeSpki = devicePublicKeySpkiB64
+                        assertEquals(0, provisioner.generateCalls)
                         val hwFp = PdsEnrollmentCrypto.computeCanonicalHardwareFingerprint(hardware)
-                        val pubFp = signer.publicKeyFingerprintSha256()
                         return PdsEnrollmentCoordinator.ChallengeResponse(
                             challengeId = "chl-test-1",
                             challengeNonce = "bm9uY2U",
                             attestationChallengeB64 = "Y2hhbGxlbmdl",
                             tenantId = tenantId,
-                            publicKeyFingerprintSha256 = pubFp,
+                            publicKeyFingerprintSha256 = null,
                             hardwareFingerprintSha256 = hwFp,
                             issuedAt = "2026-11-02T12:00:00Z",
                             expiresAt = "2026-11-02T12:05:00Z"
                         )
                     }
 
-                    override fun verifyEnrollment(
+                    override suspend fun verifyEnrollment(
                         challengeId: String,
                         enrollmentToken: String,
                         tenantId: String,
                         devicePublicKeySpkiB64: String,
                         hardware: PdsEnrollmentCrypto.HardwareAttributes,
                         challengeSignatureB64Url: String,
-                        attestation: PdsAttestationCollector.CollectedEvidence?
+                        attestation: PdsAttestationCollector.CollectedEvidence?,
+                        recoveryNonce: String?,
+                        recoverySignatureB64Url: String?,
+                        claimedDeviceId: String?
                     ): PdsEnrollmentCoordinator.EnrollmentResult {
                         capturedSig = challengeSignatureB64Url
+                        assertEquals(1, provisioner.generateCalls)
                         assertEquals("unsupported", attestation?.securityLevel?.name?.lowercase())
                         return PdsEnrollmentCoordinator.EnrollmentResult(
-                            deviceId = "dev-1",
-                            deviceIdentityRef = "devid:dev-1:k1:ffff",
+                            deviceId = "550e8400-e29b-41d4-a716-446655440099",
+                            deviceIdentityRef = "devid:550e8400-e29b-41d4-a716-446655440099:k1:ffff",
                             tenantId = tenantId,
                             deviceKeyId = "devkey-dev-1-v1",
                             keyVersion = 1L,
@@ -385,7 +400,14 @@ class PdsPhase1CEnrollmentAndManifestTest {
                     }
                 }
             )
-            val enrolled = okCoordinator.enroll("tok", "tenant-a", okHw)
+            val enrolled = runBlocking { okCoordinator.enroll("tok", "tenant-a", okHw) }
+            assertNull(challengeSpki)
+            assertTrue(
+                java.util.Arrays.equals(
+                    provisioner.lastAttestationChallenge,
+                    java.util.Base64.getDecoder().decode("Y2hhbGxlbmdl")
+                )
+            )
             assertEquals("REGISTERED", enrolled.lifecycleState)
             assertNotNull(capturedSig)
             assertTrue(store.current()!!.isEnrolled())

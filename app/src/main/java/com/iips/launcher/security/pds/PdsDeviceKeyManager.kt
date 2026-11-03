@@ -6,7 +6,6 @@ import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyInfo
 import android.security.keystore.KeyProperties
-import java.nio.charset.StandardCharsets
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
 import java.security.KeyStore
@@ -23,8 +22,12 @@ import java.util.Base64
  * - Private key never leaves Android Keystore and is never exposed to EE or vendor adapters.
  */
 class PdsDeviceKeyManager(
-    private val keyAlias: String = DEFAULT_DEVICE_KEY_ALIAS
-) : PdsDeviceKeySigner {
+    private val keyAlias: String = DEFAULT_DEVICE_KEY_ALIAS,
+    private val attestationBindingFile: java.io.File? = null
+) : PdsDeviceKeySigner, PdsDeviceKeyProvisioner {
+
+    private val bindingStore: PdsAttestationBindingStore? =
+        attestationBindingFile?.let { PdsAttestationBindingStore(it) }
 
     companion object {
         const val DEFAULT_DEVICE_KEY_ALIAS = "pds_device_key_v1"
@@ -74,26 +77,67 @@ class PdsDeviceKeyManager(
         val isStrongBoxBacked: Boolean
     )
 
-    fun ensureDeviceKey(context: Context, enrollmentToken: String? = null): ProvisionedDeviceIdentityKey {
-        val ks = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
-        val hasStrongBox = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
-            context.packageManager.hasSystemFeature(PackageManager.FEATURE_STRONGBOX_KEYSTORE)
+    /**
+     * v1.3 / 1D.4: generate (or reopen) the Keystore key bound to the **server**
+     * attestation challenge bytes. Enrollment-token hashes are not used.
+     * StrongBox failure falls back to TEE Android Keystore only — never a software
+     * private key outside AndroidKeyStore.
+     */
+    override fun generateBoundToAttestationChallenge(attestationChallengeBytes: ByteArray) {
+        bindOrGenerate(attestationChallengeBytes) {
+            generateKeyPairInternal(attestationChallengeBytes, useStrongBox = false)
+        }
+    }
 
-        if (!ks.containsAlias(keyAlias)) {
-            val challengeBytes = if (!enrollmentToken.isNullOrBlank()) {
-                sha256Bytes(enrollmentToken.trim().toByteArray(StandardCharsets.UTF_8))
-            } else {
-                null
-            }
+    fun generateBoundToAttestationChallenge(context: Context, attestationChallengeBytes: ByteArray) {
+        bindOrGenerate(attestationChallengeBytes) {
+            val hasStrongBox = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+                context.packageManager.hasSystemFeature(PackageManager.FEATURE_STRONGBOX_KEYSTORE)
             if (hasStrongBox && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 try {
-                    generateKeyPairInternal(challengeBytes, useStrongBox = true)
+                    generateKeyPairInternal(attestationChallengeBytes, useStrongBox = true)
                 } catch (_: Exception) {
-                    generateKeyPairInternal(challengeBytes, useStrongBox = false)
+                    generateKeyPairInternal(attestationChallengeBytes, useStrongBox = false)
                 }
             } else {
-                generateKeyPairInternal(challengeBytes, useStrongBox = false)
+                generateKeyPairInternal(attestationChallengeBytes, useStrongBox = false)
             }
+        }
+    }
+
+    private fun bindOrGenerate(attestationChallengeBytes: ByteArray, generate: () -> Unit) {
+        if (attestationChallengeBytes.isEmpty()) {
+            throw SecurityException("Attestation challenge bytes are required for Keystore generation")
+        }
+        val ks = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+        val challengeHash = sha256Hex(attestationChallengeBytes)
+        val decision = PdsKeystoreBindingPolicy.decide(
+            aliasExists = ks.containsAlias(keyAlias),
+            storedBindingHash = bindingStore?.readHash(),
+            currentChallengeHash = challengeHash
+        )
+        if (decision == PdsKeystoreBindingPolicy.Decision.REUSE) {
+            return
+        }
+        generate()
+        persistBoundChallengeHash(challengeHash)
+    }
+
+    override fun keyExists(): Boolean {
+        val ks = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+        return ks.containsAlias(keyAlias)
+    }
+
+    @Deprecated("Use generateBoundToAttestationChallenge with server-issued bytes")
+    fun ensureDeviceKey(context: Context, enrollmentToken: String? = null): ProvisionedDeviceIdentityKey {
+        if (enrollmentToken != null) {
+            throw SecurityException(
+                "Keystore generation must use the server attestation challenge, not the enrollment token"
+            )
+        }
+        val ks = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+        if (!ks.containsAlias(keyAlias)) {
+            throw SecurityException("Device key must be generated after the server attestation challenge")
         }
 
         val cert = ks.getCertificate(keyAlias)
@@ -210,7 +254,7 @@ class PdsDeviceKeyManager(
         return PdsCanonicalCommandEnvelope.toBase64Url(derSig)
     }
 
-    private fun generateKeyPairInternal(challengeBytes: ByteArray?, useStrongBox: Boolean) {
+    private fun generateKeyPairInternal(challengeBytes: ByteArray, useStrongBox: Boolean) {
         val kpg = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, ANDROID_KEYSTORE)
         val builder = KeyGenParameterSpec.Builder(
             keyAlias,
@@ -220,9 +264,7 @@ class PdsDeviceKeyManager(
             .setDigests(KeyProperties.DIGEST_SHA256)
             .setUserAuthenticationRequired(false)
 
-        if (challengeBytes != null) {
-            builder.setAttestationChallenge(challengeBytes)
-        }
+        builder.setAttestationChallenge(challengeBytes)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             builder.setUnlockedDeviceRequired(false)
             if (useStrongBox) {
@@ -231,5 +273,11 @@ class PdsDeviceKeyManager(
         }
         kpg.initialize(builder.build())
         kpg.generateKeyPair()
+    }
+
+    private fun persistBoundChallengeHash(hashHex: String) {
+        val store = bindingStore
+            ?: throw SecurityException("Attestation binding file is required after Keystore generation")
+        store.writeHash(hashHex)
     }
 }

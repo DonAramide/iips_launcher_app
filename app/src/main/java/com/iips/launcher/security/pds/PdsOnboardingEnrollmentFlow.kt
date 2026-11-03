@@ -3,6 +3,9 @@ package com.iips.launcher.security.pds
 /**
  * Isolated onboarding sequence used by DeviceEnrollmentManager.
  * Executable with fakes: no production devices, no live payments.
+ *
+ * PDS enrollment and MDM registration are separate durable steps.
+ * A failed MDM hop must not mint a second UUID.
  */
 object PdsOnboardingEnrollmentFlow {
     data class LegacyRegisterRequest(
@@ -30,7 +33,7 @@ object PdsOnboardingEnrollmentFlow {
         val knownDeviceIdSentToLegacy: String
     )
 
-    fun execute(
+    suspend fun execute(
         tenantId: String?,
         enrollmentToken: String,
         manufacturer: String,
@@ -39,9 +42,10 @@ object PdsOnboardingEnrollmentFlow {
         fingerprintHash: String,
         agentCode: String?,
         businessName: String?,
-        pdsEnroll: (token: String, tenant: String, hardware: PdsEnrollmentCrypto.HardwareAttributes) -> PdsEnrollmentCoordinator.EnrollmentResult,
+        pdsEnroll: suspend (token: String, tenant: String, hardware: PdsEnrollmentCrypto.HardwareAttributes) -> PdsEnrollmentCoordinator.EnrollmentResult,
         hardware: PdsEnrollmentCrypto.HardwareAttributes,
-        legacyRegister: (LegacyRegisterRequest) -> LegacyRegisterResult
+        legacyRegister: suspend (LegacyRegisterRequest) -> LegacyRegisterResult,
+        pdsState: PdsEnrollmentStateStore? = null
     ): Outcome {
         if (tenantId.isNullOrBlank()) {
             throw SecurityException("PDS enrollment requires tenant_id; refusing serial-number identity fallback")
@@ -52,6 +56,10 @@ object PdsOnboardingEnrollmentFlow {
         val enrolled = pdsEnroll(enrollmentToken, tenantId, hardware)
         if (!PdsEnrollmentIdentityPolicy.isQuasarDeviceUuid(enrolled.deviceId)) {
             throw SecurityException("PDS enrollment refused a non-UUID cryptographic identity")
+        }
+        val persistedPds = pdsState?.current()?.deviceId
+        if (!persistedPds.isNullOrBlank() && persistedPds != enrolled.deviceId) {
+            throw PdsIdentityConflictException("PDS state UUID does not match enrollment result")
         }
         val legacy = legacyRegister(
             LegacyRegisterRequest(
@@ -72,10 +80,14 @@ object PdsOnboardingEnrollmentFlow {
             enrolled.deviceId,
             legacy.deviceId
         )
+        if (persisted != enrolled.deviceId) {
+            throw PdsIdentityConflictException("Refusing to persist a UUID other than the canonical PDS device id")
+        }
         val token = legacy.accessToken
         if (token.isNullOrBlank()) {
             throw SecurityException("Legacy MDM token exchange returned no access token")
         }
+        pdsState?.markMdmRegistered()
         return Outcome(
             persistedDeviceId = persisted,
             accessToken = token,

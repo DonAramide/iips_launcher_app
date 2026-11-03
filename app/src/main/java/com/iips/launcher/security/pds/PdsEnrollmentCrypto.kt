@@ -3,6 +3,8 @@ package com.iips.launcher.security.pds
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.security.PublicKey
+import java.security.SecureRandom
+import java.util.Base64
 import java.util.Locale
 
 /**
@@ -13,9 +15,12 @@ import java.util.Locale
  */
 object PdsEnrollmentCrypto {
     const val ENROLLMENT_TRANSCRIPT_PREFIX = "pds-enroll-v1"
+    const val ENROLLMENT_RECOVERY_TRANSCRIPT_PREFIX = "pds-enroll-recover-v1"
+    const val ENROLL_RECOVER_PURPOSE = "enroll_recover"
     const val KEY_ROTATION_TRANSCRIPT_PREFIX = "pds-key-rotate-v1"
     const val ATTESTATION_CHALLENGE_PREFIX = "pds-attest-v1"
     const val REQUEST_SIGNING_VERSION = "pds-req-v1"
+    const val MIN_RECOVERY_NONCE_BYTES = 16
 
     data class HardwareAttributes(
         val manufacturer: String,
@@ -56,6 +61,58 @@ object PdsEnrollmentCrypto {
             hw.buildFingerprint.trim()
         ).joinToString("|")
         return sha256HexUtf8(raw)
+    }
+
+    fun generateEnrollRecoverNonce(): String {
+        val raw = ByteArray(MIN_RECOVERY_NONCE_BYTES)
+        SecureRandom().nextBytes(raw)
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(raw)
+    }
+
+    /**
+     * v1.3 recovery PoP:
+     * `pds-enroll-recover-v1|{challenge_id}|{device_id}|enroll_recover|{nonce}`
+     * or without device_id when the first verify body was lost:
+     * `pds-enroll-recover-v1|{challenge_id}|enroll_recover|{nonce}`
+     */
+    fun buildEnrollmentRecoveryTranscript(
+        challengeId: String,
+        nonce: String,
+        deviceId: String? = null
+    ): ByteArray {
+        val parts = if (deviceId.isNullOrBlank()) {
+            listOf(
+                ENROLLMENT_RECOVERY_TRANSCRIPT_PREFIX,
+                challengeId.trim(),
+                ENROLL_RECOVER_PURPOSE,
+                nonce.trim()
+            )
+        } else {
+            listOf(
+                ENROLLMENT_RECOVERY_TRANSCRIPT_PREFIX,
+                challengeId.trim(),
+                deviceId.trim(),
+                ENROLL_RECOVER_PURPOSE,
+                nonce.trim()
+            )
+        }
+        return parts.joinToString("|").toByteArray(StandardCharsets.UTF_8)
+    }
+
+    fun decodeRequiredAttestationChallenge(attestationChallengeB64: String): ByteArray {
+        val trimmed = attestationChallengeB64.trim()
+        if (trimmed.isEmpty()) {
+            throw SecurityException("Server attestation challenge is required")
+        }
+        val bytes = try {
+            Base64.getDecoder().decode(trimmed)
+        } catch (_: Exception) {
+            throw SecurityException("Server attestation challenge is not valid Base64")
+        }
+        if (bytes.isEmpty()) {
+            throw SecurityException("Server attestation challenge must be non-empty")
+        }
+        return bytes
     }
 
     fun buildEnrollmentChallengeTranscript(params: EnrollmentTranscriptParams): ByteArray {
@@ -185,3 +242,20 @@ interface PdsDeviceKeySigner {
     fun inspectHardwareBacking(): PdsHardwareBackingClassifier.HardwareBackingInfo
     fun exportPrivateKeyBytes(): ByteArray
 }
+
+/**
+ * Generates the device identity key **after** the server attestation challenge exists.
+ * Production: Android Keystore P-256, non-exportable. No software private-key fallback.
+ */
+interface PdsDeviceKeyProvisioner {
+    fun generateBoundToAttestationChallenge(attestationChallengeBytes: ByteArray)
+    fun keyExists(): Boolean
+}
+
+class PdsEnrollmentNeedsRecoveryException(
+    val challengeId: String
+) : SecurityException("PDS enrollment already committed; recovery proof required")
+
+class PdsIdentityConflictException(
+    message: String
+) : SecurityException(message)

@@ -8,13 +8,18 @@ import android.util.Log
 import com.iips.launcher.network.models.EnrollmentRequest
 import com.iips.launcher.network.models.LocationInfo
 import com.iips.launcher.security.SecurityUtils
-import com.iips.launcher.security.pds.PdsDeviceKeyManager
+import com.iips.launcher.security.pds.PdsDeviceIdentityStatusKind
 import com.iips.launcher.security.pds.PdsEnrollmentCoordinator
 import com.iips.launcher.security.pds.PdsEnrollmentCrypto
 import com.iips.launcher.security.pds.PdsEnrollmentIdentityPolicy
+import com.iips.launcher.security.pds.PdsEnrollmentProcessLock
 import com.iips.launcher.security.pds.PdsEnrollmentStateStore
 import com.iips.launcher.security.pds.PdsHttpEnrollmentTransport
+import com.iips.launcher.security.pds.PdsHttpIdentityStatusClient
 import com.iips.launcher.security.pds.PdsOnboardingEnrollmentFlow
+import com.iips.launcher.security.pds.PdsPendingEnrollmentStore
+import com.iips.launcher.security.pds.PdsProductionEnrollmentWiring
+import com.iips.launcher.security.pds.PdsServerIdentityMissingException
 import com.iips.launcher.storage.SecurePreferences
 import com.iips.launcher.policy.DeviceAdminReceiver
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -33,13 +38,48 @@ class DeviceEnrollmentManager @Inject constructor(
     private val configService: ConfigService
 ) {
 
-    suspend fun enrollIfNeeded(enrollmentToken: String? = null, agentCode: String? = null): Boolean = withContext(Dispatchers.IO) {
-        if (SecurePreferences.isRegistered(context)) {
+    suspend fun enrollIfNeeded(enrollmentToken: String? = null, agentCode: String? = null): Boolean =
+        PdsEnrollmentProcessLock.runExclusive {
+            enrollIfNeededExclusive(enrollmentToken, agentCode)
+        }
+
+    private suspend fun enrollIfNeededExclusive(
+        enrollmentToken: String?,
+        agentCode: String?
+    ): Boolean = withContext(Dispatchers.IO) {
+        val stateStore = PdsEnrollmentStateStore(File(context.filesDir, "pds_enrollment.state"))
+        val pdsState = stateStore.current()
+        val pdsDone = pdsState?.pdsEnrollmentComplete == true
+        val mdmDone = pdsState?.mdmRegistrationComplete == true
+        val identityClient = PdsHttpIdentityStatusClient(configService)
+        if (SecurePreferences.isRegistered(context) && mdmDone && pdsState != null && pdsDone) {
             val storedId = SecurePreferences.getDeviceId(context)
             if (!storedId.isNullOrBlank() && PdsEnrollmentIdentityPolicy.isLegacyCompatibilityIdentity(storedId)) {
                 Log.w(TAG, "Existing device uses a legacy non-UUID identity; leaving operational path unchanged")
+                return@withContext true
+            }
+            if (!storedId.isNullOrBlank() && storedId != pdsState.deviceId) {
+                throw SecurityException("Stored MDM device id does not match canonical PDS UUID")
+            }
+            val token = enrollmentToken ?: SecurePreferences.getEnrollmentToken(context)
+            if (!token.isNullOrBlank()) {
+                val probe = identityClient.probeRegisteredIdentity(
+                    deviceId = pdsState.deviceId,
+                    tenantId = pdsState.tenantId,
+                    enrollmentToken = token
+                )
+                if (probe.kind == PdsDeviceIdentityStatusKind.DEFINITIVELY_MISSING) {
+                    throw PdsServerIdentityMissingException(pdsState.deviceId)
+                }
             }
             return@withContext true
+        }
+        if (SecurePreferences.isRegistered(context) && !pdsDone) {
+            val storedId = SecurePreferences.getDeviceId(context)
+            if (!storedId.isNullOrBlank() && PdsEnrollmentIdentityPolicy.isLegacyCompatibilityIdentity(storedId)) {
+                Log.w(TAG, "Existing device uses a legacy non-UUID identity; leaving operational path unchanged")
+                return@withContext true
+            }
         }
 
         val token = enrollmentToken ?: SecurePreferences.getEnrollmentToken(context) ?: return@withContext false
@@ -66,6 +106,19 @@ class DeviceEnrollmentManager @Inject constructor(
                 pdsVersion = "1.0.0",
                 vendor = manufacturer
             )
+            val bindFile = File(context.filesDir, "pds_key_attestation.bind")
+            val (keyManager, provisioner) = PdsProductionEnrollmentWiring.androidKeystoreProvisioner(
+                context,
+                bindFile
+            )
+            val coordinator = PdsEnrollmentCoordinator(
+                signer = keyManager,
+                provisioner = provisioner,
+                stateStore = stateStore,
+                transport = PdsHttpEnrollmentTransport(configService),
+                identityStatus = identityClient,
+                pendingStore = PdsPendingEnrollmentStore(File(context.filesDir, "pds_enrollment.pending"))
+            )
             val outcome = PdsOnboardingEnrollmentFlow.execute(
                 tenantId = tenantId,
                 enrollmentToken = token,
@@ -76,35 +129,26 @@ class DeviceEnrollmentManager @Inject constructor(
                 agentCode = agentCode,
                 businessName = SecurePreferences.getBusinessName(context),
                 hardware = hardware,
+                pdsState = stateStore,
                 pdsEnroll = { enrollToken, enrollTenant, hw ->
-                    val keyManager = PdsDeviceKeyManager()
-                    keyManager.ensureDeviceKey(context, enrollToken)
-                    val stateStore = PdsEnrollmentStateStore(File(context.filesDir, "pds_enrollment.state"))
-                    val coordinator = PdsEnrollmentCoordinator(
-                        signer = keyManager,
-                        stateStore = stateStore,
-                        transport = PdsHttpEnrollmentTransport(configService)
-                    )
                     coordinator.enroll(enrollToken, enrollTenant, hw)
                 },
                 legacyRegister = { req ->
-                    val response = kotlinx.coroutines.runBlocking {
-                        configService.enrollDevice(
-                            EnrollmentRequest(
-                                enrollmentToken = req.enrollmentToken,
-                                manufacturer = req.manufacturer,
-                                model = req.model,
-                                serialNumber = req.serialNumber,
-                                fingerprintHash = req.fingerprintHash,
-                                agentCode = req.agentCode,
-                                knownDeviceId = req.knownDeviceId,
-                                businessName = req.businessName,
-                                latitude = locInfo?.lat,
-                                longitude = locInfo?.lng,
-                                location = locInfo
-                            )
+                    val response = configService.enrollDevice(
+                        EnrollmentRequest(
+                            enrollmentToken = req.enrollmentToken,
+                            manufacturer = req.manufacturer,
+                            model = req.model,
+                            serialNumber = req.serialNumber,
+                            fingerprintHash = req.fingerprintHash,
+                            agentCode = req.agentCode,
+                            knownDeviceId = req.knownDeviceId,
+                            businessName = req.businessName,
+                            latitude = locInfo?.lat,
+                            longitude = locInfo?.lng,
+                            location = locInfo
                         )
-                    }
+                    )
                     PdsOnboardingEnrollmentFlow.LegacyRegisterResult(
                         success = response.isSuccessful && response.body() != null,
                         httpCode = response.code(),
