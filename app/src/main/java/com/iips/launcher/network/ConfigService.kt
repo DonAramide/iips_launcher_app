@@ -19,12 +19,12 @@ interface ConfigService {
     @POST("device/pds/enroll/challenge")
     suspend fun pdsEnrollmentChallenge(
         @Body request: PdsEnrollmentChallengeRequest
-    ): Response<PdsEnrollmentChallengeResponse>
+    ): Response<QuasarApiEnvelope<PdsEnrollmentChallengeResponse>>
 
     @POST("device/pds/enroll/verify")
     suspend fun pdsEnrollmentVerify(
         @Body request: PdsEnrollmentVerifyRequest
-    ): Response<PdsEnrollmentVerifyResponse>
+    ): Response<QuasarApiEnvelope<PdsEnrollmentVerifyResponse>>
 
     /**
      * Quasar 1D.2 identity probe. 1C HEAD does not implement this path.
@@ -35,7 +35,7 @@ interface ConfigService {
         @Path("deviceId") deviceId: String,
         @Query("tenant_id") tenantId: String,
         @Header("X-Enrollment-Token") enrollmentToken: String
-    ): Response<PdsDeviceIdentityStatusResponse>
+    ): Response<QuasarApiEnvelope<PdsDeviceIdentityStatusResponse>>
 
     @GET("device/policy")
     suspend fun fetchPolicy(

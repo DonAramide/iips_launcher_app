@@ -5,14 +5,16 @@ import com.iips.launcher.network.models.PdsEnrollmentChallengeRequest
 import com.iips.launcher.network.models.PdsEnrollmentVerifyRequest
 import com.iips.launcher.network.models.PdsEnrollmentVerifyResponse
 import com.iips.launcher.network.models.PdsHardwareWire
+import com.iips.launcher.network.models.QuasarApiEnvelope
 
 /**
  * ConfigService-backed PDS enrollment transport.
- * Suspend-native. 409 without a recovery proof does not disclose or accept a device UUID.
+ * Suspend-native. Consumes Quasar `{responseCode,responseMessage,data}` envelopes.
+ * 409 without a recovery proof does not disclose or accept a device UUID.
  *
- * Quasar recovery success is HTTP 409 with top-level `error_code=enrollment_already_completed`
- * and identity fields in the **error** JSON (Retrofit `errorBody`). R-01: never use `body()`
- * for that path.
+ * Recovery success is HTTP 409 with `data.error_code=enrollment_already_completed`
+ * and identity fields under `data` (Retrofit `errorBody`). R-01: never use `body()`
+ * for that path; read `errorBody()` once.
  */
 class PdsHttpEnrollmentTransport(
     private val configService: ConfigService
@@ -32,12 +34,12 @@ class PdsHttpEnrollmentTransport(
                 hardware = hardware.toWire()
             )
         )
-        if (!response.isSuccessful || response.body() == null) {
+        if (!response.isSuccessful) {
             throw SecurityException(
                 "PDS enrollment challenge failed (HTTP ${response.code()})"
             )
         }
-        val body = response.body()!!
+        val body = requireSuccessData(response.body(), "challenge")
         return PdsEnrollmentCoordinator.ChallengeResponse(
             challengeId = body.challengeId,
             challengeNonce = body.challengeNonce,
@@ -97,16 +99,31 @@ class PdsHttpEnrollmentTransport(
                 )
             return recovered.toResult()
         }
-        if (!response.isSuccessful || response.body() == null) {
+        if (!response.isSuccessful) {
             throw SecurityException(
                 "PDS enrollment verification failed (HTTP ${response.code()})"
             )
         }
-        val body = response.body()!!
+        val body = requireSuccessData(response.body(), "verify")
         if (!PdsEnrollmentIdentityPolicy.isQuasarDeviceUuid(body.deviceId)) {
             throw SecurityException("PDS enrollment returned a non-UUID device identity")
         }
         return body.toResult()
+    }
+
+    private fun <T> requireSuccessData(envelope: QuasarApiEnvelope<T>?, label: String): T {
+        if (envelope == null) {
+            throw SecurityException("PDS $label response body missing")
+        }
+        val code = envelope.responseCode?.trim()
+        if (!code.isNullOrEmpty() && code != "00") {
+            throw SecurityException(
+                "PDS $label rejected by Quasar responseCode=$code" +
+                    (envelope.responseMessage?.let { " ($it)" } ?: "")
+            )
+        }
+        return envelope.data
+            ?: throw SecurityException("PDS $label response missing data envelope field")
     }
 }
 

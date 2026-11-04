@@ -1,6 +1,7 @@
 package com.iips.launcher.security.pds
 
 import com.google.gson.Gson
+import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.iips.launcher.network.models.PdsEnrollmentVerifyResponse
 
@@ -8,8 +9,9 @@ import com.iips.launcher.network.models.PdsEnrollmentVerifyResponse
  * Classifies PDS enrollment HTTP errors. Only
  * `enrollment_already_completed` may enter the recovery path.
  *
- * Quasar recovery success places identity fields in the same 409 JSON as
- * `error_code` (Retrofit `errorBody`), not in `body()`.
+ * Quasar Stage 2.2 places machine fields under the standard envelope:
+ * `{ responseCode, responseMessage, data: { error_code, ... } }`.
+ * Flat `{ error_code, ... }` bodies remain accepted for unit fixtures.
  */
 object PdsEnrollmentHttpErrors {
     const val ENROLLMENT_ALREADY_COMPLETED = "enrollment_already_completed"
@@ -25,15 +27,11 @@ object PdsEnrollmentHttpErrors {
         if (json.isNullOrBlank()) return null
         return try {
             val obj = JsonParser.parseString(json).asJsonObject
-            sequenceOf("error_code", "error", "code")
-                .mapNotNull { key ->
-                    if (!obj.has(key) || obj.get(key).isJsonNull) {
-                        null
-                    } else {
-                        obj.get(key).asString.trim().takeIf { it.isNotEmpty() }
-                    }
-                }
-                .firstOrNull()
+            val dataObj = obj.getAsJsonObjectOrNull("data")
+            readStringField(dataObj, "error_code")
+                ?: readStringField(obj, "error_code")
+                ?: readStringField(obj, "error")
+                ?: readStringField(obj, "code")
         } catch (_: Exception) {
             null
         }
@@ -46,12 +44,15 @@ object PdsEnrollmentHttpErrors {
     /**
      * Strict recovery payload from 409 errorBody. Requires exact
      * `enrollment_already_completed` and a canonical device UUID plus required fields.
+     * Prefers Quasar `data` object; falls back to flat JSON.
      */
     fun parseRecoveryEnrollmentResult(errorJson: String?): PdsEnrollmentVerifyResponse? {
         if (errorJson.isNullOrBlank()) return null
         if (parseErrorCode(errorJson) != ENROLLMENT_ALREADY_COMPLETED) return null
         return try {
-            val parsed = gson.fromJson(errorJson, PdsEnrollmentVerifyResponse::class.java)
+            val root = JsonParser.parseString(errorJson).asJsonObject
+            val payload = root.getAsJsonObjectOrNull("data") ?: root
+            val parsed = gson.fromJson(payload, PdsEnrollmentVerifyResponse::class.java)
                 ?: return null
             if (!PdsEnrollmentIdentityPolicy.isQuasarDeviceUuid(parsed.deviceId)) return null
             if (parsed.deviceIdentityRef.isBlank() ||
@@ -63,6 +64,20 @@ object PdsEnrollmentHttpErrors {
                 return null
             }
             parsed
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun JsonObject.getAsJsonObjectOrNull(key: String): JsonObject? {
+        if (!has(key) || get(key).isJsonNull || !get(key).isJsonObject) return null
+        return getAsJsonObject(key)
+    }
+
+    private fun readStringField(obj: JsonObject?, key: String): String? {
+        if (obj == null || !obj.has(key) || obj.get(key).isJsonNull) return null
+        return try {
+            obj.get(key).asString.trim().takeIf { it.isNotEmpty() }
         } catch (_: Exception) {
             null
         }

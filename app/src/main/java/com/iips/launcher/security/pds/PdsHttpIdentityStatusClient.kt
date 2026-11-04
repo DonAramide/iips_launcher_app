@@ -6,6 +6,7 @@ import java.io.IOException
 /**
  * Authenticated identity-status client. Definitive absence requires the
  * explicit `device_not_registered` error code from Quasar 1D.2.
+ * Success and error bodies use the Quasar `{responseCode,data}` envelope.
  */
 class PdsHttpIdentityStatusClient(
     private val configService: ConfigService
@@ -22,15 +23,17 @@ class PdsHttpIdentityStatusClient(
                 tenantId = tenantId,
                 enrollmentToken = enrollmentToken
             )
-            val errorCode = PdsEnrollmentHttpErrors.parseErrorCode(response.errorBody()?.string())
-                ?: response.body()?.errorCode
+            val errorJson = response.errorBody()?.string()
+            val errorCode = PdsEnrollmentHttpErrors.parseErrorCode(errorJson)
+                ?: response.body()?.data?.errorCode
+            val payload = response.body()?.data
             when {
                 errorCode == PdsEnrollmentHttpErrors.DEVICE_NOT_REGISTERED ->
                     PdsDeviceIdentityProbe(PdsDeviceIdentityStatusKind.DEFINITIVELY_MISSING, errorCode)
                 response.isSuccessful &&
-                    response.body() != null &&
-                    PdsEnrollmentIdentityPolicy.isQuasarDeviceUuid(response.body()!!.deviceId) &&
-                    response.body()!!.deviceId == deviceId ->
+                    payload != null &&
+                    PdsEnrollmentIdentityPolicy.isQuasarDeviceUuid(payload.deviceId) &&
+                    payload.deviceId == deviceId ->
                     PdsDeviceIdentityProbe(PdsDeviceIdentityStatusKind.CONFIRMED_PRESENT, errorCode)
                 else ->
                     PdsDeviceIdentityProbe(PdsDeviceIdentityStatusKind.INDETERMINATE, errorCode)
