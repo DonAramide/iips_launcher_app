@@ -59,6 +59,9 @@ class LauncherApplication : Application(), androidx.work.Configuration.Provider 
     
     override fun onCreate() {
         super.onCreate()
+
+        // Stage 2.5D.2: debug-only file handoff → EncryptedSharedPreferences (no-op in release).
+        consumeDebugEnrollmentHandoffIfEnabled()
         
         // Initialize database and load allowed apps
         database = AppDatabase.getDatabase(this)
@@ -340,6 +343,21 @@ class LauncherApplication : Application(), androidx.work.Configuration.Provider 
     fun isPackageAllowed(packageName: String): Boolean {
         return synchronized(allowedPackagesLock) {
             packageName.lowercase() in allowedPackages
+        }
+    }
+
+    private fun consumeDebugEnrollmentHandoffIfEnabled() {
+        if (!com.iips.launcher.BuildConfig.PDS_DEBUG_CREDENTIAL_IMPORT) {
+            return
+        }
+        try {
+            val clazz = Class.forName("com.iips.launcher.security.pds.PdsDebugCredentialImport")
+            val method = clazz.getMethod("importIfPending", android.content.Context::class.java)
+            method.invoke(null, this)
+        } catch (_: ClassNotFoundException) {
+            // Release source set / stripped debug class — expected.
+        } catch (e: Exception) {
+            android.util.Log.e("LauncherApplication", "Debug credential import failed: ${e.javaClass.simpleName}")
         }
     }
 }

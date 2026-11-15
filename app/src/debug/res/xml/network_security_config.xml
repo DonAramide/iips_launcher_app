@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug/integration only (src/debug). Permits cleartext HTTP solely to the
+  host loopback addresses used with `adb reverse tcp:4010 tcp:4010`.
+  Release builds do not merge this file and remain HTTPS/cleartext-default.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>

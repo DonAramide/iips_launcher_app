@@ -40,20 +40,35 @@ android {
         }
     }
 
+    // Default/non-debug base URL (release and property overrides). Not used by debug
+    // Phase 1D loopback integration builds.
     def localIp = project.hasProperty('LOCAL_IP') ? project.property('LOCAL_IP') : '192.168.1.134'
     def localPort = project.hasProperty('LOCAL_PORT') ? project.property('LOCAL_PORT') : '4000'
     def localBaseUrl = "http://${localIp}:${localPort}/"
+    // Stage 2.5B: debug/integration only — host loopback via adb reverse to Quasar :4010.
+    def phase1dIntegrationBaseUrl = "http://127.0.0.1:4010/"
+
+    // Non-secret Phase 1D integration tenant (debug only). Not an enrollment capability.
+    def phase1dIntegrationTenantId = "830cb9cf-5717-4b68-8e29-dfb28ce755f3"
 
     buildTypes {
         debug {
-            buildConfigField "String", "BASE_URL", "\"${localBaseUrl}api/v1/\""
-            buildConfigField "String", "DEFAULT_SERVER_URL", "\"${localBaseUrl}\""
+            buildConfigField "String", "BASE_URL", "\"${phase1dIntegrationBaseUrl}api/v1/\""
+            buildConfigField "String", "DEFAULT_SERVER_URL", "\"${phase1dIntegrationBaseUrl}\""
+            buildConfigField "String", "PDS_PHASE1D_TENANT_ID", "\"${phase1dIntegrationTenantId}\""
+            buildConfigField "boolean", "PDS_DEBUG_CREDENTIAL_IMPORT", "true"
+            // Phase 6.5.4.3A: non-PEM attestation forensic capture (debug/integration only).
+            buildConfigField "boolean", "PDS_ATTESTATION_FORENSIC_CAPTURE", "true"
         }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             buildConfigField "String", "BASE_URL", "\"${localBaseUrl}api/v1/\""
             buildConfigField "String", "DEFAULT_SERVER_URL", "\"${localBaseUrl}\""
+            buildConfigField "String", "PDS_PHASE1D_TENANT_ID", "\"\""
+            buildConfigField "boolean", "PDS_DEBUG_CREDENTIAL_IMPORT", "false"
+            // Compile-time false — release must never enable attestation forensic capture.
+            buildConfigField "boolean", "PDS_ATTESTATION_FORENSIC_CAPTURE", "false"
             signingConfig signingConfigs.release
         }
     }
@@ -129,6 +144,8 @@ dependencies {
     
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3'
+    testImplementation 'org.bouncycastle:bcpkix-jdk15on:1.70'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+    androidTestImplementation 'org.bouncycastle:bcpkix-jdk15on:1.70'
 }

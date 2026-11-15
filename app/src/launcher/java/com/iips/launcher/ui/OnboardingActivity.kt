@@ -155,7 +155,14 @@ class OnboardingActivity : AppCompatActivity() {
         }
 
         btnContinue.setOnClickListener {
-            val enrollmentToken = inputEnrollmentToken.text.toString().trim()
+            android.util.Log.i("OnboardingActivity", "CONTINUE clicked (setup step)")
+            // Prefer non-empty field (QR/manual). Otherwise use securely imported
+            // EncryptedSharedPreferences token so the secret need not appear on-screen
+            // after Stage 2.5D.2 file handoff.
+            val typedToken = inputEnrollmentToken.text.toString().trim()
+            val enrollmentToken = typedToken.ifEmpty {
+                SecurePreferences.getEnrollmentToken(this)?.trim().orEmpty()
+            }
             val businessName = inputBusinessName.text.toString().trim()
             val password = inputPassword.text.toString().trim()
             val confirm = inputConfirm.text.toString().trim()
@@ -163,6 +170,7 @@ class OnboardingActivity : AppCompatActivity() {
 
             if (enrollmentToken.isEmpty()) {
                 inputEnrollmentToken.error = "Enrollment Token is required"
+                android.util.Log.w("OnboardingActivity", "CONTINUE aborted: enrollment token missing")
                 return@setOnClickListener
             }
 

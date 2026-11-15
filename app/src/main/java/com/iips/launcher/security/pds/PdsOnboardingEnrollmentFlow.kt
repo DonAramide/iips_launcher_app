@@ -6,6 +6,15 @@ package com.iips.launcher.security.pds
  *
  * PDS enrollment and MDM registration are separate durable steps.
  * A failed MDM hop must not mint a second UUID.
+ *
+ * Ordering (fail-closed for legacy):
+ * 1. [pdsEnroll] — challenge + verify. Any throw aborts before legacy register.
+ * 2. [legacyRegister] — `device/register` with the same enrollment token and
+ *    `knownDeviceId` = PDS UUID. Runs only after PDS success.
+ *
+ * If PDS succeeds and legacy fails, [PdsEnrollmentStateStore] may already show
+ * `pdsEnrollmentComplete=true` while MDM remains incomplete; UI surfaces the
+ * legacy failure. Recovery uses the existing 409 / enroll path on retry.
  */
 object PdsOnboardingEnrollmentFlow {
     data class LegacyRegisterRequest(
@@ -47,13 +56,11 @@ object PdsOnboardingEnrollmentFlow {
         legacyRegister: suspend (LegacyRegisterRequest) -> LegacyRegisterResult,
         pdsState: PdsEnrollmentStateStore? = null
     ): Outcome {
-        if (tenantId.isNullOrBlank()) {
-            throw SecurityException("PDS enrollment requires tenant_id; refusing serial-number identity fallback")
-        }
+        val resolvedTenantId = PdsTenantIdentity.requireExplicitTenantUuid(tenantId)
         if (!serial.isNullOrBlank() && PdsEnrollmentCrypto.isLikelyAndroidIdSerial(serial)) {
             throw SecurityException("ANDROID_ID-shaped serial numbers are prohibited (SPEC-03 §1)")
         }
-        val enrolled = pdsEnroll(enrollmentToken, tenantId, hardware)
+        val enrolled = pdsEnroll(enrollmentToken, resolvedTenantId, hardware)
         if (!PdsEnrollmentIdentityPolicy.isQuasarDeviceUuid(enrolled.deviceId)) {
             throw SecurityException("PDS enrollment refused a non-UUID cryptographic identity")
         }
@@ -73,6 +80,7 @@ object PdsOnboardingEnrollmentFlow {
                 knownDeviceId = enrolled.deviceId
             )
         )
+        // Note: legacyRegister is unreachable when pdsEnroll throws (PDS-fail-closed).
         if (!legacy.success) {
             throw SecurityException("Legacy MDM token exchange failed (HTTP ${legacy.httpCode})")
         }

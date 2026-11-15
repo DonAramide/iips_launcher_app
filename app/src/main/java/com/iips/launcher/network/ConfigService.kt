@@ -42,6 +42,22 @@ interface ConfigService {
         @Header("Authorization") authHeader: String
     ): Response<PolicyEnvelope>
 
+    /**
+     * Path A HTTP command poll (Dotroid device JWT).
+     * Server performs atomic PENDING→SENT claim. Client must still run PdsCommandGate.
+     */
+    @GET("device/commands")
+    suspend fun pollPathACommands(
+        @Header("Authorization") authHeader: String
+    ): Response<List<Map<String, Any>>>
+
+    @POST("device/commands/{commandId}/ack")
+    suspend fun ackPathACommand(
+        @Header("Authorization") authHeader: String,
+        @Path("commandId") commandId: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any>
+    ): Response<Map<String, Any>>
+
     @GET("device-fleet/device/{deviceId}/policy")
     suspend fun getDevicePolicy(
         @Path("deviceId") deviceId: String

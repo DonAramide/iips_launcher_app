@@ -43,11 +43,12 @@ class DotroidRuntimeConnectionManager @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val configService: ConfigService,
     private val telemetryHmacSigner: TelemetryHmacSigner,
-    private val telemetrySequenceManager: TelemetrySequenceManager
+    private val telemetrySequenceManager: TelemetrySequenceManager,
+    private val pathACommandHttpFallback: dagger.Lazy<PathACommandHttpFallback>,
+    private val pathAAckDelivery: dagger.Lazy<PathAAckDelivery>
 ) {
     companion object {
         private const val TAG = "DotroidConnectionMgr"
-        private const val GATEWAY_WS_URL = "wss://api-quasar.iips.app/api/v1/do-mdm/devices/ws"
         private const val HEARTBEAT_INTERVAL_MS = 30_000L
         private const val MAX_RECONNECT_DELAY_MS = 60_000L
         private const val BASE_RECONNECT_DELAY_MS = 2_000L
@@ -115,6 +116,14 @@ class DotroidRuntimeConnectionManager @Inject constructor(
                 _healthScore = 1.0
                 stopFallbackPolling()
                 startHeartbeatTransmission()
+                // Stage 2A.3.7 — drain persisted Path A acks (WS, else HTTP).
+                scope.launch {
+                    try {
+                        pathAAckDelivery.get().flushPendingAcks()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Pending Path A ack flush skipped: ${e.message}")
+                    }
+                }
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -303,6 +312,17 @@ class DotroidRuntimeConnectionManager @Inject constructor(
 
     private suspend fun sendHttpFallbackHeartbeat(): Boolean {
         return try {
+            // While WS is down, optionally reclaim Path A commands via HTTP.
+            try {
+                pathACommandHttpFallback.get().pollIfDue(forceBecauseWsDown = true)
+            } catch (e: Exception) {
+                Log.w(TAG, "Path A HTTP command poll skipped: ${e.message}")
+            }
+            try {
+                pathAAckDelivery.get().flushPendingAcks()
+            } catch (e: Exception) {
+                Log.w(TAG, "Path A HTTP ack flush skipped: ${e.message}")
+            }
             val token = SecurePreferences.getDeviceToken(context) ?: return false
             val deviceId = SecurePreferences.getDeviceId(context) ?: return false
             val tenantId = SecurePreferences.getTenantId(context) ?: "default"

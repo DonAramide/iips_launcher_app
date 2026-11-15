@@ -12,9 +12,11 @@ import com.iips.launcher.network.models.MdmCommand
 import com.iips.launcher.ota.ApkInstallManager
 import com.iips.launcher.policy.DeviceAdminReceiver
 import com.iips.launcher.policy.KioskController
+import com.iips.launcher.security.pds.CommandAckProof
 import com.iips.launcher.security.pds.PdsCommandAuthorizer
 import com.iips.launcher.security.pds.PdsCommandGate
 import com.iips.launcher.security.pds.PdsCommandVerifier
+import com.iips.launcher.security.pds.PdsDeviceKeyManager
 import com.iips.launcher.security.pds.PersistentCommandReplayStore
 import com.iips.launcher.storage.SecurePreferences
 import com.iips.launcher.ui.LauncherActivity
@@ -44,7 +46,9 @@ class RemoteCommandExecutionEngine @Inject constructor(
     private val otaCoordinator: Lazy<OtaRuntimeCoordinator>,
     private val telemetryEngine: Lazy<DeviceTelemetryEngine>,
     private val apkInstallManager: ApkInstallManager,
-    private val broadcastRenderingEngine: BroadcastRenderingEngine
+    private val broadcastRenderingEngine: BroadcastRenderingEngine,
+    private val pathAAckDelivery: Lazy<PathAAckDelivery>,
+    private val pathAAckLifecycle: Lazy<PathAAckLifecycle>
 ) {
     companion object {
         private const val TAG = "RemoteCmdExecEngine"
@@ -71,6 +75,12 @@ class RemoteCommandExecutionEngine @Inject constructor(
     }
 
     init {
+        // Stage 2A.3.7.2 — fail-closed lease reconcile; never auto-re-execute uncertain commands.
+        try {
+            pathAAckLifecycle.get().reconcileAfterProcessStart()
+        } catch (e: Exception) {
+            Log.e(TAG, "Ack lifecycle reconcile failed: ${e.message}")
+        }
         startListening()
         autoResumeDownloads()
     }
@@ -185,7 +195,28 @@ class RemoteCommandExecutionEngine @Inject constructor(
             return
         }
 
-        if (type == "error" || type == "state.changed" || type == "pong" || type.contains(".ack") || type == "command.sync") {
+        if (type == "error") {
+            // Stage 2A.3.6 — DoMdm error frames (not Socket.IO structured ack callbacks).
+            val parsed = DoMdmWsErrorFrame.parse(root)
+            if (parsed == null) {
+                Log.w(TAG, "Malformed DoMdm error frame ignored")
+            } else if (parsed.retryable) {
+                Log.w(
+                    TAG,
+                    "DoMdm retryable error code=${parsed.code} request_id=${parsed.requestId}: ${parsed.message}"
+                )
+            } else {
+                Log.e(
+                    TAG,
+                    "DoMdm permanent error code=${parsed.code} request_id=${parsed.requestId}: ${parsed.message}"
+                )
+            }
+            return
+        }
+
+        if (type == "state.changed" || type == "pong" || type == "heartbeat_pong" ||
+            type.contains(".ack") || type == "command.sync"
+        ) {
             Log.d(TAG, "Skipping control message: $type")
             return
         }
@@ -259,6 +290,26 @@ class RemoteCommandExecutionEngine @Inject constructor(
             ?: root.getAsJsonPrimitive("requestId")?.asString
         val commandJws = extractCommandJws(root, signature)
 
+        // Stage 2A.3.7.2 — reserve durable ack capacity BEFORE replay gate / execution.
+        // Prevents execute-without-ack-slot and avoids consuming replay when capacity is full.
+        val lifecycle = pathAAckLifecycle.get()
+        if (lifecycle.pendingStore().isCorrupt()) {
+            Log.e(TAG, "Refusing commandId=$commandId — ack store corruption recovery required")
+            return
+        }
+        val reserve = lifecycle.tryReserveBeforeExecution(commandId)
+        val reservationId = when (reserve) {
+            is PathAAckPendingQueue.ReserveResult.Ok -> reserve.reservationId
+            is PathAAckPendingQueue.ReserveResult.Rejected -> {
+                Log.e(
+                    TAG,
+                    "Refusing execution commandId=$commandId — ack capacity reservation failed " +
+                        "code=${reserve.code}"
+                )
+                return
+            }
+        }
+
         // 1. Mandatory fail-closed ES256 verification + authorization + atomic replay reservation
         // BEFORE sending any REQUEST_ACK (which harvests installed apps) or executing any action.
         val gateDecision = verifyAndAuthorizeCommand(commandJws)
@@ -273,19 +324,30 @@ class RemoteCommandExecutionEngine @Inject constructor(
                     "REJECTED",
                     gateDecision.errorMessage ?: "Command verification failed",
                     requestId,
-                    errorCode = gateDecision.errorCode ?: "SIG_INVALID"
+                    errorCode = gateDecision.errorCode ?: "SIG_INVALID",
+                    reservationId = reservationId
                 )
+                lifecycle.releaseReservationIfSafe(reservationId)
             }
             return
         }
 
+        lifecycle.markReplayCommitted(reservationId)
+        lifecycle.markExecuting(reservationId)
+
         // 2. Send intermediate REQUEST_ACK only after command authenticity is verified
-        sendRequestAck(commandId, signature, requestId, type)
+        sendRequestAck(commandId, signature, requestId, type, reservationId)
 
         // Execute command based on type
         scope.launch {
             // Acknowledge execution state commencement
-            acknowledgeExecution(commandId, "EXECUTING", "Initiating runtime execution flow.", requestId)
+            acknowledgeExecution(
+                commandId,
+                "EXECUTING",
+                "Initiating runtime execution flow.",
+                requestId,
+                reservationId = reservationId
+            )
 
             var successStatus = "SUCCESS"
             var finalMessage = "Command executed successfully."
@@ -406,11 +468,17 @@ class RemoteCommandExecutionEngine @Inject constructor(
 
                             if (alreadyInstalled) {
                                 Log.i(TAG, "Install command ignored: $resolvedPkg is already installed at requested version.")
-                                acknowledgeExecution(commandId, "SUCCESS", "App already installed.", requestId)
+                                acknowledgeExecution(
+                                    commandId, "SUCCESS", "App already installed.", requestId,
+                                    reservationId = reservationId
+                                )
                                 return@launch
                             }
 
-                            downloadAndInstallApk(apkUrl, packageName, commandId, requestId, appId, version)
+                            downloadAndInstallApk(
+                                apkUrl, packageName, commandId, requestId, appId, version,
+                                reservationId = reservationId
+                            )
                             return@launch // downloadAndInstallApk handles its own success/fail ACKs asynchronously
                         } else {
                             successStatus = "FAILED"
@@ -421,7 +489,7 @@ class RemoteCommandExecutionEngine @Inject constructor(
                     "uninstall" -> {
                         val packageName = root.getAsJsonPrimitive("package_name")?.asString
                         if (packageName != null) {
-                            performUninstall(packageName, commandId, requestId)
+                            performUninstall(packageName, commandId, requestId, reservationId)
                             return@launch // performUninstall handles its own success/fail ACKs asynchronously
                         } else {
                             successStatus = "FAILED"
@@ -445,7 +513,7 @@ class RemoteCommandExecutionEngine @Inject constructor(
                         broadcastRenderingEngine.dispatchBroadcast(gson.toJson(broadcastPayload))
                     }
                     "location_request" -> {
-                        reportCurrentLocation(commandId, requestId)
+                        reportCurrentLocation(commandId, requestId, reservationId)
                         return@launch // reportCurrentLocation handles its own ACKs asynchronously
                     }
                     "ping" -> {
@@ -483,11 +551,17 @@ class RemoteCommandExecutionEngine @Inject constructor(
 
                 // Finalize execution audit
                 SecurePreferences.markCommandAsExecuted(context, commandId)
-                acknowledgeExecution(commandId, successStatus, finalMessage, requestId, errorCode, resultPayload)
+                acknowledgeExecution(
+                    commandId, successStatus, finalMessage, requestId, errorCode, resultPayload,
+                    reservationId = reservationId
+                )
 
             } catch (e: Exception) {
                 Log.e(TAG, "Command execution failed", e)
-                acknowledgeExecution(commandId, "FAILED", "Exception: ${e.message}", requestId, "ERR_RUNTIME")
+                acknowledgeExecution(
+                    commandId, "FAILED", "Exception: ${e.message}", requestId, "ERR_RUNTIME",
+                    reservationId = reservationId
+                )
             }
         }
     }
@@ -525,9 +599,15 @@ class RemoteCommandExecutionEngine @Inject constructor(
         )
     }
 
-    private fun sendRequestAck(commandId: String, signature: String?, requestId: String?, type: String) {
+    private fun sendRequestAck(
+        commandId: String,
+        signature: String?,
+        requestId: String?,
+        type: String,
+        reservationId: String? = null
+    ) {
         scope.launch {
-            val deviceId = SecurePreferences.getDeviceId(context) ?: "UNKNOWN_DEVICE"
+            val deviceId = SecurePreferences.getDeviceId(context) ?: return@launch
             val tenantId = SecurePreferences.getTenantId(context) ?: "default"
             val appsList = if (type == "list_apps" || type == "app_refresh") {
                 getInstalledPackageNames()
@@ -539,39 +619,60 @@ class RemoteCommandExecutionEngine @Inject constructor(
             } else {
                 "ACKNOWLEDGED"
             }
-            
+
+            // Receipt only (RECEIVED). Never SUCCESS — execution uses command.ack.
+            val resultObj = CommandAckProof.resultObjectFrom(resultValue)
+            val noteText = "request_ack_received"
+            val proof = try {
+                CommandAckProof.create(
+                    signer = PdsDeviceKeyManager(),
+                    commandId = commandId,
+                    deviceId = deviceId,
+                    status = "RECEIVED",
+                    result = resultObj,
+                    note = noteText
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "REQUEST_ACK device proof unavailable: ${e.message}")
+                return@launch
+            }
+
             val payloadMap = mutableMapOf<String, Any>(
                 "command_id" to commandId,
-                "signature" to (signature ?: ""),
+                "signature" to proof.deviceProofB64Url,
+                "device_proof" to proof.deviceProofB64Url,
+                "ack_nonce" to proof.ackNonce,
+                "ack_ts" to proof.ackTs,
+                "status" to proof.status,
                 "request_id" to (requestId ?: ""),
-                "result" to resultValue,
-                "execution_result" to resultValue,
-                "note" to "Initial socket read check"
+                "result" to resultObj,
+                "execution_result" to resultObj,
+                "note" to noteText
             )
-            
+
             val frameMap = mutableMapOf<String, Any>(
                 "type" to "REQUEST_ACK",
                 "command_id" to commandId,
                 "commandId" to commandId,
-                "signature" to (signature ?: ""),
+                "signature" to proof.deviceProofB64Url,
+                "device_proof" to proof.deviceProofB64Url,
+                "ack_nonce" to proof.ackNonce,
+                "ack_ts" to proof.ackTs,
+                "status" to proof.status,
                 "edgeNodeId" to deviceId,
                 "tenantId" to tenantId,
-                "clientEpoch" to (System.currentTimeMillis() / 1000L),
+                "clientEpoch" to proof.ackTs,
                 "payload" to payloadMap
             )
-            
+
             if (appsList != null) {
-                frameMap["result"] = resultValue
-                frameMap["execution_result"] = resultValue
+                frameMap["result"] = resultObj
+                frameMap["execution_result"] = resultObj
             }
-            
+
             val ackFrame = gson.toJson(frameMap)
-            val sent = connectionManager.transmitFrame(ackFrame)
-            if (!sent) {
-                val queue = SecurePreferences.getOfflineTelemetryQueue(context).toMutableList()
-                queue.add(ackFrame)
-                SecurePreferences.setOfflineTelemetryQueue(context, queue)
-            }
+            // Stage 2A.3.7 / 2A.3.7.2 — persist via reserved capacity; HTTP authoritative settle.
+            pathAAckDelivery.get().deliverAckFrame(ackFrame, reservationId)
         }
     }
 
@@ -592,43 +693,64 @@ class RemoteCommandExecutionEngine @Inject constructor(
         auditMessage: String,
         requestId: String?,
         errorCode: String? = null,
-        resultPayload: Any? = null
+        resultPayload: Any? = null,
+        reservationId: String? = null
     ) {
-        val secret = SecurePreferences.getDeviceToken(context) ?: ""
+        val deviceId = SecurePreferences.getDeviceId(context)
+        if (deviceId.isNullOrBlank()) {
+            Log.e(TAG, "Cannot ack command $commandId: device id missing")
+            if (reservationId != null) {
+                pathAAckLifecycle.get().markExecutionUncertain(
+                    reservationId,
+                    "ack_blocked_missing_device_id"
+                )
+            }
+            return
+        }
         val resultData = resultPayload ?: if (status == "SUCCESS") "SUCCESS" else (errorCode ?: "ERR_FAILED")
-        val payloadData = mapOf(
-            "id" to commandId,
-            "status" to status,
-            "note" to auditMessage,
-            "result" to resultData,
-            "execution_result" to resultData
-        )
-        val payloadStr = gson.toJson(payloadData)
-        val timestamp = (System.currentTimeMillis() / 1000).toString()
-        val nonce = java.util.UUID.randomUUID().toString()
-        
-        // Sign the payload using same Hmac logic
-        val signature = com.iips.launcher.security.TelemetryHmacSigner().signPayload(payloadStr, secret, timestamp, nonce)
+        val resultObj = CommandAckProof.resultObjectFrom(resultData)
+        val proof = try {
+            CommandAckProof.create(
+                signer = PdsDeviceKeyManager(),
+                commandId = commandId,
+                deviceId = deviceId,
+                status = status,
+                result = resultObj,
+                note = auditMessage
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Command ack device proof failed for $commandId: ${e.message}")
+            if (reservationId != null) {
+                pathAAckLifecycle.get().markExecutionUncertain(
+                    reservationId,
+                    "ack_proof_construction_failed"
+                )
+            }
+            return
+        }
 
         val ackFrame = gson.toJson(mapOf(
             "type" to "command.ack",
             "request_id" to (requestId ?: ""),
             "data" to mapOf(
                 "id" to commandId,
-                "status" to status,
-                "signature" to signature,
+                "status" to proof.status,
+                "signature" to proof.deviceProofB64Url,
+                "device_proof" to proof.deviceProofB64Url,
+                "ack_nonce" to proof.ackNonce,
+                "ack_ts" to proof.ackTs,
                 "note" to auditMessage,
-                "result" to resultData,
-                "execution_result" to resultData
+                "result" to resultObj,
+                "execution_result" to resultObj
             )
         ))
 
-        val sent = connectionManager.transmitFrame(ackFrame)
-        if (!sent) {
-            Log.d(TAG, "Socket saturated. Adding line item execution audit to offline queue storage.")
-            val queue = SecurePreferences.getOfflineTelemetryQueue(context).toMutableList()
-            queue.add(ackFrame)
-            SecurePreferences.setOfflineTelemetryQueue(context, queue)
+        val delivered = pathAAckDelivery.get().deliverAckFrame(ackFrame, reservationId)
+        if (!delivered && reservationId != null &&
+            (status == "SUCCESS" || status == "FAILED" || status == "REJECTED")
+        ) {
+            // Proof persisted (or rejected) by delivery; do not fabricate alternate results.
+            Log.w(TAG, "Terminal ack not HTTP-settled yet command=$commandId reservation=$reservationId")
         }
     }
 
@@ -638,7 +760,8 @@ class RemoteCommandExecutionEngine @Inject constructor(
         commandId: String,
         requestId: String?,
         appId: String? = null,
-        version: String? = null
+        version: String? = null,
+        reservationId: String? = null
     ) {
         scope.launch(Dispatchers.IO) {
             val resolvedPkg = packageName ?: "com.iips.download_" + apkUrl.hashCode().toString()
@@ -787,7 +910,10 @@ class RemoteCommandExecutionEngine @Inject constructor(
                                 ))
                             }
                             withContext(Dispatchers.Main) {
-                                acknowledgeExecution(commandId, "FAILED", "Download error: ${e.message}", requestId, "ERR_DOWNLOAD")
+                                acknowledgeExecution(
+                            commandId, "FAILED", "Download error: ${e.message}", requestId, "ERR_DOWNLOAD",
+                            reservationId = reservationId
+                        )
                             }
                             return@launch
                         }
@@ -820,7 +946,10 @@ class RemoteCommandExecutionEngine @Inject constructor(
                 withContext(Dispatchers.Main) {
                     val installSuccess = apkInstallManager.installApk(tempApkFile, appId, resolvedVersion)
                     if (installSuccess) {
-                        acknowledgeExecution(commandId, "SUCCESS", "Silent install execution finished", requestId)
+                        acknowledgeExecution(
+                            commandId, "SUCCESS", "Silent install execution finished", requestId,
+                            reservationId = reservationId
+                        )
                     } else {
                         scope.launch(Dispatchers.IO) {
                             val currentApp = dao.getApp(resolvedPkg)
@@ -831,7 +960,10 @@ class RemoteCommandExecutionEngine @Inject constructor(
                                 ))
                             }
                         }
-                        acknowledgeExecution(commandId, "FAILED", "Silent install execution rejected", requestId, "ERR_INSTALL_REJECTED")
+                        acknowledgeExecution(
+                            commandId, "FAILED", "Silent install execution rejected", requestId, "ERR_INSTALL_REJECTED",
+                            reservationId = reservationId
+                        )
                     }
                 }
             } finally {
@@ -840,7 +972,12 @@ class RemoteCommandExecutionEngine @Inject constructor(
         }
     }
 
-    private fun performUninstall(packageName: String, commandId: String, requestId: String?) {
+    private fun performUninstall(
+        packageName: String,
+        commandId: String,
+        requestId: String?,
+        reservationId: String? = null
+    ) {
         try {
             val packageInstaller = context.packageManager.packageInstaller
             val intent = Intent(context, com.iips.launcher.core.BootReceiver::class.java).apply {
@@ -856,22 +993,35 @@ class RemoteCommandExecutionEngine @Inject constructor(
             packageInstaller.uninstall(packageName, pendingIntent.intentSender)
             Log.i(TAG, "Silently uninstalling package: $packageName")
             scope.launch {
-                acknowledgeExecution(commandId, "SUCCESS", "Uninstall requested", requestId)
+                acknowledgeExecution(
+                    commandId, "SUCCESS", "Uninstall requested", requestId,
+                    reservationId = reservationId
+                )
             }
         } catch (e: Exception) {
             Log.e(TAG, "Uninstallation error", e)
             scope.launch {
-                acknowledgeExecution(commandId, "FAILED", "Uninstall error: ${e.message}", requestId, "ERR_UNINSTALL")
+                acknowledgeExecution(
+                    commandId, "FAILED", "Uninstall error: ${e.message}", requestId, "ERR_UNINSTALL",
+                    reservationId = reservationId
+                )
             }
         }
     }
 
-    private fun reportCurrentLocation(commandId: String, requestId: String?) {
+    private fun reportCurrentLocation(
+        commandId: String,
+        requestId: String?,
+        reservationId: String? = null
+    ) {
         val fusedLocationClient = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(context)
         try {
             fusedLocationClient.lastLocation.addOnSuccessListener { location ->
                 if (location != null) {
-                    transmitLocationReportFrame(location.latitude, location.longitude, location.accuracy, commandId, requestId)
+                    transmitLocationReportFrame(
+                        location.latitude, location.longitude, location.accuracy,
+                        commandId, requestId, reservationId
+                    )
                 } else {
                     val locationRequest = com.google.android.gms.location.LocationRequest.Builder(
                         com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, 1000L
@@ -881,10 +1031,16 @@ class RemoteCommandExecutionEngine @Inject constructor(
                         override fun onLocationResult(result: com.google.android.gms.location.LocationResult) {
                             val loc = result.lastLocation
                             if (loc != null) {
-                                transmitLocationReportFrame(loc.latitude, loc.longitude, loc.accuracy, commandId, requestId)
+                                transmitLocationReportFrame(
+                                    loc.latitude, loc.longitude, loc.accuracy,
+                                    commandId, requestId, reservationId
+                                )
                             } else {
                                 scope.launch {
-                                    acknowledgeExecution(commandId, "FAILED", "Device returned null coordinates", requestId, "ERR_LOCATION_NULL")
+                                    acknowledgeExecution(
+                                        commandId, "FAILED", "Device returned null coordinates", requestId,
+                                        "ERR_LOCATION_NULL", reservationId = reservationId
+                                    )
                                 }
                             }
                         }
@@ -895,13 +1051,19 @@ class RemoteCommandExecutionEngine @Inject constructor(
                 }
             }.addOnFailureListener { e ->
                 scope.launch {
-                    acknowledgeExecution(commandId, "FAILED", "Location check failure: ${e.message}", requestId, "ERR_LOCATION_FAIL")
+                    acknowledgeExecution(
+                        commandId, "FAILED", "Location check failure: ${e.message}", requestId,
+                        "ERR_LOCATION_FAIL", reservationId = reservationId
+                    )
                 }
             }
         } catch (e: SecurityException) {
             Log.e(TAG, "Permission missing for location request", e)
             scope.launch {
-                acknowledgeExecution(commandId, "FAILED", "Location check failure: permission missing", requestId, "ERR_PERMISSION_DENIED")
+                acknowledgeExecution(
+                    commandId, "FAILED", "Location check failure: permission missing", requestId,
+                    "ERR_PERMISSION_DENIED", reservationId = reservationId
+                )
             }
         }
     }
@@ -911,7 +1073,8 @@ class RemoteCommandExecutionEngine @Inject constructor(
         lng: Double,
         accuracy: Float,
         commandId: String,
-        requestId: String?
+        requestId: String?,
+        reservationId: String? = null
     ) {
         scope.launch {
             val reqId = requestId ?: "loc-${System.currentTimeMillis()}"
@@ -934,7 +1097,10 @@ class RemoteCommandExecutionEngine @Inject constructor(
                 queue.add(jsonFrame)
                 SecurePreferences.setOfflineTelemetryQueue(context, queue)
             }
-            acknowledgeExecution(commandId, "SUCCESS", "Location report transmitted successfully", requestId)
+            acknowledgeExecution(
+                commandId, "SUCCESS", "Location report transmitted successfully", requestId,
+                reservationId = reservationId
+            )
         }
     }
 

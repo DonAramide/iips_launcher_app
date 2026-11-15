@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      Debug source set only. Narrow cleartext via networkSecurityConfig;
+      do not set android:usesCleartextTraffic="true" globally.
+    -->
+    <application
+        android:networkSecurityConfig="@xml/network_security_config"
+        tools:targetApi="28">
+        <receiver
+            android:name="com.iips.launcher.security.pds.PdsAuthorizedKeyReplacementReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="com.iips.dotroid.action.PDS_AUTHORIZED_KEY_REPLACEMENT" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>

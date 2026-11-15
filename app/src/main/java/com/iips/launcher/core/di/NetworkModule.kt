@@ -5,13 +5,13 @@ import com.iips.launcher.BuildConfig
 import com.iips.launcher.network.ConfigService
 import com.iips.launcher.network.GuardAuthService
 import com.iips.launcher.network.MdmErrorInterceptor
+import com.iips.launcher.network.OkHttpLoggingPolicy
 import com.iips.launcher.storage.SecurePreferences
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -25,8 +25,9 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(@ApplicationContext context: Context): OkHttpClient {
+        // Stage 2.5D.2: never BODY/HEADERS — enrollment secrets must not hit logcat.
         val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = OkHttpLoggingPolicy.level(BuildConfig.DEBUG)
         }
         return OkHttpClient.Builder()
             .addInterceptor(logging)

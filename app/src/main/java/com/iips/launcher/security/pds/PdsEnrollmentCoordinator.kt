@@ -18,7 +18,12 @@ class PdsEnrollmentCoordinator(
     private val transport: PdsEnrollmentTransport,
     private val identityStatus: PdsDeviceIdentityStatusClient,
     private val pendingStore: PdsPendingEnrollmentStore,
-    private val nowEpochMilli: () -> Long = { System.currentTimeMillis() }
+    private val nowEpochMilli: () -> Long = { System.currentTimeMillis() },
+    /**
+     * App-private directory for Phase 6.5.4.3A non-PEM forensic capture.
+     * Null disables persistence even when the debug capture gate is on.
+     */
+    private val attestationForensicDir: java.io.File? = null,
 ) {
     private val enrollMutex = Mutex()
 
@@ -139,10 +144,17 @@ class PdsEnrollmentCoordinator(
             ?: signer.signPayload(transcript)
         pendingStore.recordEnrollSignature(enrollSignature)
 
+        val attestationChainB64 = signer.attestationChainB64()
+        captureAttestationForensics(
+            chainB64 = attestationChainB64,
+            hardware = hardware,
+            attestationChallengeConfigured = true,
+        )
+
         val evidence = PdsAttestationCollector.classifyLocalCapabilities(
             isStrongBoxBacked = signer.isStrongBoxBacked(),
             isHardwareBacked = signer.isHardwareBacked(),
-            attestationChainB64 = signer.attestationChainB64(),
+            attestationChainB64 = attestationChainB64,
             serverIssuedChallengeB64 = challenge.attestationChallengeB64,
             vendorAttestationToken = vendorAttestationToken
         )
@@ -285,6 +297,38 @@ class PdsEnrollmentCoordinator(
             )
         }
         return recovered
+    }
+
+    /**
+     * Phase 6.5.4.3A: sanitized attestation forensic capture immediately after
+     * Keystore chain retrieval and before Quasar verify transport. Soft-fails.
+     */
+    private fun captureAttestationForensics(
+        chainB64: List<String>,
+        hardware: PdsEnrollmentCrypto.HardwareAttributes,
+        attestationChallengeConfigured: Boolean,
+    ) {
+        val dir = attestationForensicDir ?: return
+        try {
+            val device = PdsAttestationForensicCapture.deviceProfileFromBuild(
+                manufacturer = hardware.manufacturer,
+                model = hardware.model,
+            )
+            val keystore = PdsAttestationForensicCapture.keystoreEvidenceFromSigner(
+                signer = signer,
+                chainLength = chainB64.size,
+                attestationChallengeConfigured = attestationChallengeConfigured,
+            )
+            PdsAttestationForensicCapture.captureBeforeQuasarTransmit(
+                outputDir = dir,
+                chainB64 = chainB64,
+                device = device,
+                keystore = keystore,
+                nowMillis = nowEpochMilli(),
+            )
+        } catch (_: Throwable) {
+            // Never alter enrollment decision.
+        }
     }
 
     private fun persistPdsOnly(enrolled: EnrollmentResult, challengeId: String) {

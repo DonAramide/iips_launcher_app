@@ -1,5 +1,7 @@
 package com.iips.launcher.security.pds
 
+import android.util.Log
+import com.iips.launcher.BuildConfig
 import com.iips.launcher.network.ConfigService
 import com.iips.launcher.network.models.PdsEnrollmentChallengeRequest
 import com.iips.launcher.network.models.PdsEnrollmentVerifyRequest
@@ -19,6 +21,23 @@ import com.iips.launcher.network.models.QuasarApiEnvelope
 class PdsHttpEnrollmentTransport(
     private val configService: ConfigService
 ) : PdsEnrollmentCoordinator.PdsEnrollmentTransport {
+
+    companion object {
+        private const val TAG = "PdsHttpEnrollment"
+
+        /**
+         * Debug-only WARN. Swallows JVM unit-test Log stub failures so diagnostics
+         * never alter verify fail-closed behavior.
+         */
+        private fun debugWarnSanitized(message: String) {
+            if (!BuildConfig.DEBUG) return
+            try {
+                Log.w(TAG, message)
+            } catch (_: Throwable) {
+                // android.util.Log is unavailable on plain JVM unit tests.
+            }
+        }
+    }
 
     override suspend fun requestChallenge(
         enrollmentToken: String,
@@ -100,9 +119,12 @@ class PdsHttpEnrollmentTransport(
             return recovered.toResult()
         }
         if (!response.isSuccessful) {
-            throw SecurityException(
-                "PDS enrollment verification failed (HTTP ${response.code()})"
+            // Sanitized diagnostics only: HTTP status + machine error_code.
+            // Never log errorBody, tokens, signatures, or attestation chains.
+            debugWarnSanitized(
+                "PDS verify failed http=${response.code()} error_code=${errorCode ?: "absent"}"
             )
+            throw PdsEnrollmentHttpException(response.code(), errorCode)
         }
         val body = requireSuccessData(response.body(), "verify")
         if (!PdsEnrollmentIdentityPolicy.isQuasarDeviceUuid(body.deviceId)) {

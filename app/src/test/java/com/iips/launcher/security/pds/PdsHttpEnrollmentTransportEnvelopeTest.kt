@@ -317,4 +317,75 @@ class PdsHttpEnrollmentTransportEnvelopeTest {
         }
         assertEquals(1, reads.get())
     }
+
+    @Test
+    fun `403 preserves sanitized error_code on PdsEnrollmentHttpException`() = runBlocking {
+        val errorCode =
+            "attestation_failed: KeyDescription attestationChallenge does not match issued enrollment challenge"
+        val json = """
+            {
+              "responseCode":"03",
+              "responseMessage":"$errorCode",
+              "data":{"error_code":"$errorCode","request_id":"corr-1"}
+            }
+        """.trimIndent()
+        val (body, reads) = onceBody(json)
+        val transport = PdsHttpEnrollmentTransport(
+            fakeService(verify = Response.error(403, body))
+        )
+        try {
+            transport.verifyEnrollment(
+                challengeId = "chl-128cd484-e882-40de-a121-bfe3ef929c2d",
+                enrollmentToken = "tok-should-not-appear-in-exception",
+                tenantId = tenant,
+                devicePublicKeySpkiB64 = "spki-should-not-appear",
+                hardware = hardware,
+                challengeSignatureB64Url = "sig-should-not-appear",
+                attestation = null,
+                recoveryNonce = null,
+                recoverySignatureB64Url = null,
+                claimedDeviceId = null
+            )
+            fail("expected HTTP 403 exception")
+        } catch (e: PdsEnrollmentHttpException) {
+            assertEquals(403, e.httpStatus)
+            assertEquals(errorCode, e.errorCode)
+            assertTrue(e.message!!.contains("error_code=$errorCode"))
+            assertTrue(e.message!!.contains("HTTP 403"))
+            assertTrue(!e.message!!.contains("tok-should-not-appear"))
+            assertTrue(!e.message!!.contains("spki-should-not-appear"))
+            assertTrue(!e.message!!.contains("sig-should-not-appear"))
+            assertTrue(!e.message!!.contains("certificate_chain"))
+        }
+        assertEquals(1, reads.get())
+    }
+
+    @Test
+    fun `403 without error_code still fails closed without retry`() = runBlocking {
+        val json = """{"responseCode":"03","responseMessage":"Forbidden","data":null}"""
+        val (body, reads) = onceBody(json)
+        val transport = PdsHttpEnrollmentTransport(
+            fakeService(verify = Response.error(403, body))
+        )
+        try {
+            transport.verifyEnrollment(
+                challengeId = "chl",
+                enrollmentToken = "tok",
+                tenantId = tenant,
+                devicePublicKeySpkiB64 = "spki",
+                hardware = hardware,
+                challengeSignatureB64Url = "sig",
+                attestation = null
+            )
+            fail("expected HTTP 403 exception")
+        } catch (e: PdsEnrollmentHttpException) {
+            assertEquals(403, e.httpStatus)
+            assertEquals(null, e.errorCode)
+            assertEquals(
+                "PDS enrollment verification failed (HTTP 403)",
+                e.message
+            )
+        }
+        assertEquals(1, reads.get())
+    }
 }

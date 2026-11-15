@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Defaults tuned for narrow POS (~320dp, e.g. MP45P). Larger buckets override. -->
+    <dimen name="onboarding_screen_padding">16dp</dimen>
+    <dimen name="onboarding_screen_padding_top">8dp</dimen>
+    <dimen name="onboarding_header_gap">4dp</dimen>
+    <dimen name="onboarding_logo_max">96dp</dimen>
+    <dimen name="onboarding_watermark_max">140dp</dimen>
+    <dimen name="onboarding_title_size">18sp</dimen>
+    <dimen name="onboarding_title_height">48dp</dimen>
+    <dimen name="onboarding_welcome_title_size">24sp</dimen>
+    <dimen name="onboarding_body_size">13sp</dimen>
+    <dimen name="onboarding_button_height">52dp</dimen>
+    <dimen name="onboarding_button_text_size">14sp</dimen>
+    <!-- Welcome CTA clearance; setup CONTINUE uses a smaller gap so the form can scroll on 320x480 -->
+    <dimen name="onboarding_button_bottom_gap">56dp</dimen>
+    <dimen name="onboarding_setup_continue_bottom_gap">40dp</dimen>
+    <dimen name="onboarding_field_gap">8dp</dimen>
+</resources>

@@ -315,6 +315,28 @@ object SecurePreferences {
         return storedId ?: "default"
     }
 
+    /**
+     * Raw tenant_id from encrypted prefs only — no business-name / "default" fallback.
+     * Use for PDS enrollment; legacy telemetry may still call [getTenantId].
+     */
+    fun getExplicitTenantId(context: Context): String? {
+        val prefs = getEncryptedPrefs(context)
+        val storedId = prefs.getString("tenant_id", null)?.trim()
+        if (storedId.isNullOrEmpty() || storedId.equals("default", ignoreCase = true)) {
+            return null
+        }
+        return storedId
+    }
+
+    fun hasExplicitTenantId(context: Context): Boolean {
+        return !getExplicitTenantId(context).isNullOrBlank()
+    }
+
+    fun hasEnrollmentToken(context: Context): Boolean {
+        val token = getEnrollmentToken(context)
+        return !token.isNullOrBlank()
+    }
+
     fun setTenantId(context: Context, tenantId: String) {
         val prefs = getEncryptedPrefs(context)
         prefs.edit().putString("tenant_id", tenantId).apply()
@@ -325,6 +347,17 @@ object SecurePreferences {
         val prefs = getEncryptedPrefs(context)
         val executedIds = prefs.getStringSet("executed_command_ids", emptySet()) ?: emptySet()
         return executedIds.contains(commandId)
+    }
+
+    /** Opt-in Path A HTTP command poll (default OFF). WS-down fallback may still poll. */
+    fun getPathAHttpCommandPollEnabled(context: Context): Boolean {
+        return getEncryptedPrefs(context).getBoolean("path_a_http_command_poll_enabled", false)
+    }
+
+    fun setPathAHttpCommandPollEnabled(context: Context, enabled: Boolean) {
+        getEncryptedPrefs(context).edit()
+            .putBoolean("path_a_http_command_poll_enabled", enabled)
+            .apply()
     }
 
     fun markCommandAsExecuted(context: Context, commandId: String?) {

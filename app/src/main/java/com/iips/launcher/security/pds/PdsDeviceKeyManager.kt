@@ -128,6 +128,22 @@ class PdsDeviceKeyManager(
         return ks.containsAlias(keyAlias)
     }
 
+    /**
+     * Authorized recovery only: delete the PDS enrollment alias.
+     * Refuses any alias other than [DEFAULT_DEVICE_KEY_ALIAS]. Does not
+     * weaken algorithm, attestation, or hardware-backing requirements.
+     */
+    fun deleteDeviceKeyForAuthorizedRecovery(): Boolean {
+        if (keyAlias != DEFAULT_DEVICE_KEY_ALIAS) {
+            throw SecurityException("Refusing Keystore delete for non-PDS alias: $keyAlias")
+        }
+        val ks = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+        if (ks.containsAlias(keyAlias)) {
+            ks.deleteEntry(keyAlias)
+        }
+        return !ks.containsAlias(keyAlias)
+    }
+
     @Deprecated("Use generateBoundToAttestationChallenge with server-issued bytes")
     fun ensureDeviceKey(context: Context, enrollmentToken: String? = null): ProvisionedDeviceIdentityKey {
         if (enrollmentToken != null) {

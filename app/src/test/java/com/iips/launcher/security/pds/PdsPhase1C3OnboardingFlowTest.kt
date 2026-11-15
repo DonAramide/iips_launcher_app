@@ -126,4 +126,38 @@ class PdsPhase1C3OnboardingFlowTest {
         }
         assertTrue(cryptoThrew)
     }
+
+    @Test
+    fun `business name tenant is rejected before pds or legacy network hops`() {
+        var pdsCalled = false
+        var legacyCalled = false
+        try {
+            runBlocking {
+                PdsOnboardingEnrollmentFlow.execute(
+                    tenantId = "test mop45",
+                    enrollmentToken = "tok",
+                    manufacturer = "Topwise",
+                    model = "T1",
+                    serial = "TW1",
+                    fingerprintHash = "aa",
+                    agentCode = "AAA000",
+                    businessName = "test mop45",
+                    hardware = hardware,
+                    pdsEnroll = { _, _, _ ->
+                        pdsCalled = true
+                        error("must not enroll")
+                    },
+                    legacyRegister = { _ ->
+                        legacyCalled = true
+                        error("must not register")
+                    }
+                )
+            }
+            org.junit.Assert.fail("Expected SecurityException")
+        } catch (e: SecurityException) {
+            assertTrue(e.message!!.contains("explicit tenant UUID"))
+        }
+        org.junit.Assert.assertFalse(pdsCalled)
+        org.junit.Assert.assertFalse(legacyCalled)
+    }
 }

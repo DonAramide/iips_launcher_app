@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="onboarding_screen_padding">24dp</dimen>
+    <dimen name="onboarding_screen_padding_top">16dp</dimen>
+    <dimen name="onboarding_header_gap">6dp</dimen>
+    <dimen name="onboarding_logo_max">140dp</dimen>
+    <dimen name="onboarding_watermark_max">200dp</dimen>
+    <dimen name="onboarding_title_size">22sp</dimen>
+    <dimen name="onboarding_title_height">56dp</dimen>
+    <dimen name="onboarding_welcome_title_size">28sp</dimen>
+    <dimen name="onboarding_body_size">15sp</dimen>
+    <dimen name="onboarding_button_height">52dp</dimen>
+    <dimen name="onboarding_button_text_size">15sp</dimen>
+    <dimen name="onboarding_button_bottom_gap">48dp</dimen>
+    <dimen name="onboarding_field_gap">10dp</dimen>
+</resources>

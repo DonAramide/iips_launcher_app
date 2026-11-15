@@ -8,6 +8,7 @@ import android.util.Log
 import com.iips.launcher.network.models.EnrollmentRequest
 import com.iips.launcher.network.models.LocationInfo
 import com.iips.launcher.security.SecurityUtils
+import com.iips.launcher.security.pds.PdsAttestationForensicCapture
 import com.iips.launcher.security.pds.PdsDeviceIdentityStatusKind
 import com.iips.launcher.security.pds.PdsEnrollmentCoordinator
 import com.iips.launcher.security.pds.PdsEnrollmentCrypto
@@ -25,6 +26,7 @@ import com.iips.launcher.policy.DeviceAdminReceiver
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.tasks.await
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
@@ -47,6 +49,7 @@ class DeviceEnrollmentManager @Inject constructor(
         enrollmentToken: String?,
         agentCode: String?
     ): Boolean = withContext(Dispatchers.IO) {
+        Log.i(TAG, "enrollIfNeeded starting (phase_6_5_4_1)")
         val stateStore = PdsEnrollmentStateStore(File(context.filesDir, "pds_enrollment.state"))
         val pdsState = stateStore.current()
         val pdsDone = pdsState?.pdsEnrollmentComplete == true
@@ -83,10 +86,10 @@ class DeviceEnrollmentManager @Inject constructor(
         }
 
         val token = enrollmentToken ?: SecurePreferences.getEnrollmentToken(context) ?: return@withContext false
-        val tenantId = SecurePreferences.getTenantId(context)
-        if (tenantId.isNullOrBlank()) {
-            throw SecurityException("PDS enrollment requires tenant_id; refusing serial-number identity fallback")
-        }
+        // Fail-closed: never use business-name / "default" as PDS tenant (Stage 2.5D.2).
+        val tenantId = com.iips.launcher.security.pds.PdsTenantIdentity.requireExplicitTenantUuid(
+            SecurePreferences.getExplicitTenantId(context)
+        )
 
         try {
             val manufacturer = Build.MANUFACTURER
@@ -117,7 +120,11 @@ class DeviceEnrollmentManager @Inject constructor(
                 stateStore = stateStore,
                 transport = PdsHttpEnrollmentTransport(configService),
                 identityStatus = identityClient,
-                pendingStore = PdsPendingEnrollmentStore(File(context.filesDir, "pds_enrollment.pending"))
+                pendingStore = PdsPendingEnrollmentStore(File(context.filesDir, "pds_enrollment.pending")),
+                attestationForensicDir = File(
+                    context.filesDir,
+                    PdsAttestationForensicCapture.STORE_DIR,
+                ),
             )
             val outcome = PdsOnboardingEnrollmentFlow.execute(
                 tenantId = tenantId,
@@ -188,6 +195,7 @@ class DeviceEnrollmentManager @Inject constructor(
 
     companion object {
         private const val TAG = "DeviceEnrollmentManager"
+        private const val LOCATION_TIMEOUT_MS = 5_000L
 
         /**
          * Read, validate, and persist provisioning extras from either intent's admin extras bundle
@@ -311,13 +319,19 @@ class DeviceEnrollmentManager @Inject constructor(
     }
 
     private suspend fun fetchCurrentLocation(context: Context): LocationInfo? {
+        // MP45P / OEM POS builds may hang indefinitely on FusedLocationProvider
+        // Tasks without a timeout, which blocks PDS enrollment before challenge.
         try {
             val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
-            val location = fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null).await()
+            val location = withTimeoutOrNull(LOCATION_TIMEOUT_MS) {
+                fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null).await()
+            }
             if (location != null) {
                 return LocationInfo(location.latitude, location.longitude)
             }
-            val lastKnown = fusedLocationClient.lastLocation.await()
+            val lastKnown = withTimeoutOrNull(LOCATION_TIMEOUT_MS) {
+                fusedLocationClient.lastLocation.await()
+            }
             if (lastKnown != null) {
                 return LocationInfo(lastKnown.latitude, lastKnown.longitude)
             }

@@ -271,20 +271,32 @@ object SecurityUtils {
     }
 
     /**
-     * Retrieves the hardware serial number of the device, retrying indefinitely with a delay
-     * if it is not currently available (e.g. before Device Owner status is fully initialized).
+     * Retrieves the hardware serial number of the device, retrying briefly if unavailable.
+     * Must not loop forever — indefinite retry blocks PDS enrollment on OEM terminals
+     * where hardware serial is delayed or permanently unavailable without DO grants.
      */
     suspend fun getHardwareSerialNumberWithRetry(context: Context): String {
-        var serial: String? = null
-        while (serial == null) {
-            serial = getHardwareSerialNumber(context)
-            if (serial == null) {
-                android.util.Log.w("SecurityUtils", "Device hardware serial number not available. Retrying...")
-                kotlinx.coroutines.delay(1000)
+        repeat(SERIAL_RETRY_ATTEMPTS) { attempt ->
+            val serial = getHardwareSerialNumber(context)
+            if (!serial.isNullOrBlank()) {
+                return serial
             }
+            android.util.Log.w(
+                "SecurityUtils",
+                "Device hardware serial number not available (attempt ${attempt + 1}/$SERIAL_RETRY_ATTEMPTS)",
+            )
+            kotlinx.coroutines.delay(SERIAL_RETRY_DELAY_MS)
         }
-        return serial
+        val fallback = getSerialNumber(context)
+        android.util.Log.w(
+            "SecurityUtils",
+            "Hardware serial unavailable after retries; using fallback identity source",
+        )
+        return fallback
     }
+
+    private const val SERIAL_RETRY_ATTEMPTS = 5
+    private const val SERIAL_RETRY_DELAY_MS = 1_000L
 
     /**
      * Calculates the Dotoid fingerprint_hash (§4).
